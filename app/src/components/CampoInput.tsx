@@ -151,8 +151,10 @@ export function CamposVista({ campos, datos, soloRellenos, extra }: {
   const sec = vis.filter((c) => c.secundario && !c.destacado)
   const fila = (c: Campo, grande?: boolean) => (
     <Field key={c.clave} label={c.etiqueta} className="group/campo">
-      {grande ? <span className="text-md font-semibold">{formatearValor(c, datos?.[c.clave])}</span> : formatearValor(c, datos?.[c.clave])}
-      {extra && <span className="ml-1">{extra(c)}</span>}
+      <span className="inline-flex max-w-full items-start gap-1">
+        {grande ? <span className="text-md font-semibold">{formatearValor(c, datos?.[c.clave])}</span> : <span>{formatearValor(c, datos?.[c.clave])}</span>}
+        {extra?.(c)}
+      </span>
     </Field>
   )
   return (
