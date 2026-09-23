@@ -42,7 +42,7 @@ export function limpiar(d: Record<string, string>, base: Record<string, unknown>
 }
 
 /** Número con coma decimal: se escribe libre y al salir se guarda normalizado (1234.5) y se ve «1234,5». */
-function NumeroInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function NumeroInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const aVista = (v: string) => (v === '' ? '' : v.replace('.', ','))
   const [txt, setTxt] = React.useState(aVista(value))
   const [mal, setMal] = React.useState(false)

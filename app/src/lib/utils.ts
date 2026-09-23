@@ -34,3 +34,16 @@ export function num3(n: number | { numero: number; serie?: string | null } | nul
   if (typeof n === 'number') return String(n).padStart(3, '0')
   return (n.serie ?? '') + String(n.numero).padStart(3, '0')
 }
+
+/** Importe en la moneda de la tienda («120,50 €»). */
+export function dinero(n: number | null | undefined, moneda = 'EUR'): string {
+  if (n == null) return '—'
+  try { return new Intl.NumberFormat(locale(), { style: 'currency', currency: moneda, maximumFractionDigits: 2 }).format(n) } catch { return `${n} ${moneda}` }
+}
+/** Ajustes de dinero de la tienda: si usa importes y en qué moneda. */
+export function ajustesDinero(aj: Record<string, unknown> | null | undefined) {
+  return { usa: (aj?.usar_importe as boolean | undefined) !== false, moneda: String(aj?.moneda ?? 'EUR') }
+}
+/** Lo que falta por cobrar (null si no hay importe). */
+export const pendiente = (e: { importe?: number | null; a_cuenta?: number | null }) =>
+  e.importe == null ? null : Math.max(0, Number(e.importe) - Number(e.a_cuenta ?? 0))

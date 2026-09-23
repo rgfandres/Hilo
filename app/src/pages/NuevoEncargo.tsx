@@ -7,7 +7,8 @@ import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/c
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Combobox, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
 import { altaRapidaProducto } from '@/data/catalogos'
-import { CamposForm, limpiar } from '@/components/CampoInput'
+import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
+import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null }
@@ -23,7 +24,7 @@ export function NuevoEncargo() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const [tipos, setTipos] = React.useState<{ id: string; clave: string; nombre: string }[]>([])
-  const [productos, setProductos] = React.useState<{ id: string; nombre: string }[]>([])
+  const [productos, setProductos] = React.useState<{ id: string; nombre: string; precio_base?: number | null }[]>([])
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [tipo, setTipo] = React.useState('')
   const [producto, setProducto] = React.useState('')
@@ -33,6 +34,9 @@ export function NuevoEncargo() {
   const [dCli, setDCli] = React.useState<Record<string, string>>({})
   const [dEnc, setDEnc] = React.useState<Record<string, string>>({})
   const [comentario, setComentario] = React.useState('')
+  const [importe, setImporte] = React.useState(''); const [aCuenta, setACuenta] = React.useState('')
+  const [importeAuto, setImporteAuto] = React.useState(true)
+  const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [numero, setNumero] = React.useState<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -46,7 +50,7 @@ export function NuevoEncargo() {
     ;(async () => {
       const [t, p, c] = await Promise.all([
         supabase.from('tipo_encargo').select('id,clave,nombre').eq('tienda_id', tienda.id).eq('activo', true),
-        supabase.from('producto').select('id,nombre').eq('tienda_id', tienda.id).eq('activo', true).order('nombre'),
+        supabase.from('producto').select('id,nombre,precio_base').eq('tienda_id', tienda.id).eq('activo', true).order('nombre'),
         plantillas(tienda.id),
       ])
       setTipos(t.data ?? []); setProductos(p.data ?? []); setPs(c)
@@ -58,6 +62,13 @@ export function NuevoEncargo() {
       }
     })().catch((x) => setErr(mensajeError(x)))
   }, [tienda, params])
+
+  // El importe se rellena con el precio del producto mientras no se haya escrito a mano
+  React.useEffect(() => {
+    if (!importeAuto) return
+    const p = productos.find((x) => x.id === producto)
+    setImporte(p?.precio_base != null ? String(p.precio_base) : '')
+  }, [producto, productos, importeAuto])
 
   // Nº que se asignará (orientativo: se fija al guardar)
   React.useEffect(() => {
@@ -83,6 +94,7 @@ export function NuevoEncargo() {
     if (falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
     setBusy(true); setErr(null)
     try {
+      if (din.usa && importe !== '' && aCuenta !== '' && Number(aCuenta) > Number(importe)) throw new Error('Lo entregado a cuenta no puede ser mayor que el importe')
       let clienteId = existente?.id
       if (!clienteId) {
         const { data: cli, error: e1 } = await supabase.from('cliente')
@@ -92,7 +104,8 @@ export function NuevoEncargo() {
         clienteId = cli.id
       }
       const { data: enc, error: e2 } = await supabase.from('encargo')
-        .insert({ tienda_id: tienda.id, periodo_id: periodo?.id ?? null, tipo_encargo_id: tipo, cliente_id: clienteId, producto_id: producto || null, datos: limpiar(dEnc) })
+        .insert({ tienda_id: tienda.id, periodo_id: periodo?.id ?? null, tipo_encargo_id: tipo, cliente_id: clienteId, producto_id: producto || null, datos: limpiar(dEnc),
+          ...(din.usa ? { importe: importe === '' ? null : Number(importe), a_cuenta: aCuenta === '' ? 0 : Number(aCuenta) } : {}) })
         .select('id').single()
       if (e2) throw e2
       // Primera etapa del flujo: se marca al crear
@@ -166,6 +179,12 @@ export function NuevoEncargo() {
           </FormRow>
           {productos.length === 0 && <p className="pb-1 pl-[118px] text-sm text-fg-3">No hay {min(vocab.productos)} en el catálogo. <Link to="/productos" className="underline">Añadir</Link></p>}
           <CamposForm campos={camposEnc} valores={dEnc} onCambio={(k, v) => setDEnc((d) => ({ ...d, [k]: v }))} />
+          {din.usa && <>
+            <FormRow label={`Importe (${din.moneda})`} ayuda={`Precio pactado. Si eliges ${gr.con('producto', 'un')} con precio, se rellena solo.`}>
+              <NumeroInput value={importe} onChange={(v) => { setImporte(v); setImporteAuto(false) }} />
+            </FormRow>
+            <FormRow label="A cuenta"><NumeroInput value={aCuenta} onChange={setACuenta} /></FormRow>
+          </>}
         </div>
 
         <div className="flex flex-col gap-1">

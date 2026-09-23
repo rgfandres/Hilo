@@ -7,7 +7,8 @@ import {
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Sheet, useAvisos } from '@/ui'
 import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
-import { CamposForm, aTexto, limpiar } from './CampoInput'
+import { CamposForm, NumeroInput, aTexto, limpiar } from './CampoInput'
+import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 /**
@@ -27,6 +28,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   const avisar = useAvisos()
   const { tienda, rol, vocab, gr } = useAuth()
   const soloProveedor = rol === 'LOGISTICA'
+  const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [productos, setProductos] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
   const [proveedores, setProveedores] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
 
@@ -34,6 +36,8 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     producto: encargo.producto_id ?? '',
     proveedor: encargo.proveedor_id ?? '',
     dEnc: aTexto(encargo.datos),
+    importe: encargo.importe == null ? '' : String(encargo.importe),
+    aCuenta: encargo.a_cuenta ? String(encargo.a_cuenta) : '',
     nombre: cliente?.nombre ?? '',
     tel: cliente?.telefono ?? '',
     email: cliente?.email ?? '',
@@ -61,11 +65,15 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     if (!soloProveedor && !f.nombre.trim()) { setErr(`El nombre ${gr.con('cliente', 'del')} es obligatorio`); return }
     const falta = [...camposEnc.filter((c) => c.obligatorio && !f.dEnc[c.clave]), ...camposCli.filter((c) => c.obligatorio && !f.dCli[c.clave])]
     if (!soloProveedor && falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
+    if (f.importe !== '' && f.aCuenta !== '' && Number(f.aCuenta) > Number(f.importe)) { setErr('Lo entregado a cuenta no puede ser mayor que el importe'); return }
     setBusy(true); setErr(null)
     try {
       if (!soloProveedor) {
-        if (f.producto !== inicial.producto || JSON.stringify(f.dEnc) !== JSON.stringify(inicial.dEnc)) {
-          await actualizarEncargo(encargo.id, { producto_id: f.producto || null, datos: limpiar(f.dEnc, encargo.datos) })
+        if (f.producto !== inicial.producto || JSON.stringify(f.dEnc) !== JSON.stringify(inicial.dEnc) || f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta) {
+          await actualizarEncargo(encargo.id, {
+            producto_id: f.producto || null, datos: limpiar(f.dEnc, encargo.datos),
+            ...(f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta ? { importe: f.importe === '' ? null : Number(f.importe), a_cuenta: f.aCuenta === '' ? 0 : Number(f.aCuenta) } : {}),
+          })
         }
         if (cliente && (f.nombre !== inicial.nombre || f.tel !== inicial.tel || f.email !== inicial.email
             || JSON.stringify(f.dCli) !== JSON.stringify(inicial.dCli))) {
@@ -113,6 +121,10 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
               } : undefined} />
           </FormRow>
           {!soloProveedor && <CamposForm campos={camposEnc} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
+          {!soloProveedor && din.usa && <>
+            <FormRow label={`Importe (${din.moneda})`}><NumeroInput value={f.importe} onChange={set('importe')} /></FormRow>
+            <FormRow label="A cuenta"><NumeroInput value={f.aCuenta} onChange={set('aCuenta')} /></FormRow>
+          </>}
         </div>
 
         {!soloProveedor && cliente && (

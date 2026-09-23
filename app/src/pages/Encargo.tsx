@@ -4,7 +4,7 @@ import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
   anularEncargo, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
-  editarNotaHito, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
+  editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
   type Anulacion,
 } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
@@ -19,8 +19,8 @@ import { useTiempoReal } from '@/lib/tiempoReal'
 import { FichaImprimible } from '@/components/FichaImprimible'
 import { fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
 import { listarEquipo } from '@/data/ajustes'
-import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex } from '@/ui'
-import { cn, fechaCorta, num3, locale } from '@/lib/utils'
+import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
+import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
@@ -45,6 +45,9 @@ export function Encargo() {
   const { id } = useParams()
   const nav = useNavigate()
   const { rol, vocab, tienda, gr, session } = useAuth()
+  const avisar = useAvisos()
+  const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
+  const [impacto, setImpacto] = React.useState<ImpactoAnular | null>(null)
   const [e, setE] = React.useState<EncargoEstado | null>(null)
   const [cli, setCli] = React.useState<Cliente | null>(null)
   const [hitos, setHitos] = React.useState<Hito[]>([])
@@ -106,7 +109,17 @@ export function Encargo() {
   // Si otra persona avanza o comenta este encargo, se ve al momento
   useTiempoReal(tienda?.id, () => cargar().catch(() => {}), (f) => f.encargo_id === id || f.id === id)
 
+  /** Lo que la app no puede deshacer sola al anular: se avisa antes y se deja apuntado después. */
+  function pendientesAlAnular(i: ImpactoAnular | null): string[] {
+    if (!i) return []
+    const out: string[] = []
+    if (i.proveedor && i.en_proveedor) out.push(`avisar a ${i.proveedor} de que pare el trabajo`)
+    if (Number(i.a_cuenta) > 0) out.push(`decidir qué hacer con ${dinero(i.a_cuenta, din.moneda)} entregados a cuenta`)
+    if (i.n_mensajes > 0) out.push(`avisar ${gr.con('cliente', 'al')} (ya se le escribió ${i.n_mensajes} ${i.n_mensajes === 1 ? 'vez' : 'veces'})`)
+    return out
+  }
   function abrir(m: Modal) {
+    if (m === 'anular' && e) { setImpacto(null); impactoAnular(e.id).then(setImpacto).catch(() => setImpacto(null)) }
     setModal(m); setNota(''); setModalErr(null)
     if (m && typeof m === 'object' && 'fecha' in m) setFecha(aLocal(m.fecha.fecha))
     if (m && typeof m === 'object' && 'nota' in m) setNota(m.nota.nota ?? '')
@@ -291,6 +304,15 @@ export function Encargo() {
                 editable={!anulado} onGuardar={async (t) => { await ponerNotaCampo(e.id, c.clave, t); setNotas(await listarNotasCampo(e.id)) }} />
             )} />
             <Field label={vocab.proveedor}>{e.proveedor_id ? <Link to={`/proveedores/${e.proveedor_id}`} className="hover:underline">{e.proveedor_nombre}</Link> : '—'}</Field>
+            {din.usa && (
+              <Field label="Importe">
+                {e.importe == null ? <span className="text-fg-3">Sin importe</span> : <>
+                  {dinero(e.importe, din.moneda)}
+                  {Number(e.a_cuenta) > 0 && <span className="text-fg-3"> · {dinero(e.a_cuenta, din.moneda)} a cuenta</span>}
+                  {pendiente(e)! > 0 ? <span className="text-warn-fg"> · faltan {dinero(pendiente(e), din.moneda)}</span> : <span className="text-ok-fg"> · pagado</span>}
+                </>}
+              </Field>
+            )}
             <Field label="Creado">{fechaCorta(e.creado_en)}</Field>
           </div>
 
@@ -482,8 +504,18 @@ export function Encargo() {
       <Dialog open={modal === 'anular'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Anular ${min(vocab.encargo)} ${num3(e)}`}
         description={`No se borra: queda en «Anulados» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
-        actions={[{ label: 'Anular', variant: 'danger', onClick: () => hacer(() => anularEncargo(e.id, nota), () => nav('/encargos')) }]}>
+        actions={[{ label: 'Anular', variant: 'danger', onClick: () => hacer(() => anularEncargo(e.id, nota), () => {
+          const manual = pendientesAlAnular(impacto)
+          if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulado. Queda por hacer a mano: ${manual.join(' · ')}` })
+          nav('/encargos')
+        }) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
+        {impacto && pendientesAlAnular(impacto).length > 0 && (
+          <div className="mt-2 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">
+            <div className="mb-1 font-medium">Después tendrás que hacer a mano:</div>
+            <ul className="m-0 pl-4">{pendientesAlAnular(impacto).map((t) => <li key={t}>{t}</li>)}</ul>
+          </div>
+        )}
       </Dialog>
 
       <Dialog open={modal === 'recuperar'} onOpenChange={() => setModal(null)} error={modalErr}

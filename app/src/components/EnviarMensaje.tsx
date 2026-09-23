@@ -8,7 +8,7 @@ import { mensajeError } from '@/data/encargos'
 import type { Campo } from '@/data/config'
 import { formatearValor } from '@/data/config'
 import type { Cliente, EncargoEstado } from '@/lib/types'
-import { num3 } from '@/lib/utils'
+import { num3, dinero, pendiente } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { Dialog, Select, Textarea, type DialogAction } from '@/ui'
 
@@ -45,6 +45,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
       nombre, nombre_pila: nombre.split(/\s+/)[0],
       numero: num3(encargo), producto: encargo.producto_nombre, proveedor: encargo.proveedor_nombre,
       etapa: encargo.etapa_actual_nombre, tienda: tienda?.nombre, enlace_resena: aj.enlace_resena,
+      ...(encargo.importe != null ? { importe: dinero(encargo.importe, String(aj.moneda ?? 'EUR')), a_cuenta: dinero(encargo.a_cuenta, String(aj.moneda ?? 'EUR')), pendiente: dinero(pendiente(encargo), String(aj.moneda ?? 'EUR')) } : {}),
       ...marcadoresConcordancia(vocab.producto, gr.genero.producto, encargo.producto_nombre),
     })
     return c

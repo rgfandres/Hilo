@@ -39,6 +39,8 @@ export interface EncargoEstado {
   proveedor_id: string | null
   estado: 'ACTIVO' | 'ANULADO'
   datos: Record<string, unknown>
+  importe: number | null
+  a_cuenta: number
   creado_en: string
   actualizado_en: string
   etapa_actual_id: string | null

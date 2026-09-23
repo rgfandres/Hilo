@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconX } from '@tabler/icons-react'
+import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
@@ -12,6 +12,7 @@ import { camposDe, columnasTabla, formatearValor, plantillas, type Campo, type P
 import { dimensiones, etiquetaValor, filtrar, filtrosAUrl, filtrosDeUrl, ordenar, type Dimension, type Filtros } from '@/data/lista'
 import { FiltroMenu } from '@/components/FiltroMenu'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
+import { AccionLote } from '@/components/AccionLote'
 import { haceCuanto, useTiempoReal } from '@/lib/tiempoReal'
 import { min } from '@/lib/vocab'
 import { useDobleToque } from '@/lib/movil'
@@ -34,6 +35,9 @@ export function Encargos() {
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [busy, setBusy] = React.useState<string | null>(null)
+  /** Selección para acciones en lote (solo vista de lista) */
+  const [sel, setSel] = React.useState<Set<string> | null>(null)
+  const alternar = (id: string) => setSel((s) => { const n = new Set(s ?? []); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const [err, setErr] = React.useState<string | null>(null)
   const [cargado, setCargado] = React.useState(false)
   const [plegados, setPlegados] = React.useState<Set<string>>(new Set())
@@ -154,12 +158,12 @@ export function Encargos() {
   const SIN = `Sin ${min(vocab.proveedor)}`
   const variosTipos = React.useMemo(() => new Set(rows.map((r) => r.tipo_encargo_id)).size > 1, [rows])
   const dims = React.useMemo((): Dimension[] => {
-    const d = dimensiones({ vocab, sinProveedor: SIN, sinProducto: `Sin ${min(vocab.producto)}`, campos: camposTodos, ordenEtapa, variosTipos })
+    const d = dimensiones({ vocab, sinProveedor: SIN, sinProducto: `Sin ${min(vocab.producto)}`, campos: camposTodos, ordenEtapa, variosTipos, cobro: (tienda?.ajustes as Record<string, unknown> | undefined)?.usar_importe !== false })
     // En «Bloqueados» se agrupa por el motivo del bloqueo
     return bandeja === 'bloqueados'
       ? [{ clave: 'motivo', etiqueta: 'Motivo', vacio: 'Sin motivo', valor: (e) => e.puertas_pendientes.find((p) => p.dura)?.mensaje ?? '' }, ...d]
       : d
-  }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja])
+  }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda])
 
   const visibles = React.useMemo(() => filtrar(base, q, filtros, dims), [base, q, filtros, dims])
   const dimAgr = agrupar === 'no' ? null : dims.find((d) => d.clave === agrupar) ?? null
@@ -230,6 +234,11 @@ export function Encargos() {
       : e.en_revision ? <Tag color="red">Incidencia</Tag>
       : <Tag color={tagColorFromHex(et?.color)}>{e.etapa_actual_nombre ?? 'Sin empezar'}</Tag>
   }
+  React.useEffect(() => {
+    if (!sel) return
+    const esc = (k: KeyboardEvent) => { if (k.key === 'Escape' && !document.querySelector('[role=dialog]')) setSel(null) }
+    document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc)
+  }, [sel])
   const plegar = (g: string) => setPlegados((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n })
 
   return (
@@ -266,6 +275,11 @@ export function Encargos() {
           <button title="Tablero" aria-label="Vista de tablero" onClick={() => setP({ v: 'tablero' })}
             className={cn('flex h-[26px] w-7 items-center justify-center border-l border-border', vista === 'tablero' ? 'bg-bg-4 text-fg' : 'text-fg-3 hover:text-fg')}><IconLayoutKanban size={14} /></button>
         </div>
+        {vista === 'lista' && rol !== 'LOGISTICA' && (
+          <Button variant={sel ? 'default' : 'ghost'} onClick={() => setSel(sel ? null : new Set())} title="Seleccionar varios para pasarlos de etapa a la vez">
+            <IconSquareCheck size={14} /><span className="hidden xl:inline">{sel ? 'Seleccionando' : 'Seleccionar'}</span>
+          </Button>
+        )}
         {rol !== 'LOGISTICA' && <Button variant="primary" asChild><Link to="/encargos/nuevo">+ {vocab.encargo}</Link></Button>}
       </PageHeader>
       <Tabs items={tabs} value={bandeja} onChange={setBandeja} />
@@ -307,7 +321,10 @@ export function Encargos() {
           <Table>
             <thead className="sticky top-0 z-20 bg-bg">
               <tr>
-                <Th className="sticky left-0 z-20 w-10 bg-bg">Nº</Th>
+                <Th className="sticky left-0 z-20 w-10 bg-bg">{sel ? (
+                  <input type="checkbox" aria-label="Seleccionar todos los visibles" checked={visibles.length > 0 && visibles.every((v) => sel.has(v.id))}
+                    onChange={(x) => setSel(x.target.checked ? new Set(visibles.map((v) => v.id)) : new Set())} />
+                ) : 'Nº'}</Th>
                 <Th className="sticky left-10 z-20 w-[190px] bg-bg">{vocab.cliente}</Th>
                 {ver('producto') && <Th className="w-[140px]">{vocab.producto}</Th>}
                 {cols.filter((c) => ver('c:' + c.clave)).map((c) => <Th key={c.clave} className="w-[120px]">{c.etiqueta}</Th>)}
@@ -334,10 +351,12 @@ export function Encargos() {
                       </tr>
                     )}
                     {!plegado && list.map((e) => (
-                      <Tr key={e.id} className="group cursor-pointer" onClick={() => nav(`/encargos/${e.id}`)}>
+                      <Tr key={e.id} className={cn('group cursor-pointer', sel?.has(e.id) && 'bg-bg-4')} aria-selected={sel ? sel.has(e.id) : undefined} onClick={() => sel ? alternar(e.id) : nav(`/encargos/${e.id}`)}>
                         <Td className={cn('titular sticky left-0 z-10 bg-bg text-fg-3 tabular group-hover:bg-bg-2', e.atascado ? 'marca-atasco' : listoParaMi(e, rol) && 'marca-lista',
                           e.atascado ? 'shadow-[inset_3px_0_0_var(--color-danger)]' : listoParaMi(e, rol) && 'shadow-[inset_3px_0_0_var(--accent)]')}
-                          title={e.atascado ? `${e.dias_en_etapa} días en «${e.etapa_actual_nombre}»` : listoParaMi(e, rol) ? 'Listo para el siguiente paso' : undefined}>{num3(e)}</Td>
+                          title={e.atascado ? `${e.dias_en_etapa} días en «${e.etapa_actual_nombre}»` : listoParaMi(e, rol) ? 'Listo para el siguiente paso' : undefined}>
+                          {sel ? <input type="checkbox" aria-label={`Seleccionar ${num3(e)}`} checked={sel.has(e.id)} onClick={(x) => x.stopPropagation()} onChange={() => alternar(e.id)} /> : num3(e)}
+                        </Td>
                         <Td className="titular sticky left-10 z-10 max-w-[220px] bg-bg font-medium group-hover:bg-bg-2" title={[e.cliente_nombre, ...motivosRevision(e, aj)].join(' · ')}>
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{e.cliente_nombre}</span>
@@ -379,6 +398,10 @@ export function Encargos() {
             </tbody>
           </Table>
         </div>
+      )}
+      {sel && vista === 'lista' && (
+        <AccionLote seleccion={base.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargos={vocab.encargos}
+          onTodos={() => setSel(new Set(visibles.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
       )}
     </>
   )

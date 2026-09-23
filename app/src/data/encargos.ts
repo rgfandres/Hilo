@@ -129,7 +129,7 @@ export async function asignarProveedor(encargoId: string, proveedorId: string | 
   if (error) throw error
 }
 
-export async function actualizarEncargo(id: string, patch: { producto_id?: string | null; datos?: Record<string, unknown> }) {
+export async function actualizarEncargo(id: string, patch: { producto_id?: string | null; datos?: Record<string, unknown>; importe?: number | null; a_cuenta?: number }) {
   const { error } = await supabase.from('encargo').update(patch).eq('id', id)
   if (error) throw error
 }
@@ -194,4 +194,12 @@ export async function listarNotasCampo(encargoId: string): Promise<Record<string
 export async function ponerNotaCampo(encargoId: string, campo: string, texto: string) {
   const { error } = await supabase.rpc('poner_nota_campo', { p_encargo: encargoId, p_campo: campo, p_texto: texto })
   if (error) throw error
+}
+
+/** Qué habrá que hacer a mano si se anula (proveedor, dinero, avisos). Solo lectura. */
+export interface ImpactoAnular { proveedor: string | null; en_proveedor: boolean; importe: number | null; a_cuenta: number; n_mensajes: number; n_adjuntos: number; n_hitos: number }
+export async function impactoAnular(encargoId: string): Promise<ImpactoAnular> {
+  const { data, error } = await supabase.rpc('impacto_anular', { p_encargo: encargoId })
+  if (error) throw error
+  return data as ImpactoAnular
 }

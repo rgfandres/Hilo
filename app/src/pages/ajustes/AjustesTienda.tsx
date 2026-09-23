@@ -37,6 +37,7 @@ export function AjustesTienda() {
     zona: (aj.zona_horaria as string) ?? 'Europe/Madrid',
     locale: (aj.locale as string) ?? 'es-ES',
     moneda: (aj.moneda as string) ?? 'EUR',
+    importe: aj.usar_importe !== false,
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -83,6 +84,7 @@ export function AjustesTienda() {
         zona_horaria: f.zona,
         locale: f.locale,
         moneda: f.moneda.trim().toUpperCase() || 'EUR',
+        usar_importe: f.importe,
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
         proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: f.verCliente },
@@ -207,6 +209,9 @@ export function AjustesTienda() {
             </Select>
           </FormRow>
           <FormRow label="Moneda"><Input className="h-7 w-20" value={f.moneda} maxLength={3} onChange={(e) => setF({ ...f, moneda: e.target.value })} /></FormRow>
+          <FormRow label="Importes" ayuda="Importe pactado y lo entregado a cuenta en cada encargo; se ve lo pendiente de cobro y se puede filtrar.">
+            <Interruptor checked={f.importe} onChange={(v) => setF({ ...f, importe: v })} label="Usar importe y cobros" />
+          </FormRow>
           <FormRow label="Prefijo del país">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-fg-3">+</span>

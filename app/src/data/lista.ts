@@ -23,6 +23,8 @@ export function dimensiones(opts: {
   campos: Campo[]
   ordenEtapa: Map<string, number>
   variosTipos: boolean
+  /** La tienda usa importes: se puede filtrar por cobro */
+  cobro?: boolean
 }): Dimension[] {
   const { vocab, campos, ordenEtapa } = opts
   const d: Dimension[] = [
@@ -34,6 +36,10 @@ export function dimensiones(opts: {
     { clave: 'proveedor', etiqueta: vocab.proveedor, vacio: opts.sinProveedor, valor: (e) => e.proveedor_nombre ?? '' },
     { clave: 'producto', etiqueta: vocab.producto, vacio: opts.sinProducto, valor: (e) => e.producto_nombre ?? '' },
   ]
+  if (opts.cobro) d.push({
+    clave: 'cobro', etiqueta: 'Cobro', vacio: 'Sin importe',
+    valor: (e) => e.importe == null ? '' : Number(e.importe) - Number(e.a_cuenta ?? 0) > 0 ? 'Pendiente de cobro' : 'Pagado',
+  })
   if (opts.variosTipos) d.push({ clave: 'tipo', etiqueta: 'Tipo', vacio: 'Sin tipo', valor: (e) => e.tipo_nombre ?? '' })
   for (const c of campos) {
     const num = c.tipo === 'numero', fecha = c.tipo === 'fecha'
