@@ -18,6 +18,7 @@ import { Portal } from '@/pages/Portal'
 import { Productos } from '@/pages/Productos'
 import { Clientes, Cliente } from '@/pages/Clientes'
 import { Proveedores, Proveedor } from '@/pages/Proveedores'
+import { Materiales } from '@/pages/Materiales'
 import { Ajustes, AjustesInicio } from '@/pages/ajustes/Ajustes'
 import { AjustesTienda } from '@/pages/ajustes/AjustesTienda'
 import { AjustesEquipo } from '@/pages/ajustes/AjustesEquipo'
@@ -58,6 +59,7 @@ function Gate() {
         <Route path="productos" element={<Productos />} />
         <Route path="proveedores" element={<Proveedores />} />
         <Route path="proveedores/:id" element={<Proveedor />} />
+        <Route path="materiales" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Materiales />} />
         <Route path="informes" element={<Informes />} />
         <Route path="ajustes" element={<Ajustes />}>
           <Route index element={<AjustesInicio />} />

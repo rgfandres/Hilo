@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
+import { ajustesMaterial, lineasDeTienda, type LineaMaterial } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -75,6 +76,7 @@ export function Encargos() {
     try { if (tienda) localStorage.setItem(`${LS_COLS}.${tienda.id}`, JSON.stringify(n)) } catch { /* sin almacenamiento: solo en esta sesión */ }
   }
 
+  const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
   const recargar = React.useCallback(async () => {
     if (!tienda) return
     const pid = periodo?.id ?? null
@@ -84,6 +86,7 @@ export function Encargos() {
       listarEtapas(tienda.id), plantillas(tienda.id),
     ])
     setRows(r); setAnulados(a); setEtapas(e); setPs(p); setCargado(true)
+    if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) setLineasMat(await lineasDeTienda(tienda.id).catch(() => []))
     setMotivos(await listarAnulaciones(a.map((x) => x.id)))
   }, [tienda, periodo])
 
@@ -105,6 +108,9 @@ export function Encargos() {
   const revisar = rows.filter(enRevisar)
   const mios = rows.filter((r) => miTrabajo(r, rol))
   const bloqueados = rows.filter((r) => activo(r) && bloqueado(r))
+  // Materiales: sin pedir (hay que pedirlo) / pedidos al proveedor (esperando que llegue)
+  const matPedir = React.useMemo(() => new Set(lineasMat.filter((l) => l.estado === 'PENDIENTE').map((l) => l.encargo_id)), [lineasMat])
+  const matEspera = React.useMemo(() => new Set(lineasMat.filter((l) => l.estado === 'PEDIDO').map((l) => l.encargo_id)), [lineasMat])
 
   // Bandejas: Mi trabajo · Todos · una por etapa (agrupadas por su grupo) · Revisar · Bloqueados · Entregados · Anulados
   const etapasTab = [...new Map(etapas.filter((e) => !e.es_final).map((e) => [e.nombre, e])).values()]
@@ -122,6 +128,8 @@ export function Encargos() {
           aviso: !e.es_espera && aqui.some((r) => listoParaMi(r, rol)), title: `Ahora mismo en «${e.nombre}»${e.es_espera ? ' (espera)' : ''}` }
       })
       .filter((t) => t.count > 0 || bandeja === t.key),
+    ...(matPedir.size || bandeja === 'mat-pedir' ? [{ key: 'mat-pedir', label: `Pedir ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matPedir.has(r.id)).length, aviso: rol === 'ADMIN' || rol === 'OPERATIVO', title: `Llevan ${min(vocab.material)} que aún no se ha pedido ni recibido`, grupo: finGrupo }] : []),
+    ...(matEspera.size || bandeja === 'mat-espera' ? [{ key: 'mat-espera', label: `Esperando ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matEspera.has(r.id)).length, title: `${vocab.material} pedido al proveedor que aún no ha llegado`, grupo: finGrupo }] : []),
     { key: 'revisar', label: 'Revisar', count: revisar.length, tone: 'danger' as const, aviso: revisar.length > 0, title: CRITERIO_REVISAR, grupo: finGrupo },
     ...(bloqueados.length || bandeja === 'bloqueados' ? [{ key: 'bloqueados', label: 'Bloqueados', count: bloqueados.length, title: 'El siguiente paso tiene una condición que bloquea: se puede resolver desde aquí', grupo: finGrupo }] : []),
     { key: 'entregados', label: 'Entregados', count: rows.filter((r) => r.es_final).length, grupo: finGrupo },
@@ -139,9 +147,11 @@ export function Encargos() {
       case 'entregados': return !!r.es_final
       case 'listos': return listoParaEntregar(r)
       case 'proveedor': return enProveedor(r)
+      case 'mat-pedir': return activo(r) && matPedir.has(r.id)
+      case 'mat-espera': return activo(r) && matEspera.has(r.id)
       default: return 'n:' + r.etapa_actual_nombre === bandeja && !r.es_final
     }
-  }), [bandeja, rows, anulados, rol])
+  }), [bandeja, rows, anulados, rol, matPedir, matEspera])
 
   const tiposEnPantalla = React.useMemo(() => [...new Set(base.map((v) => v.tipo_encargo_id))], [base])
   // Todos los campos del encargo de los tipos en pantalla (para filtrar y agrupar)

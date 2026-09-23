@@ -4,6 +4,7 @@ export const VOCAB_DEFECTO = {
   producto: 'Producto', productos: 'Productos',
   proveedor: 'Proveedor', proveedores: 'Proveedores',
   encargo: 'Encargo', encargos: 'Encargos',
+  material: 'Material', materiales: 'Materiales',
 } as const
 
 export type Vocab = { [K in keyof typeof VOCAB_DEFECTO]: string }
@@ -40,9 +41,9 @@ export function rolesDe(ajustes: Record<string, unknown> | undefined | null): Re
 // Se deduce de la palabra (acaba en -a → femenino) y se puede fijar en
 // tienda.ajustes.vocab_generos = { cliente: 'f', ... }.
 // ---------------------------------------------------------------------
-export type ClaveVocab = 'cliente' | 'producto' | 'proveedor' | 'encargo'
+export type ClaveVocab = 'cliente' | 'producto' | 'proveedor' | 'encargo' | 'material'
 export type Genero = 'm' | 'f'
-const PLURAL: Record<ClaveVocab, keyof Vocab> = { cliente: 'clientes', producto: 'productos', proveedor: 'proveedores', encargo: 'encargos' }
+const PLURAL: Record<ClaveVocab, keyof Vocab> = { cliente: 'clientes', producto: 'productos', proveedor: 'proveedores', encargo: 'encargos', material: 'materiales' }
 
 export function generoAuto(palabra: string): Genero {
   const p = (palabra.trim().toLowerCase().split(/\s+/)[0] ?? '')
@@ -53,7 +54,7 @@ export function generoAuto(palabra: string): Genero {
 export function generosDe(ajustes: Record<string, unknown> | undefined | null, v: Vocab): Record<ClaveVocab, Genero> {
   const fijados = (ajustes?.vocab_generos ?? {}) as Partial<Record<ClaveVocab, Genero>>
   const out = {} as Record<ClaveVocab, Genero>
-  for (const k of ['cliente', 'producto', 'proveedor', 'encargo'] as ClaveVocab[]) out[k] = fijados[k] ?? generoAuto(v[k])
+  for (const k of ['cliente', 'producto', 'proveedor', 'encargo', 'material'] as ClaveVocab[]) out[k] = fijados[k] ?? generoAuto(v[k])
   return out
 }
 

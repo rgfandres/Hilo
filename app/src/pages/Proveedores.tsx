@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconMail, IconPhone } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
+import { ajustesMaterial, guardarUnidadProveedor, unidadesProveedor } from '@/data/materiales'
 import { encargosDeProveedor, errorNombre, guardarProveedor, listarProveedoresCat, obtenerProveedor, type ProveedorFila } from '@/data/catalogos'
 import { listarEtapas, mensajeError } from '@/data/encargos'
 import type { EncargoEstado, Etapa } from '@/lib/types'
@@ -151,8 +152,12 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [confirmar, setConfirmar] = React.useState(false)
+  const matAj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
+  const [unidad, setUnidad] = React.useState('')
   React.useEffect(() => {
     if (!open) return
+    setUnidad('')
+    if (p && tienda && matAj.activo) unidadesProveedor(tienda.id).then((u) => setUnidad(u[p.id] == null ? '' : String(u[p.id]))).catch(() => {})
     setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo } : { nombre: '', tel: '', email: '', notas: '', activo: true })
     setErr(null)
   }, [open, p])
@@ -165,7 +170,10 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
     if (p && p.activo && !f.activo && !confirmado) { setConfirmar(true); return }
     setBusy(true); setErr(null)
     try {
+      const u = unidad.trim() ? Number(unidad.replace(',', '.')) : null
+      if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
       const id = await guardarProveedor(tienda.id, p?.id ?? null, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo })
+      if (matAj.activo) await guardarUnidadProveedor(id, u)
       onSaved(id); onClose()
     } catch (x) { setErr(errorNombre(mensajeError(x), gr.con('proveedor', 'un'))) } finally { setBusy(false) }
   }
@@ -178,6 +186,8 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
           <FormRow label="Nombre *"><Input className="h-7" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} autoFocus /></FormRow>
           <FormRow label="Teléfono"><Input className="h-7" type="tel" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></FormRow>
           <FormRow label="Correo"><Input className="h-7" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="Para contactar (no da acceso)" /></FormRow>
+          {matAj.activo && <FormRow label={`Unidad de pedido (${matAj.unidad})`} ayuda={`Lo que vende de una vez (un rollo de 50…). Se usa para redondear los pedidos de ${min(vocab.material)}.`}>
+            <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="Opcional" /></FormRow>}
           {p && <FormRow label="Estado"><Interruptor checked={f.activo} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('proveedor')}` : `Inactiv${gr.o('proveedor')}: no se le asigna nada ni entra`} /></FormRow>}
         </div>
         <div className="flex flex-col gap-1"><SectionLabel>Notas</SectionLabel><Textarea value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} placeholder="Opcional: especialidad, plazos, precios…" /></div>

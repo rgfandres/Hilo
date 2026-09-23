@@ -197,7 +197,8 @@ export async function ponerNotaCampo(encargoId: string, campo: string, texto: st
 }
 
 /** Qué habrá que hacer a mano si se anula (proveedor, dinero, avisos). Solo lectura. */
-export interface ImpactoAnular { proveedor: string | null; en_proveedor: boolean; importe: number | null; a_cuenta: number; n_mensajes: number; n_adjuntos: number; n_hitos: number }
+export interface ImpactoAnular { proveedor: string | null; en_proveedor: boolean; importe: number | null; a_cuenta: number; n_mensajes: number; n_adjuntos: number; n_hitos: number
+  material_recibido?: { material: string; cantidad: number }[]; material_pedido?: number }
 export async function impactoAnular(encargoId: string): Promise<ImpactoAnular> {
   const { data, error } = await supabase.rpc('impacto_anular', { p_encargo: encargoId })
   if (error) throw error

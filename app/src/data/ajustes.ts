@@ -75,7 +75,7 @@ export async function quitarCorreoProveedor(proveedorId: string, email: string) 
 
 // ---------- Flujos
 export interface TipoEncargo { id: string; clave: string; nombre: string; activo: boolean; serie: string }
-export interface PuertaDef { id: string; etapa_destino_id: string; tipo: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK'; referencia: string; mensaje: string; dura: boolean; etiqueta: string | null }
+export interface PuertaDef { id: string; etapa_destino_id: string; tipo: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK' | 'MATERIAL'; referencia: string; mensaje: string; dura: boolean; etiqueta: string | null }
 
 export async function listarTipos(tiendaId: string) {
   return ok(await supabase.from('tipo_encargo').select('id,clave,nombre,activo,serie').eq('tienda_id', tiendaId).order('nombre')) as TipoEncargo[]

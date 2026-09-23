@@ -10,6 +10,8 @@ import { altaRapidaProducto } from '@/data/catalogos'
 import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
+import { SelectorMaterial } from '@/components/Material'
+import { ajustesMaterial, anadirLinea, listarMateriales, type MaterialEstado } from '@/data/materiales'
 
 type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null }
 
@@ -40,6 +42,10 @@ export function NuevoEncargo() {
   const [numero, setNumero] = React.useState<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const conMaterial = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo
+  const [mats, setMats] = React.useState<MaterialEstado[]>([])
+  const [mLineas, setMLineas] = React.useState<{ tipo: string; material_id: string; cantidad: string }[]>([])
+  React.useEffect(() => { if (tienda && conMaterial) listarMateriales(tienda.id).then(setMats).catch(() => {}) }, [tienda, conMaterial])
 
   const camposCli: Campo[] = camposDe(ps, 'CLIENTE')
   const camposEnc: Campo[] = camposDe(ps, 'ENCARGO', tipo)
@@ -111,6 +117,7 @@ export function NuevoEncargo() {
       // Primera etapa del flujo: se marca al crear
       const { data: primera } = await supabase.from('etapa').select('clave').eq('tipo_encargo_id', tipo).order('orden').limit(1).maybeSingle()
       if (primera?.clave) await crearHito(enc.id, primera.clave, { forzarBlandas: true })
+      for (const l of mLineas) if (l.material_id) await anadirLinea(tienda.id, enc.id, l.material_id, Number(String(l.cantidad).replace(',', '.')) || 0)
       if (comentario.trim()) await comentar(enc.id, comentario.trim())
       avisar({ tipo: 'ok', texto: `${vocab.encargo} cread${gr.o("encargo")} para ${nombre.trim() || existente?.nombre}` })
       nav(`/encargos/${enc.id}`)
@@ -186,6 +193,20 @@ export function NuevoEncargo() {
             <FormRow label="A cuenta"><NumeroInput value={aCuenta} onChange={setACuenta} /></FormRow>
           </>}
         </div>
+
+        {conMaterial && (
+          <div className="flex flex-col gap-1">
+            <SectionLabel>{vocab.material}</SectionLabel>
+            {mLineas.map((l, i) => (
+              <div key={i} className="flex flex-col gap-0.5 border-b border-border-light pb-2">
+                <SelectorMaterial materiales={mats} valor={l} puedeCrear={rol === 'ADMIN' || rol === 'OPERATIVO'}
+                  onCambio={(v) => setMLineas((xs) => xs.map((x, j) => (j === i ? v : x)))} onCreado={(m) => setMats((xs) => [...xs, m])} />
+                <Button size="sm" variant="ghost" type="button" className="self-end" onClick={() => setMLineas((xs) => xs.filter((_, j) => j !== i))}>Quitar</Button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: '', material_id: '', cantidad: '' }])}>+ Añadir {min(vocab.material)}</Button>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1">
           <SectionLabel>Comentario inicial</SectionLabel>

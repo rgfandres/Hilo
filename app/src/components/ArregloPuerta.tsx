@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, marcarCheck } from '@/data/encargos'
@@ -48,6 +49,8 @@ export function ArregloPuerta({ e, p, onHecho, onCompletar, compacto }: {
       crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? (n) => altaRapidaProducto(e.tienda_id, n) : undefined} etiquetaCrear="Añadir al catálogo" />
   } else if (p.tipo === 'CHECK' && p.referencia) {
     control = <Button size="sm" onClick={() => hacer(() => marcarCheck(e.id, p.referencia!, true))}>Marcar hecho</Button>
+  } else if (p.tipo === 'MATERIAL' && !location.pathname.startsWith(`/encargos/${e.id}`)) {
+    control = <Button size="sm" asChild><Link to={`/encargos/${e.id}`}>Ver {min(vocab.material)}</Link></Button>
   } else if (p.tipo === 'CAMPO_NO_VACIO' && editar && onCompletar) {
     control = <Button size="sm" onClick={onCompletar}>Completar</Button>
   }

@@ -25,7 +25,7 @@ export interface Etapa {
   grupo?: string | null
 }
 
-export interface Puerta { mensaje: string; dura: boolean; tipo?: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK'; referencia?: string }
+export interface Puerta { mensaje: string; dura: boolean; tipo?: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK' | 'MATERIAL'; referencia?: string }
 
 /** Fila de v_encargo_estado */
 export interface EncargoEstado {

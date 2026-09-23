@@ -12,6 +12,7 @@ const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'cliente', kp: 'clientes', ayuda: 'Quien lo encarga' },
   { k: 'producto', kp: 'productos', ayuda: 'Lo que se ofrece (catálogo)' },
   { k: 'proveedor', kp: 'proveedores', ayuda: 'Quien fabrica o transforma fuera' },
+  { k: 'material', kp: 'materiales', ayuda: 'Lo que se gasta en cada encargo (si usas el módulo)' },
 ]
 const ZONAS = ['Europe/Madrid', 'Atlantic/Canary', 'Europe/Lisbon', 'Europe/London', 'Europe/Paris', 'America/Mexico_City', 'America/Bogota', 'America/Argentina/Buenos_Aires', 'America/Santiago', 'America/Lima', 'America/New_York']
 const COLORES = ['#333333', '#1F3A5F', '#2B4C9B', '#5A3E96', '#9C1049', '#C2185B', '#A32E24', '#8A5A00', '#1E6B3C', '#0F766E']
@@ -38,6 +39,11 @@ export function AjustesTienda() {
     locale: (aj.locale as string) ?? 'es-ES',
     moneda: (aj.moneda as string) ?? 'EUR',
     importe: aj.usar_importe !== false,
+    materiales: ((aj.modulos as Record<string, boolean> | undefined)?.materiales) === true,
+    unidadMat: String(aj.material_unidad ?? 'm'),
+    umbralMat: String(aj.umbral_material_defecto ?? 10),
+    porEncargo: String(aj.unidad_por_encargo_max ?? 10),
+    umbralResto: String(aj.umbral_resto ?? 5),
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -85,6 +91,11 @@ export function AjustesTienda() {
         locale: f.locale,
         moneda: f.moneda.trim().toUpperCase() || 'EUR',
         usar_importe: f.importe,
+        modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales },
+        material_unidad: f.unidadMat.trim() || 'm',
+        umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
+        unidad_por_encargo_max: Number(f.porEncargo.replace(',', '.')) || 0,
+        umbral_resto: Number(f.umbralResto.replace(',', '.')) || 0,
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
         proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: f.verCliente },
@@ -222,6 +233,18 @@ export function AjustesTienda() {
           <FormRow label="Enlace de reseña">
             <Input className="h-7" type="url" placeholder="https://… (se ofrece al entregar)" value={f.resena} onChange={(e) => setF({ ...f, resena: e.target.value })} />
           </FormRow>
+        </div>
+      </Bloque>
+
+      <Bloque titulo={f.vocab.materiales} ayuda={`Catálogo de ${f.vocab.materiales.toLowerCase()} con stock, pedidos a ${f.vocab.proveedores.toLowerCase()}, consumo por ${f.vocab.encargo.toLowerCase()} y restos.`}>
+        <div className="flex flex-col gap-1">
+          <FormRow label="Módulo"><Interruptor checked={f.materiales} onChange={(v) => setF({ ...f, materiales: v })} label={`Usar ${f.vocab.materiales.toLowerCase()} y compras`} /></FormRow>
+          {f.materiales && <>
+            <FormRow label="Unidad" ayuda="Cómo se cuenta: m, uds, kg…"><Input className="h-7 w-20" value={f.unidadMat} maxLength={6} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
+            <FormRow label="Umbral por defecto" ayuda="Por debajo de esto se avisa de pedir (cada material puede tener el suyo)."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
+            <FormRow label={`Pedido por ${f.vocab.encargo.toLowerCase()}`} ayuda={`Si la unidad de pedido es esta o menos, se pide una unidad por ${f.vocab.encargo.toLowerCase()} y se consume entera al recibirla.`}><Input className="h-7 w-20" inputMode="decimal" value={f.porEncargo} onChange={(e) => setF({ ...f, porEncargo: e.target.value })} /></FormRow>
+            <FormRow label="Restos hasta" ayuda="Si lo que queda no llega a una unidad de pedido y es esto o menos, se ofrece guardarlo como resto."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralResto} onChange={(e) => setF({ ...f, umbralResto: e.target.value })} /></FormRow>
+          </>}
         </div>
       </Bloque>
 

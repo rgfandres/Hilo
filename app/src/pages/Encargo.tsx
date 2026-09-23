@@ -19,6 +19,8 @@ import { useTiempoReal } from '@/lib/tiempoReal'
 import { FichaImprimible } from '@/components/FichaImprimible'
 import { fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
 import { listarEquipo } from '@/data/ajustes'
+import { MaterialesEncargo } from '@/components/Material'
+import { ajustesMaterial, liberarMaterial } from '@/data/materiales'
 import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
@@ -48,6 +50,10 @@ export function Encargo() {
   const avisar = useAvisos()
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [impacto, setImpacto] = React.useState<ImpactoAnular | null>(null)
+  const [devolverMat, setDevolverMat] = React.useState(true)
+  const ajMat = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
+  const conMaterial = ajMat.activo
+  const recibidoMat = impacto?.material_recibido ?? []
   const [e, setE] = React.useState<EncargoEstado | null>(null)
   const [cli, setCli] = React.useState<Cliente | null>(null)
   const [hitos, setHitos] = React.useState<Hito[]>([])
@@ -107,7 +113,7 @@ export function Encargo() {
 
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
   // Si otra persona avanza o comenta este encargo, se ve al momento
-  useTiempoReal(tienda?.id, () => cargar().catch(() => {}), (f) => f.encargo_id === id || f.id === id)
+  const { ultima } = useTiempoReal(tienda?.id, () => cargar().catch(() => {}), (f) => f.encargo_id === id || f.id === id)
 
   /** Lo que la app no puede deshacer sola al anular: se avisa antes y se deja apuntado después. */
   function pendientesAlAnular(i: ImpactoAnular | null): string[] {
@@ -115,6 +121,7 @@ export function Encargo() {
     const out: string[] = []
     if (i.proveedor && i.en_proveedor) out.push(`avisar a ${i.proveedor} de que pare el trabajo`)
     if (Number(i.a_cuenta) > 0) out.push(`decidir qué hacer con ${dinero(i.a_cuenta, din.moneda)} entregados a cuenta`)
+    if (i.material_pedido) out.push(`${min(vocab.material)} pedido para este ${min(vocab.encargo)} (${i.material_pedido}): llegará igual y quedará en stock`)
     if (i.n_mensajes > 0) out.push(`avisar ${gr.con('cliente', 'al')} (ya se le escribió ${i.n_mensajes} ${i.n_mensajes === 1 ? 'vez' : 'veces'})`)
     return out
   }
@@ -337,6 +344,7 @@ export function Encargo() {
               ))}
             </div>
           )}
+          {conMaterial && <MaterialesEncargo refresco={ultima} encargo={e} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
           <div className="flex-1" />
           {rol === 'ADMIN' && !anulado && <Button variant="danger" className="self-start" onClick={() => abrir('anular')}>Anular {min(vocab.encargo)}</Button>}
         </aside>
@@ -504,12 +512,22 @@ export function Encargo() {
       <Dialog open={modal === 'anular'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Anular ${min(vocab.encargo)} ${num3(e)}`}
         description={`No se borra: queda en «Anulados» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
-        actions={[{ label: 'Anular', variant: 'danger', onClick: () => hacer(() => anularEncargo(e.id, nota), () => {
+        actions={[{ label: 'Anular', variant: 'danger', onClick: () => hacer(async () => {
+          if (recibidoMat.length) await liberarMaterial(e.id, devolverMat)
+          await anularEncargo(e.id, nota)
+        }, () => {
           const manual = pendientesAlAnular(impacto)
           if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulado. Queda por hacer a mano: ${manual.join(' · ')}` })
           nav('/encargos')
         }) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
+        {recibidoMat.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
+            <div className="font-medium">{vocab.material} ya asignado: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
+            <label className="flex items-center gap-2"><input type="radio" checked={devolverMat} onChange={() => setDevolverMat(true)} /> Devolverlo al stock (no se ha cortado ni usado)</label>
+            <label className="flex items-center gap-2"><input type="radio" checked={!devolverMat} onChange={() => setDevolverMat(false)} /> Darlo por usado y marcar el {min(vocab.encargo)} para reaprovechar</label>
+          </div>
+        )}
         {impacto && pendientesAlAnular(impacto).length > 0 && (
           <div className="mt-2 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">
             <div className="mb-1 font-medium">Después tendrás que hacer a mano:</div>

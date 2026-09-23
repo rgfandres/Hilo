@@ -2,11 +2,12 @@ import * as React from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   IconClock, IconLayoutList, IconUser, IconBox, IconBuildingWarehouse,
-  IconChartBar, IconSettings, IconSearch, IconChevronDown, IconMenu2, IconPlus, IconDots, IconListCheck,
+  IconChartBar, IconSettings, IconSearch, IconChevronDown, IconMenu2, IconPlus, IconDots, IconListCheck, IconRuler2,
 } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { BuscadorGlobal } from '@/components/BuscadorGlobal'
 import { listarEncargos } from '@/data/encargos'
+import { ajustesMaterial, listarMateriales, propuestaPedido } from '@/data/materiales'
 import { activo, pendientesDe, tope99 } from '@/lib/bandejas'
 import { cn } from '@/lib/utils'
 import { useCerrarConAtras } from '@/lib/movil'
@@ -37,6 +38,8 @@ export function AppShell() {
   const loc = useLocation()
   const logo = ((tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url as string | undefined) ?? null
   const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number }>({ encargos: 0, atascados: 0 })
+  const conMateriales = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && rol !== 'LOGISTICA'
+  const [porPedir, setPorPedir] = React.useState(0)
   // Contadores del menú: se recalculan al cambiar de pantalla y cada minuto (solo con la pestaña visible)
   React.useEffect(() => {
     if (!tienda) return
@@ -46,11 +49,12 @@ export function AppShell() {
       listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((rows) => {
         if (vivo) setCuenta({ encargos: pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado).length })
       }).catch(() => {})
+      if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')) listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})
     }
     leer()
     const t = setInterval(leer, 60_000)
     return () => { vivo = false; clearInterval(t) }
-  }, [tienda, periodo, rol, loc.pathname])
+  }, [tienda, periodo, rol, loc.pathname, conMateriales])
   const [pick, setPick] = React.useState(false)
   const [buscar, setBuscar] = React.useState(false)
   const [menu, setMenu] = React.useState(false)
@@ -133,6 +137,7 @@ export function AppShell() {
         <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>
         <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>
         <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en una etapa de espera">{vocab.proveedores}</Item>
+        {conMateriales && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
         <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>
         <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>
         <div className="flex-1" />

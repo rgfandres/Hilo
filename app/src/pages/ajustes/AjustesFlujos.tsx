@@ -7,6 +7,7 @@ import {
 } from '@/data/ajustes'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
+import { ajustesMaterial } from '@/data/materiales'
 import type { Etapa, Rol } from '@/lib/types'
 import { ROLES, min } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag, tagColorFromHex } from '@/ui'
@@ -18,6 +19,7 @@ const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
   { v: 'HITO_PREVIO', label: 'Haber pasado por' },
   { v: 'CAMPO_NO_VACIO', label: 'Tener relleno' },
   { v: 'CHECK', label: 'Tener marcado' },
+  { v: 'MATERIAL', label: 'Tener el material recibido' },
 ]
 
 /**
@@ -27,6 +29,7 @@ const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
  */
 export function AjustesFlujos() {
   const { tienda, vocab, nombresRol, recargar, gr } = useAuth()
+  const conMaterial = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [tipoId, setTipoId] = React.useState<string>('')
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
@@ -165,18 +168,19 @@ export function AjustesFlujos() {
                             onDelete={() => hacer(() => borrarPuerta(p.id), 'Condición quitada')} />
                         ))}
                         <div className="flex gap-1.5 pt-1">
-                          {TIPOS_PUERTA.map((t) => (
+                          {TIPOS_PUERTA.filter((t) => t.v !== 'MATERIAL' || conMaterial).map((t) => (
                             <Button key={t.v} size="sm" disabled={t.v === 'HITO_PREVIO' && i === 0}
                               onClick={() => {
                                 if (!tienda) return
                                 const ref = t.v === 'HITO_PREVIO' ? etapas[i - 1].clave
                                   : t.v === 'CAMPO_NO_VACIO' ? opcionesCampo[0].v
+                                  : t.v === 'MATERIAL' ? 'material'
                                   : claveUnica('comprobacion', checksUsados)
                                 const nombreRef = t.v === 'HITO_PREVIO' ? etapas[i - 1].nombre : t.v === 'CAMPO_NO_VACIO' ? opcionesCampo[0].l : 'Comprobación'
                                 hacer(() => crearPuerta(tienda.id, {
                                   etapa_destino_id: e.id, tipo: t.v, referencia: ref, dura: true,
                                   etiqueta: t.v === 'CHECK' ? 'Comprobación' : null,
-                                  mensaje: t.v === 'HITO_PREVIO' ? `Antes tiene que pasar por ${nombreRef}` : t.v === 'CAMPO_NO_VACIO' ? `Falta ${nombreRef.toLowerCase()}` : 'Falta marcar la comprobación',
+                                  mensaje: t.v === 'HITO_PREVIO' ? `Antes tiene que pasar por ${nombreRef}` : t.v === 'CAMPO_NO_VACIO' ? `Falta ${nombreRef.toLowerCase()}` : t.v === 'MATERIAL' ? `Falta recibir el ${min(vocab.material)}` : 'Falta marcar la comprobación',
                                 }), 'Condición añadida')
                               }}>+ {t.label.toLowerCase()}</Button>
                           ))}
@@ -260,6 +264,7 @@ function Condicion({ p, previas, campos, onSave, onDelete }: {
             {campos.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}
           </Select>
         )}
+        {p.tipo === 'MATERIAL' && <span className="flex-1 text-sm text-fg-3">Todas sus líneas de material en «Recibido» (y al menos una)</span>}
         {p.tipo === 'CHECK' && (
           <Input className="h-7" value={etiqueta} placeholder="Qué hay que marcar (se verá como casilla)"
             onChange={(e) => setEtiqueta(e.target.value)}
