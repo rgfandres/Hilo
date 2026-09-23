@@ -128,7 +128,7 @@ export function avisoStock(m: MaterialEstado | undefined, extra = 0): { nivel: '
   const demanda = Number(m.demanda) + extra
   const queda = Number(m.stock) + Number(m.en_camino) - demanda
   if (queda < 0) return { nivel: 'falta', texto: `faltarían ${Math.abs(queda).toLocaleString('es-ES', { maximumFractionDigits: 2 })}` }
-  if (queda < Number(m.umbral_efectivo)) return { nivel: 'limite', texto: `quedarían ${queda.toLocaleString('es-ES', { maximumFractionDigits: 2 })}, por debajo del umbral (${m.umbral_efectivo})` }
+  if (queda < Number(m.umbral_efectivo)) return { nivel: 'limite', texto: `quedarían ${queda.toLocaleString('es-ES', { maximumFractionDigits: 2 })}, por debajo del umbral de ${Number(m.umbral_efectivo).toLocaleString('es-ES')}` }
   return { nivel: null, texto: '' }
 }
 

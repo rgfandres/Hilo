@@ -28,7 +28,7 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
   const { tienda, vocab } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const activos = materiales.filter((m) => m.activo || m.id === valor.material_id)
-  const tipos = [...new Set(activos.map((m) => m.tipo))].sort((a, b) => a.localeCompare(b, 'es'))
+  const tipos = [...new Set([...activos.map((m) => m.tipo), ...(valor.tipo ? [valor.tipo] : [])])].sort((a, b) => a.localeCompare(b, 'es'))
   const variantes = activos.filter((m) => m.tipo === valor.tipo)
   const elegido = materiales.find((m) => m.id === valor.material_id)
   const aviso = avisoStock(elegido, Number(valor.cantidad || 0))
@@ -53,7 +53,7 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
       <FormRow label={`Cantidad (${aj.unidad})`}><NumeroInput value={valor.cantidad} onChange={(c) => onCambio({ ...valor, cantidad: c })} /></FormRow>
       {elegido && aviso.nivel && (
         <p className={`my-1 rounded-sm px-2.5 py-1.5 text-sm ${aviso.nivel === 'falta' ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg'}`}>
-          {aviso.nivel === 'falta' ? `No hay ${min(vocab.material)} suficiente` : `${vocab.material} al límite`}: con lo pedido por {elegido.encargos_pendientes + 1} {min(vocab.encargos)}, {aviso.texto} {aj.unidad}.
+          {aviso.nivel === 'falta' ? `No hay ${min(vocab.material)} suficiente` : `${vocab.material} al límite`}: con lo pedido por {elegido.encargos_pendientes + 1} {elegido.encargos_pendientes === 0 ? min(vocab.encargo) : min(vocab.encargos)}, {aviso.texto} {aj.unidad}.
           {' '}Hay {cant(elegido.stock, aj.unidad)}{Number(elegido.en_camino) > 0 ? ` y ${cant(elegido.en_camino, aj.unidad)} en camino` : ''}.
         </p>
       )}
