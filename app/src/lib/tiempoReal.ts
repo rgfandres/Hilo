@@ -29,6 +29,7 @@ export function useTiempoReal(tiendaId: string | undefined, recargar: () => Prom
       .on('postgres_changes', { event: '*', schema: 'public', table: 'encargo', filter: `tienda_id=eq.${tiendaId}` }, leer)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hito' }, leer)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario' }, leer)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'nota_campo', filter: `tienda_id=eq.${tiendaId}` }, leer)
       .subscribe()
     const vis = () => { if (!document.hidden && pendiente.current) { pendiente.current = false; leer() } }
     document.addEventListener('visibilitychange', vis)

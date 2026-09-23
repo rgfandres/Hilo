@@ -4,7 +4,7 @@ import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
   anularEncargo, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
-  editarNotaHito, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
+  editarNotaHito, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
   type Anulacion,
 } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
@@ -13,6 +13,7 @@ import { PageHeader } from '@/layout/AppShell'
 import { motivosRevision } from '@/lib/bandejas'
 import { Adjuntos } from '@/components/Adjuntos'
 import { CamposVista } from '@/components/CampoInput'
+import { NotaCampo } from '@/components/NotaCampo'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { FichaImprimible } from '@/components/FichaImprimible'
@@ -70,6 +71,7 @@ export function Encargo() {
   const [sugerencia, setSugerencia] = React.useState<PlantillaMensaje | null>(null)
   const [ficha, setFicha] = React.useState<{ html: string; texto: string } | null>(null)
   const [autores, setAutores] = React.useState<Record<string, string>>({})
+  const [notas, setNotas] = React.useState<Record<string, TNota>>({})
 
   const cargar = React.useCallback(async () => {
     if (!id) return
@@ -94,6 +96,7 @@ export function Encargo() {
     setEtapas(et.filter((x) => x.tipo_encargo_id === enc.tipo_encargo_id))
     setAnul(an[enc.id] ?? null)
     setHitos(h); setComs(c); setCli((cl.data as Cliente) ?? null)
+    listarNotasCampo(id).then(setNotas).catch(() => {})
     // Nombres de quien escribe (si se puede leer el equipo)
     listarEquipo(enc.tienda_id).then((eq) => setAutores(Object.fromEntries(eq.map((m) => [m.user_id, m.email.split('@')[0]])))).catch(() => {})
     setChecks(Object.fromEntries(((ck.data ?? []) as { clave: string; marcado: boolean }[]).map((x) => [x.clave, x.marcado])))
@@ -283,7 +286,10 @@ export function Encargo() {
 
           <div className="flex flex-col">
             <Field label={vocab.producto}>{e.producto_nombre ?? '—'}</Field>
-            <CamposVista campos={camposEnc} datos={datos} />
+            <CamposVista campos={camposEnc} datos={datos} extra={(c) => (
+              <NotaCampo etiqueta={c.etiqueta} nota={notas[c.clave]} autor={notas[c.clave]?.usuario_id ? autores[notas[c.clave].usuario_id!] : undefined}
+                editable={!anulado} onGuardar={async (t) => { await ponerNotaCampo(e.id, c.clave, t); setNotas(await listarNotasCampo(e.id)) }} />
+            )} />
             <Field label={vocab.proveedor}>{e.proveedor_id ? <Link to={`/proveedores/${e.proveedor_id}`} className="hover:underline">{e.proveedor_nombre}</Link> : '—'}</Field>
             <Field label="Creado">{fechaCorta(e.creado_en)}</Field>
           </div>

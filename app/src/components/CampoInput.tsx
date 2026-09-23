@@ -140,13 +140,20 @@ export function leerPegado(texto: string, campos: Campo[]): { c: Campo; v: strin
 }
 
 /** Campos en modo lectura: destacados arriba en grande, secundarios plegados. `soloRellenos` oculta los vacíos. */
-export function CamposVista({ campos, datos, soloRellenos }: { campos: Campo[]; datos: Record<string, unknown> | null | undefined; soloRellenos?: boolean }) {
+export function CamposVista({ campos, datos, soloRellenos, extra }: {
+  campos: Campo[]; datos: Record<string, unknown> | null | undefined; soloRellenos?: boolean
+  /** Algo junto al valor de cada campo (p. ej. la nota 💬) */
+  extra?: (c: Campo) => React.ReactNode
+}) {
   const vis = campos.filter((c) => !soloRellenos || (datos?.[c.clave] != null && datos?.[c.clave] !== ''))
   const dest = vis.filter((c) => c.destacado)
   const normales = vis.filter((c) => !c.destacado && !c.secundario)
   const sec = vis.filter((c) => c.secundario && !c.destacado)
   const fila = (c: Campo, grande?: boolean) => (
-    <Field key={c.clave} label={c.etiqueta}>{grande ? <span className="text-md font-semibold">{formatearValor(c, datos?.[c.clave])}</span> : formatearValor(c, datos?.[c.clave])}</Field>
+    <Field key={c.clave} label={c.etiqueta} className="group/campo">
+      {grande ? <span className="text-md font-semibold">{formatearValor(c, datos?.[c.clave])}</span> : formatearValor(c, datos?.[c.clave])}
+      {extra && <span className="ml-1">{extra(c)}</span>}
+    </Field>
   )
   return (
     <>

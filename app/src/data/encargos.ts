@@ -180,3 +180,18 @@ export async function editarNotaHito(hitoId: string, nota: string) {
   const { error } = await supabase.rpc('editar_nota_hito', { p_hito: hitoId, p_nota: nota })
   if (error) throw error
 }
+
+/** Nota corta pegada a un campo del encargo (💬). */
+export interface NotaCampo { encargo_id: string; campo: string; texto: string; usuario_id: string | null; actualizado_en: string }
+
+export async function listarNotasCampo(encargoId: string): Promise<Record<string, NotaCampo>> {
+  const { data, error } = await supabase.from('nota_campo').select('*').eq('encargo_id', encargoId)
+  if (error) throw error
+  return Object.fromEntries(((data ?? []) as NotaCampo[]).map((n) => [n.campo, n]))
+}
+
+/** Texto vacío = borrar la nota. */
+export async function ponerNotaCampo(encargoId: string, campo: string, texto: string) {
+  const { error } = await supabase.rpc('poner_nota_campo', { p_encargo: encargoId, p_campo: campo, p_texto: texto })
+  if (error) throw error
+}
