@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hilo · Tus encargos, de punta a punta</title>
+<meta name="description" content="Hilo organiza los encargos de tu tienda y de tus proveedores: cada encargo, de la petición a la entrega, y cada persona sabe qué le toca hoy.">
+<meta property="og:title" content="Hilo · Tus encargos, de punta a punta">
+<meta property="og:description" content="Gestión de encargos para tiendas que trabajan con proveedores externos.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<div class="env ancho">
+  <header>
+    <a class="logo" href="/"><i></i>Hilo</a>
+    <nav>
+      <a class="solo-ancho" href="#como">Cómo funciona</a>
+      <a class="solo-ancho" href="https://github.com/rgfandres/Hilo">Código abierto</a>
+      <a href="https://app.conhilo.com">Entrar</a>
+      <a class="boton" href="https://app.conhilo.com">Probar Hilo</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Tus encargos,<br>de punta a punta.</h1>
+    <p>Hilo organiza el trabajo de las tiendas que fabrican o transforman por encargo con proveedores externos. Cada encargo, de la petición a la entrega. Cada persona, con lo que le toca hoy.</p>
+    <div class="acciones">
+      <a class="boton" href="https://app.conhilo.com">Probar Hilo</a>
+      <a class="boton sec" href="mailto:hola@conhilo.com?subject=Quiero%20ver%20Hilo">Pedir una demostración</a>
+    </div>
+    <small>Sin tarjeta. Tu tienda lista en unos minutos.</small>
+  </section>
+
+  <div class="mock" aria-hidden="true">
+    <div class="barra"><i></i><i></i><i></i></div>
+    <div class="app">
+      <aside>
+        <b><i></i>Joyería Demo</b>
+        <span>Para hoy</span>
+        <span class="on">Encargos <em>24</em></span>
+        <span>Clientes</span>
+        <span>Piezas</span>
+        <span>Proveedores</span>
+        <span>Informes</span>
+      </aside>
+      <main>
+        <div class="pestanas"><span class="on">Todos 24</span><span>Mi trabajo 5</span><span class="rojo">Revisar 2</span><span>Bloqueados 1</span><span>Listos para entregar 3</span></div>
+        <div class="fila cab"><span>Nº</span><span>Cliente</span><span>Pieza</span><span>Etapa</span><span>Proveedor</span></div>
+        <div class="fila"><span class="n">041</span><strong>Lucía Herrera</strong><span>Alianza</span><span><span class="tag t-am">Esperando material</span></span><span>—</span></div>
+        <div class="fila"><span class="n">040</span><strong>Carmen Ortega</strong><span>Solitario</span><span><span class="tag t-mo">En proveedor</span></span><span>Engastes Ruiz</span></div>
+        <div class="fila"><span class="n">039</span><strong>Pablo Méndez</strong><span>Sello</span><span><span class="tag t-ro">Incidencia</span></span><span>Grabados Sur</span></div>
+        <div class="fila"><span class="n">038</span><strong>Elena Castro</strong><span>Colgante</span><span><span class="tag t-az">Diseño aprobado</span></span><span>—</span></div>
+        <div class="fila"><span class="n">037</span><strong>Marta Ruiz</strong><span>Pendientes</span><span><span class="tag t-ve">Listo para entregar</span></span><span>Engastes Ruiz</span></div>
+        <div class="fila"><span class="n">036</span><strong>Inés Carmona</strong><span>Anillo</span><span><span class="tag t-mo">En proveedor</span></span><span>Fundición Norte</span></div>
+      </main>
+    </div>
+  </div>
+
+  <div class="sectores">
+    Pensado para cualquier tienda que trabaja por encargo
+    <ul><li>Joyerías</li><li>Sastrerías</li><li>Tapicerías</li><li>Carpinterías</li><li>Imprentas</li><li>Ópticas</li><li>Talleres de arreglos</li></ul>
+  </div>
+
+  <section class="bloque">
+    <div class="texto">
+      <span class="eti">Seguimiento</span>
+      <h2>Sabe en qué punto está cada encargo, sin preguntar.</h2>
+      <p>Cada encargo avanza por las etapas que tú defines. Hilo no deja saltarse pasos: si falta el anticipo, la medida o la foto, lo dice y te deja arreglarlo ahí mismo.</p>
+      <ul><li>Etapas, campos y condiciones a tu medida</li><li>Incidencias y marcas para revisar</li><li>Historial con quién hizo qué y cuándo</li></ul>
+    </div>
+    <div class="panel">
+      <div class="tarjeta">
+        <div class="arriba"><span class="n">039</span><strong>Pablo Méndez</strong><span class="tag t-ro">Incidencia</span></div>
+        <div class="sub">Siguiente paso: <b>Recibido del proveedor</b></div>
+        <div class="sub" style="color:#a4281b">Antes hay que resolver la incidencia: grabado con una letra cambiada.</div>
+        <span class="btn-m">Resolver incidencia</span>
+      </div>
+      <div class="tarjeta">
+        <div class="arriba"><span class="n">041</span><strong>Lucía Herrera</strong><span class="tag t-am">Esperando material</span></div>
+        <div class="sub">Falta cobrar el anticipo</div>
+        <span class="btn-m fuerte">Marcar cobrado</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque inv">
+    <div class="texto">
+      <span class="eti">Equipo</span>
+      <h2>Cada persona ve lo que le toca hacer hoy.</h2>
+      <p>Mostrador, taller y reparto trabajan sobre lo mismo, cada uno desde su bandeja. En el móvil, un toque para marcar lo hecho y la pantalla de los demás se actualiza sola.</p>
+      <ul><li>Bandejas por rol: mi trabajo, revisar, bloqueados</li><li>Se instala en el móvil como una app</li><li>Permisos por rol y verificación en dos pasos</li></ul>
+    </div>
+    <div class="panel">
+      <div class="movil">
+        <h4>Mi trabajo <span style="color:var(--fg3);font-weight:400">3</span></h4>
+        <div class="tarjeta"><div class="arriba"><span class="n">036</span><strong>Inés Carmona</strong></div><div class="sub">Anillo · oro · talla 12</div><span class="btn-m fuerte">Llevado al proveedor</span></div>
+        <div class="tarjeta"><div class="arriba"><span class="n">040</span><strong>Carmen Ortega</strong></div><div class="sub">Solitario · oro rosa</div><span class="btn-m">Recogido del proveedor</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque">
+    <div class="texto">
+      <span class="eti">Proveedores y clientes</span>
+      <h2>Tus proveedores dentro. Tus clientes, al tanto.</h2>
+      <p>Invita a tus proveedores: ven solo sus encargos, sin datos personales de tus clientes, y marcan su parte. Cuando el encargo está listo, avisa al cliente con un mensaje ya escrito.</p>
+      <ul><li>Portal de proveedor de solo lectura</li><li>Plantillas de WhatsApp y correo por etapa</li><li>Ficha imprimible y adjuntos</li></ul>
+    </div>
+    <div class="panel">
+      <div class="aviso"><span class="ic">✓</span><div><b>Engastes Ruiz</b> marcó «Terminado» en el encargo 040<br><span style="color:var(--fg3);font-size:13px">hace 2 minutos</span></div></div>
+      <div class="aviso"><span class="ic" style="background:#e3ecfb;color:#1f4a9a">✉</span><div>«Hola Carmen, ¡tu solitario ya está listo! Puedes pasar a recogerlo cuando quieras.»<br><span style="color:var(--fg3);font-size:13px">Plantilla · Avisar: ya está listo</span></div></div>
+    </div>
+  </section>
+
+  <h2 id="como" class="centro">Empieza en tres pasos</h2>
+  <div class="pasos">
+    <div><b>1</b><h3>Crea tu tienda</h3><p>Elige una plantilla de tu sector o empieza en blanco.</p></div>
+    <div><b>2</b><h3>Ajusta tu forma de trabajar</h3><p>Nombres, etapas, campos y mensajes, todo desde Ajustes.</p></div>
+    <div><b>3</b><h3>Invita a tu equipo</h3><p>Con un enlace, cada persona con su rol. Y a tus proveedores.</p></div>
+  </div>
+
+  <section class="cta">
+    <h2>Deja de perseguir encargos.</h2>
+    <p>Prueba Hilo con tu tienda. El código es abierto (AGPL v3): puedes usar nuestra instalación o montar la tuya.</p>
+    <div class="acciones" style="justify-content:center">
+      <a class="boton" href="https://app.conhilo.com">Probar Hilo</a>
+      <a class="boton sec" href="https://github.com/rgfandres/Hilo">Ver el código</a>
+    </div>
+  </section>
+
+  <footer class="pie">
+    <div><a class="logo" href="/" style="color:var(--fg);margin-bottom:10px"><i></i>Hilo</a>Tus encargos, de punta a punta.<br>© 2026 Hilo</div>
+    <div><h5>Producto</h5><a href="https://app.conhilo.com">Entrar</a><a href="#como">Cómo funciona</a><a href="https://github.com/rgfandres/Hilo">Código abierto</a></div>
+    <div><h5>Contacto</h5><a href="mailto:hola@conhilo.com">hola@conhilo.com</a></div>
+    <div><h5>Legal</h5><a href="/privacidad">Privacidad</a><a href="/condiciones">Condiciones de uso</a></div>
+  </footer>
+</div>
+</body>
+</html>
