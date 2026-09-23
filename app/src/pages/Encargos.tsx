@@ -400,7 +400,7 @@ export function Encargos() {
         </div>
       )}
       {sel && vista === 'lista' && (
-        <AccionLote seleccion={base.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargos={vocab.encargos}
+        <AccionLote seleccion={base.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
           onTodos={() => setSel(new Set(visibles.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
       )}
     </>

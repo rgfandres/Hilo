@@ -20,7 +20,8 @@ export function AvisosProvider({ children }: { children: React.ReactNode }) {
   const avisar = React.useCallback((a: Nuevo) => {
     const id = Date.now() + Math.random()
     setLista((l) => [...l.slice(-3), { ...a, id }])
-    if (!a.persistente) setTimeout(() => cerrar(id), DURACION[a.tipo])
+    // Con una acción (p. ej. Deshacer) se deja más tiempo para pulsarla
+    if (!a.persistente) setTimeout(() => cerrar(id), a.accion ? Math.max(DURACION[a.tipo], 8000) : DURACION[a.tipo])
   }, [cerrar])
   return (
     <Ctx.Provider value={avisar}>

@@ -20,8 +20,8 @@ const TEXTO_MOTIVO: Record<Motivo, string> = {
  * Antes de hacerlo explica qué pasará con cada uno (quién pasa, quién se queda y por qué,
  * a quién se le salta algún paso). Se hace de uno en uno, y todo se puede deshacer junto.
  */
-export function AccionLote({ seleccion, etapas, rol, vocabEncargos, onTodos, onSalir, onHecho }: {
-  seleccion: EncargoEstado[]; etapas: Etapa[]; rol: Rol | null; vocabEncargos: string
+export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos, onTodos, onSalir, onHecho }: {
+  seleccion: EncargoEstado[]; etapas: Etapa[]; rol: Rol | null; vocabEncargo: string; vocabEncargos: string
   onTodos: () => void; onSalir: () => void; onHecho: () => Promise<void> | void
 }) {
   const avisar = useAvisos()
@@ -123,7 +123,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargos, onTodos, onS
 
       <Dialog open={abierto} onOpenChange={(o) => { if (!progreso) setAbierto(o) }}
         title={et ? `Pasar a «${et.nombre}»` : 'Pasar'}
-        description={vanA.length ? `Pasarán ${vanA.length} ${min(vocabEncargos)}. Se hace de uno en uno y luego se puede deshacer todo junto.` : 'Ninguno de los seleccionados puede pasar a esa etapa.'}
+        description={vanA.length ? `${vanA.length === 1 ? 'Pasará 1' : `Pasarán ${vanA.length}`} ${vanA.length === 1 ? min(vocabEncargo) : min(vocabEncargos)}. Se hace de uno en uno y luego se puede deshacer todo junto.` : 'Ninguno de los seleccionados puede pasar a esa etapa.'}
         actions={[{ label: progreso ? `Pasando ${progreso}` : `Pasar ${vanA.length}`, disabled: !vanA.length, onClick: ejecutar }]}>
         <div className="flex max-h-[45vh] flex-col gap-2 overflow-auto text-sm">
           {vanA.length > 0 && <p className="m-0"><b>Pasan:</b> {lista(vanA.map((x) => x.e))}</p>}
