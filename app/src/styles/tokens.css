@@ -1,0 +1,162 @@
+/* =====================================================================
+   HILO · design system · tokens
+   Base: escala de grises y proporciones de Twenty (twenty-ui/theme),
+   adaptadas. Un solo acento por tienda (--accent), inyectado en runtime.
+   ===================================================================== */
+@import "tailwindcss";
+
+@theme {
+  /* Grises (Twenty gray1..gray12) */
+  --color-gray-1: #ffffff;
+  --color-gray-2: #fcfcfc;
+  --color-gray-3: #f9f9f9;
+  --color-gray-4: #f1f1f1;
+  --color-gray-5: #ebebeb;
+  --color-gray-6: #d6d6d6;
+  --color-gray-7: #cccccc;
+  --color-gray-8: #b3b3b3;
+  --color-gray-9: #999999;
+  --color-gray-10: #838383;
+  --color-gray-11: #666666;
+  --color-gray-12: #333333;
+
+  /* Semántica */
+  --color-bg: var(--color-gray-1);
+  --color-bg-2: var(--color-gray-2);
+  --color-bg-3: var(--color-gray-3);
+  --color-bg-4: var(--color-gray-4);
+  --color-border: var(--color-gray-5);
+  --color-border-light: var(--color-gray-4);
+  --color-border-strong: var(--color-gray-6);
+  --color-fg: var(--color-gray-12);
+  --color-fg-2: var(--color-gray-11);
+  --color-fg-3: var(--color-gray-9);
+  --color-fg-4: var(--color-gray-8);
+  --color-inverted: var(--color-gray-12);
+  --color-inverted-fg: #ffffff;
+
+  /* Estado (solo para significado, nunca decorativo) */
+  --color-danger: #c63a2f;
+  --color-danger-bg: #fce9e7;
+  --color-danger-fg: #a32e24;
+  --color-warn-bg: #fbf1dc;
+  --color-warn-fg: #8a5a00;
+  --color-ok-bg: #e6f4ea;
+  --color-ok-fg: #1e6b3c;
+
+  /* Etiquetas de etapa (pastel, estilo tags de Twenty) */
+  --color-tag-gray-bg: #f1f1f1;   --color-tag-gray-fg: #666666;
+  --color-tag-amber-bg: #fbf1dc;  --color-tag-amber-fg: #8a5a00;
+  --color-tag-blue-bg: #e7eefb;   --color-tag-blue-fg: #2b4c9b;
+  --color-tag-purple-bg: #eee9f8; --color-tag-purple-fg: #5a3e96;
+  --color-tag-green-bg: #e6f4ea;  --color-tag-green-fg: #1e6b3c;
+  --color-tag-red-bg: #fce9e7;    --color-tag-red-fg: #a32e24;
+  --color-tag-pink-bg: #fbe7ef;   --color-tag-pink-fg: #9c1049;
+
+  /* Tipografía: base 13 px, tres pesos */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-xxs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  /* Radios: 4 (controles) y 8 (paneles) */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Sombras: casi ninguna */
+  --shadow-light: 0 2px 4px rgba(0,0,0,.04), 0 0 4px rgba(0,0,0,.08);
+  --shadow-strong: 2px 4px 16px rgba(0,0,0,.16), 0 2px 4px rgba(0,0,0,.08);
+
+  /* Animación */
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+}
+
+@layer base {
+:root {
+  /* Acento de la tienda; lo sobreescribe la app con tienda.ajustes.color_primario */
+  --accent: #333333;
+  --accent-soft: #f1f1f1;
+  color-scheme: light;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  color: var(--color-fg);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Foco visible, igual en todo */
+:focus-visible { outline: 2px solid var(--color-gray-12); outline-offset: 1px; border-radius: var(--radius-sm); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* =====================================================================
+   Móvil (≤ 767 px). Fuera de @layer para imponerse a las utilidades.
+   ===================================================================== */
+@media (max-width: 767px) {
+  /* iOS no hace zoom al enfocar si el texto mide 16 px o más */
+  input, select, textarea { font-size: 16px; }
+  input[type="date"], input[type="datetime-local"] { -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; }
+
+  /* Tablas → tarjetas */
+  table.tabla-tarjetas, table.tabla-tarjetas tbody { display: block; width: 100%; }
+  table.tabla-tarjetas thead { display: none; }
+  table.tabla-tarjetas tr { display: block; padding: 8px 16px; border-bottom: 1px solid var(--color-border); }
+  table.tabla-tarjetas td {
+    display: flex; align-items: center; gap: 8px; min-height: 26px; height: auto; padding: 2px 0;
+    border: 0 !important; white-space: normal; position: static !important; max-width: none !important;
+    box-shadow: none !important; background: transparent !important;
+  }
+  table.tabla-tarjetas td[data-label]:not([data-label=""])::before {
+    content: attr(data-label); width: 110px; flex-shrink: 0; color: var(--color-fg-3); font-size: var(--text-sm); font-weight: 400;
+  }
+  /* Celdas titulares (Nº y nombre) en una línea, sin etiqueta */
+  table.tabla-tarjetas td.titular { display: inline-flex; margin-right: 8px; font-size: var(--text-md); }
+  table.tabla-tarjetas td.titular::before { display: none !important; }
+  /* Filas de grupo y mensajes */
+  table.tabla-tarjetas td[colspan] { display: block; padding: 6px 0; }
+  table.tabla-tarjetas tr:has(> td[colspan]) { background: var(--color-bg-2); padding: 4px 16px; }
+  /* Acción a ancho completo; celda vacía oculta */
+  table.tabla-tarjetas td.accion { padding-top: 6px; }
+  table.tabla-tarjetas td.accion::before { display: none !important; }
+  table.tabla-tarjetas td.accion > * { flex: 1; }
+  table.tabla-tarjetas td.accion:empty { display: none; }
+  table.tabla-tarjetas td[data-vacia] { display: none; }
+  /* Resaltes: borde izquierdo de 4 px */
+  table.tabla-tarjetas tr:has(> td.marca-lista) { box-shadow: inset 4px 0 0 var(--accent); }
+  table.tabla-tarjetas tr:has(> td.marca-atasco) { box-shadow: inset 4px 0 0 var(--color-danger); }
+}
+
+/* =====================================================================
+   Impresión (informes, fichas): A4, sin menús ni botones, colores exactos
+   ===================================================================== */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body, #root { height: auto !important; }
+  nav, header, .fixed, .no-imprimir, [role="status"] { display: none !important; }
+  main { padding: 0 !important; }
+  .overflow-auto, .overflow-y-auto, .min-h-0 { overflow: visible !important; min-height: auto !important; }
+  .informe { padding: 0 !important; max-width: none !important; }
+  section, tr { break-inside: avoid; }
+}

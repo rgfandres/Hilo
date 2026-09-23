@@ -1,0 +1,212 @@
+import * as React from 'react'
+import { Link } from 'react-router-dom'
+import { IconAdjustments } from '@tabler/icons-react'
+import { useAuth } from '@/auth/AuthProvider'
+import { listarEncargos, listarEtapas, mensajeError } from '@/data/encargos'
+import type { EncargoEstado, Etapa } from '@/lib/types'
+import { PageHeader } from '@/layout/AppShell'
+import { Button, OpcionCheck, Popover, Tag, SectionLabel, tagColorFromHex } from '@/ui'
+import { cn, num3, locale } from '@/lib/utils'
+import { min } from '@/lib/vocab'
+import { filtrosAUrl } from '@/data/lista'
+import { useTiempoReal } from '@/lib/tiempoReal'
+import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, miTrabajo, motivosRevision } from '@/lib/bandejas'
+
+type Bloque = 'indicadores' | 'mio' | 'atencion' | 'listos' | 'etapas' | 'proveedores'
+const LS = 'hilo.para_hoy'
+
+function Fila({ e, motivo }: { e: EncargoEstado; motivo: React.ReactNode }) {
+  return (
+    <Link to={`/encargos/${e.id}`} className="flex h-9 items-center gap-3 border-b border-border-light px-2 hover:bg-bg-2">
+      <span className="w-9 shrink-0 text-fg-3 tabular">{num3(e)}</span>
+      <span className="w-[160px] shrink-0 truncate font-medium max-md:w-auto max-md:max-w-[45%]">{e.cliente_nombre}</span>
+      <span className="w-[140px] shrink-0 truncate text-fg-2 max-md:hidden">{e.producto_nombre ?? '—'}</span>
+      <span className="min-w-0 flex-1 truncate text-fg-3">{motivo}</span>
+    </Link>
+  )
+}
+
+/** Enlace a la lista con la bandeja o el filtro ya puestos, y el aviso «Desde el panel». */
+const aLista = (p: { b?: string; f?: Record<string, string[]>; desde: string }) => {
+  const u = new URLSearchParams()
+  if (p.b) u.set('b', p.b)
+  if (p.f) u.set('f', filtrosAUrl(p.f))
+  u.set('desde', p.desde)
+  return `/encargos?${u}`
+}
+
+export function ParaHoy() {
+  const { tienda, vocab, periodo, rol, gr } = useAuth()
+  const [rows, setRows] = React.useState<EncargoEstado[]>([])
+  const [etapas, setEtapas] = React.useState<Etapa[]>([])
+  const [err, setErr] = React.useState<string | null>(null)
+  const [ocultos, setOcultos] = React.useState<Bloque[]>([])
+  const [pers, setPers] = React.useState(false)
+  const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
+
+  const leer = React.useCallback(async () => {
+    if (!tienda) return
+    const [r, e] = await Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }), listarEtapas(tienda.id)])
+    setRows(r); setEtapas(e)
+  }, [tienda, periodo])
+  React.useEffect(() => {
+    if (!tienda) return
+    try { setOcultos(JSON.parse(localStorage.getItem(`${LS}.${tienda.id}`) ?? '[]')) } catch { setOcultos([]) }
+    leer().catch((e) => setErr(mensajeError(e)))
+  }, [tienda, leer])
+  useTiempoReal(tienda?.id, () => leer().catch(() => {}))
+
+  function toggle(b: Bloque) {
+    const n = ocultos.includes(b) ? ocultos.filter((x) => x !== b) : [...ocultos, b]
+    setOcultos(n)
+    try { if (tienda) localStorage.setItem(`${LS}.${tienda.id}`, JSON.stringify(n)) } catch { /* solo en esta sesión */ }
+  }
+  const ver = (b: Bloque) => !ocultos.includes(b)
+
+  const enCurso = rows.filter(activo)
+  const mios = rows.filter((r) => miTrabajo(r, rol))
+  const revisar = rows.filter(enRevisar)
+  const listos = rows.filter(listoParaEntregar)
+  const fuera = rows.filter(enProveedor)
+  const bloq = enCurso.filter(bloqueado)
+  const hoy = new Date().toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })
+  const prov = min(vocab.proveedor)
+
+  const indicadores = [
+    { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar, en el periodo activo' },
+    { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
+    { k: 'listos', label: 'Listos para entregar', n: listos.length, to: aLista({ b: 'listos', desde: 'Listos para entregar' }), title: 'Solo falta el último paso', tono: 'ok' },
+    { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: 'Incidencias, marcados a mano, estancados y atascados', tono: 'danger' },
+    { k: 'fuera', label: `En ${prov}`, n: fuera.length, to: aLista({ b: 'proveedor', desde: `En ${prov}` }), title: `En una etapa que ve ${gr.con('proveedor', 'el')}` },
+    { k: 'bloq', label: 'Bloqueados', n: bloq.length, to: aLista({ b: 'bloqueados', desde: 'Bloqueados' }), title: 'El siguiente paso tiene una condición que bloquea', tono: 'warn' },
+  ]
+
+  // Resumen por etapa (en orden del flujo) y por proveedor («Sin …» al final)
+  const porEtapa = React.useMemo(() => {
+    const orden = new Map<string, Etapa>()
+    for (const e of etapas) if (!orden.has(e.nombre)) orden.set(e.nombre, e)
+    const n = new Map<string, number>()
+    for (const r of enCurso) { const k = r.etapa_actual_nombre ?? ''; n.set(k, (n.get(k) ?? 0) + 1) }
+    const pos = new Map([...orden.keys()].map((k, i) => [k, i]))
+    return [...n.entries()].sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : (pos.get(a) ?? 0) - (pos.get(b) ?? 0)))
+      .map(([k, c]) => ({ nombre: k, n: c, color: orden.get(k)?.color ?? null }))
+  }, [enCurso, etapas])
+  const porProveedor = React.useMemo(() => {
+    const n = new Map<string, { n: number; atascados: number }>()
+    for (const r of enCurso) {
+      const k = r.proveedor_nombre ?? ''
+      const v = n.get(k) ?? { n: 0, atascados: 0 }
+      v.n++; if (r.atascado) v.atascados++
+      n.set(k, v)
+    }
+    return [...n.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'es')))
+  }, [enCurso])
+
+  const BLOQUES: { k: Bloque; label: string }[] = [
+    { k: 'indicadores', label: 'Indicadores' }, { k: 'mio', label: 'Mi trabajo' }, { k: 'atencion', label: 'Necesitan atención' },
+    { k: 'listos', label: 'Listos para entregar' }, { k: 'etapas', label: 'Por etapa' }, { k: 'proveedores', label: `Por ${prov}` },
+  ]
+
+  return (
+    <>
+      <PageHeader title="Para hoy" subtitle={hoy}>
+        <Popover open={pers} onOpenChange={setPers} align="end" className="w-[240px]"
+          trigger={({ toggle: t }) => <Button variant="ghost" onClick={t}><IconAdjustments size={14} />Personalizar</Button>}>
+          <div className="px-2 py-1 text-xs text-fg-3">Bloques que ves (en este dispositivo)</div>
+          {BLOQUES.map((b) => <OpcionCheck key={b.k} checked={ver(b.k)} onChange={() => toggle(b.k)}>{b.label}</OpcionCheck>)}
+        </Popover>
+        {rol !== 'LOGISTICA' && <Button variant="primary" size="md" asChild><Link to="/encargos/nuevo">+ {vocab.encargo}</Link></Button>}
+      </PageHeader>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <div className="flex max-w-[980px] flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
+          {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
+          <p className="m-0 leading-relaxed text-fg-2">
+            Tienes <Link to="/encargos" className="font-medium text-fg underline decoration-border-strong">{enCurso.length} {min(enCurso.length === 1 ? vocab.encargo : vocab.encargos)} en curso</Link>.
+            {mios.length + revisar.length > 0
+              ? ` ${mios.length ? `${mios.length} ${mios.length === 1 ? 'espera' : 'esperan'} un paso tuyo` : ''}${mios.length && revisar.length ? ' y ' : ''}${revisar.length ? `${revisar.length} ${revisar.length === 1 ? 'necesita' : 'necesitan'} revisión` : ''}.`
+              : ' Ninguno necesita nada de ti ahora mismo.'}
+          </p>
+
+          {ver('indicadores') && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {indicadores.map((i) => (
+                <Link key={i.k} to={i.to} title={i.title}
+                  className="flex flex-col gap-0.5 rounded-md border border-border bg-bg p-3 hover:border-border-strong">
+                  <span className={cn('text-xl font-semibold tabular',
+                    i.n > 0 && i.tono === 'danger' && 'text-danger-fg', i.n > 0 && i.tono === 'warn' && 'text-warn-fg', i.n > 0 && i.tono === 'ok' && 'text-ok-fg')}>{i.n}</span>
+                  <span className="truncate text-sm text-fg-2">{i.label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {ver('mio') && mios.length > 0 && (
+            <section className="flex flex-col gap-1.5">
+              <SectionLabel className="px-2">Mi trabajo</SectionLabel>
+              <div className="border-t border-border-light">
+                {mios.slice(0, 10).map((e) => <Fila key={e.id} e={e} motivo={<>Siguiente: <span className="text-fg-2">{e.etapa_siguiente_nombre}</span></>} />)}
+              </div>
+              {mios.length > 10 && <Link to={aLista({ b: 'mio', desde: 'Mi trabajo' })} className="px-2 text-sm text-fg-3 hover:text-fg">Ver todo ({mios.length})</Link>}
+            </section>
+          )}
+
+          {ver('atencion') && revisar.length > 0 && (
+            <section className="flex flex-col gap-1.5">
+              <SectionLabel className="px-2">Necesitan atención</SectionLabel>
+              <div className="border-t border-border-light">
+                {revisar.slice(0, 10).map((e) => (
+                  <Fila key={e.id} e={e} motivo={<>{e.en_revision && <Tag color="red" className="mr-1.5">Incidencia</Tag>}{motivosRevision(e, aj).filter((m) => !m.startsWith('Incidencia')).join(' · ')}</>} />
+                ))}
+              </div>
+              {revisar.length > 10 && <Link to={aLista({ b: 'revisar', desde: 'Revisar' })} className="px-2 text-sm text-fg-3 hover:text-fg">Ver todo ({revisar.length})</Link>}
+            </section>
+          )}
+
+          {ver('listos') && listos.length > 0 && (
+            <section className="flex flex-col gap-1.5">
+              <SectionLabel className="px-2">Listos para entregar</SectionLabel>
+              <div className="border-t border-border-light">
+                {listos.slice(0, 10).map((e) => <Fila key={e.id} e={e} motivo={<Tag color="green">{e.etapa_actual_nombre}</Tag>} />)}
+              </div>
+            </section>
+          )}
+
+          {(ver('etapas') || ver('proveedores')) && enCurso.length > 0 && (
+            <div className="grid grid-cols-1 gap-7 md:grid-cols-2">
+              {ver('etapas') && (
+                <section className="flex flex-col gap-1.5">
+                  <SectionLabel className="px-2">Por etapa</SectionLabel>
+                  <div className="border-t border-border-light">
+                    {porEtapa.map((x) => (
+                      <Link key={x.nombre || '_'} to={aLista({ f: { etapa: [x.nombre] }, desde: `Etapa: ${x.nombre || 'Sin empezar'}` })}
+                        className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
+                        <Tag color={tagColorFromHex(x.color)}>{x.nombre || 'Sin empezar'}</Tag>
+                        <span className="flex-1" /><span className="tabular text-fg-2">{x.n}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {ver('proveedores') && (
+                <section className="flex flex-col gap-1.5">
+                  <SectionLabel className="px-2">Por {prov}</SectionLabel>
+                  <div className="border-t border-border-light">
+                    {porProveedor.map(([k, v]) => (
+                      <Link key={k || '_'} to={aLista({ f: { proveedor: [k] }, desde: `${vocab.proveedor}: ${k || `Sin ${prov}`}` })}
+                        className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
+                        <span className={cn('truncate', k ? 'font-medium' : 'text-warn-fg')}>{k || `Sin ${prov}`}</span>
+                        <span className="flex-1" />
+                        {v.atascados > 0 && <span className="rounded-sm bg-danger-bg px-1.5 text-xs text-danger-fg">{v.atascados} atascado{v.atascados === 1 ? '' : 's'}</span>}
+                        <span className="tabular text-fg-2">{v.n}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
