@@ -20,8 +20,14 @@ export function claveUnica(base: string, usadas: string[]): string {
 }
 
 // ---------- Tienda
+/** Un update que no toca ninguna fila (sin permiso, o ya no existe) es un error, no «Guardado» */
+function okFila(r: { data: unknown[] | null; error: unknown }) {
+  if (r.error) throw r.error
+  if (!r.data?.length) throw new Error('permission denied: no se ha guardado nada (puede que ya no tengas permiso o que se haya borrado)')
+}
+
 export async function guardarTienda(id: string, nombre: string, ajustes: Record<string, unknown>) {
-  ok(await supabase.from('tienda').update({ nombre, ajustes }).eq('id', id))
+  okFila(await supabase.from('tienda').update({ nombre, ajustes }).eq('id', id).select('id'))
 }
 
 // ---------- Equipo
@@ -32,24 +38,24 @@ export async function listarEquipo(tiendaId: string) {
   return ok(await supabase.from('v_equipo').select('*').eq('tienda_id', tiendaId).order('creado_en')) as MiembroEquipo[]
 }
 export async function cambiarRol(tiendaId: string, userId: string, rol: Rol) {
-  ok(await supabase.from('miembro').update({ rol }).eq('tienda_id', tiendaId).eq('user_id', userId))
+  okFila(await supabase.from('miembro').update({ rol }).eq('tienda_id', tiendaId).eq('user_id', userId).select('id'))
 }
 export async function activarMiembro(tiendaId: string, userId: string, activo: boolean) {
-  ok(await supabase.from('miembro').update({ activo }).eq('tienda_id', tiendaId).eq('user_id', userId))
+  okFila(await supabase.from('miembro').update({ activo }).eq('tienda_id', tiendaId).eq('user_id', userId).select('id'))
 }
 export async function quitarMiembro(tiendaId: string, userId: string) {
   ok(await supabase.from('miembro').delete().eq('tienda_id', tiendaId).eq('user_id', userId))
 }
 export async function listarInvitaciones(tiendaId: string) {
   return ok(await supabase.from('invitacion').select('*').eq('tienda_id', tiendaId)
-    .is('aceptada_en', null).is('revocada_en', null).order('creado_en', { ascending: false })) as Invitacion[]
+    .is('aceptada_en', null).is('revocada_en', null).gt('caduca_en', new Date().toISOString()).order('creado_en', { ascending: false })) as Invitacion[]
 }
 export async function crearInvitacion(tiendaId: string, rol: Rol, email: string | null) {
   return ok(await supabase.from('invitacion').insert({ tienda_id: tiendaId, rol, email: email?.trim().toLowerCase() || null })
     .select('*').single()) as Invitacion
 }
 export async function revocarInvitacion(id: string) {
-  ok(await supabase.from('invitacion').update({ revocada_en: new Date().toISOString() }).eq('id', id))
+  okFila(await supabase.from('invitacion').update({ revocada_en: new Date().toISOString() }).eq('id', id).select('id'))
 }
 export const enlaceInvitacion = (token: string) => `${window.location.origin}/invitacion/${token}`
 
@@ -64,7 +70,7 @@ export async function crearProveedor(tiendaId: string, nombre: string) {
   ok(await supabase.from('proveedor').insert({ tienda_id: tiendaId, nombre: nombre.trim() }))
 }
 export async function actualizarProveedor(id: string, patch: { nombre?: string; activo?: boolean; notas?: string | null }) {
-  ok(await supabase.from('proveedor').update(patch).eq('id', id))
+  okFila(await supabase.from('proveedor').update(patch).eq('id', id).select('id'))
 }
 export async function anadirCorreoProveedor(proveedorId: string, email: string) {
   ok(await supabase.from('proveedor_usuario').insert({ proveedor_id: proveedorId, email: email.trim().toLowerCase() }))
@@ -89,7 +95,7 @@ export async function marcarFinal(etapaId: string, final: boolean) {
   ok(await supabase.rpc('marcar_final', { p_etapa: etapaId, p_final: final }))
 }
 export async function actualizarTipo(id: string, patch: { nombre?: string; activo?: boolean; serie?: string }) {
-  ok(await supabase.from('tipo_encargo').update(patch).eq('id', id))
+  okFila(await supabase.from('tipo_encargo').update(patch).eq('id', id).select('id'))
 }
 export async function listarEtapasDe(tipoId: string) {
   return ok(await supabase.from('etapa').select('*').eq('tipo_encargo_id', tipoId).order('orden')) as Etapa[]
@@ -102,7 +108,7 @@ export async function crearEtapa(tiendaId: string, tipoId: string, nombre: strin
   }))
 }
 export async function actualizarEtapa(id: string, patch: Partial<Pick<Etapa, 'nombre' | 'color' | 'rol_ejecuta' | 'visible_para_proveedor' | 'marca_proveedor' | 'es_final' | 'es_espera' | 'grupo' | 'es_produccion'>>) {
-  ok(await supabase.from('etapa').update(patch).eq('id', id))
+  okFila(await supabase.from('etapa').update(patch).eq('id', id).select('id'))
 }
 export async function reordenarEtapas(tipoId: string, ids: string[]) {
   ok(await supabase.rpc('reordenar_etapas', { p_tipo: tipoId, p_ids: ids }))
@@ -120,7 +126,7 @@ export async function crearPuerta(tiendaId: string, p: Omit<PuertaDef, 'id'>) {
   ok(await supabase.from('puerta').insert({ tienda_id: tiendaId, ...p }))
 }
 export async function actualizarPuerta(id: string, patch: Partial<Omit<PuertaDef, 'id' | 'etapa_destino_id'>>) {
-  ok(await supabase.from('puerta').update(patch).eq('id', id))
+  okFila(await supabase.from('puerta').update(patch).eq('id', id).select('id'))
 }
 export async function borrarPuerta(id: string) {
   ok(await supabase.from('puerta').delete().eq('id', id))
@@ -133,7 +139,7 @@ export async function guardarCampos(tiendaId: string, entidad: PlantillaCampos['
   q = tipoId ? q.eq('tipo_encargo_id', tipoId) : q.is('tipo_encargo_id', null)
   const existe = ok(await q.maybeSingle()) as { id: string } | null
   const limpios = campos.map((c, i) => ({ ...c, orden: i + 1 }))
-  if (existe) ok(await supabase.from('plantilla_campos').update({ campos: limpios }).eq('id', existe.id))
+  if (existe) okFila(await supabase.from('plantilla_campos').update({ campos: limpios }).eq('id', existe.id).select('id'))
   else ok(await supabase.from('plantilla_campos').insert({ tienda_id: tiendaId, entidad, tipo_encargo_id: tipoId, campos: limpios }))
 }
 
@@ -147,13 +153,13 @@ export async function ponerAjustePeriodo(id: string, clave: string, valor: unkno
   const actual = ok(await supabase.from('periodo').select('ajustes').eq('id', id).single()) as { ajustes: Record<string, unknown> | null }
   const aj = { ...(actual.ajustes ?? {}) }
   if (valor == null) delete aj[clave]; else aj[clave] = valor
-  ok(await supabase.from('periodo').update({ ajustes: aj }).eq('id', id))
+  okFila(await supabase.from('periodo').update({ ajustes: aj }).eq('id', id).select('id'))
 }
 export async function crearPeriodo(tiendaId: string, nombre: string, inicio: string | null, fin: string | null) {
   ok(await supabase.from('periodo').insert({ tienda_id: tiendaId, nombre: nombre.trim(), fecha_inicio: inicio || null, fecha_fin: fin || null }))
 }
 export async function actualizarPeriodo(id: string, patch: { nombre?: string; fecha_inicio?: string | null; fecha_fin?: string | null }) {
-  ok(await supabase.from('periodo').update(patch).eq('id', id))
+  okFila(await supabase.from('periodo').update(patch).eq('id', id).select('id'))
 }
 export async function activarPeriodo(id: string) {
   ok(await supabase.rpc('activar_periodo', { p_periodo: id }))

@@ -10,7 +10,7 @@ import { ajustesHoja } from '@/data/produccion'
 import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
-import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
 
 type Destino = { entidad: PlantillaCampos['entidad']; tipoId: string | null }
 const TIPOS_CAMPO: { v: Campo['tipo']; l: string }[] = [
@@ -92,6 +92,9 @@ export function AjustesCampos() {
   }
   const [avisoTipo, setAvisoTipo] = React.useState<string[] | null>(null)
   const [quitarPuertas, setQuitarPuertas] = React.useState(true)
+  // Condiciones que se borrarán al pulsar Guardar (si se descarta, no se toca nada)
+  const [puertasPorBorrar, setPuertasPorBorrar] = React.useState<string[]>([])
+  React.useEffect(() => { setPuertasPorBorrar([]) }, [dest, original])
   async function guardar(confirmarTipo = false) {
     if (!tienda) return
     const sinOpciones = campos.find((c) => c.tipo === 'opcion' && !(c.opciones ?? []).length)
@@ -105,7 +108,12 @@ export function AjustesCampos() {
     if (cambiados.length && !confirmarTipo) { setAvisoTipo(cambiados.map((c) => `«${c.etiqueta}» se usa en ${usos(c.clave).join(', ')}`)); return }
     setAvisoTipo(null)
     setBusy(true); setErr(null); setOk(null)
-    try { await guardarCampos(tienda.id, dest.entidad, dest.tipoId, campos); await cargar(); setOk('Guardado') }
+    try {
+      await guardarCampos(tienda.id, dest.entidad, dest.tipoId, campos)
+      for (const id of puertasPorBorrar) await borrarPuerta(id)
+      setPuertasPorBorrar([])
+      await cargar(); setOk('Guardado')
+    }
     catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
 
@@ -181,7 +189,7 @@ export function AjustesCampos() {
         </form>
       </div>
 
-      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={() => guardar()} onDescartar={() => { setCampos(JSON.parse(original)); setErr(null) }} />
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={() => guardar()} onDescartar={() => { setCampos(JSON.parse(original)); setPuertasPorBorrar([]); setErr(null) }} />
 
       <Dialog open={quitar !== null} onOpenChange={() => setQuitar(null)} title={`Quitar «${quitar !== null ? campos[quitar]?.etiqueta : ''}»`}
         description="Deja de pedirse y de mostrarse. Los datos ya guardados no se borran: si vuelves a crear un campo con la misma clave, reaparecen."
@@ -189,7 +197,7 @@ export function AjustesCampos() {
           if (quitar === null) return
           const clave = campos[quitar].clave
           // Las condiciones que exigen este campo bloquearían para siempre: se quitan con él (si se elige)
-          if (quitarPuertas) for (const p of puertas.filter((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === clave)) await borrarPuerta(p.id)
+          if (quitarPuertas) setPuertasPorBorrar((xs) => [...xs, ...puertas.filter((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === clave).map((p) => p.id)])
           setCampos((cs) => cs.filter((_, j) => j !== quitar)); setQuitar(null)
           if (quitarPuertas) await cargar().catch(() => {})
         } }]}>

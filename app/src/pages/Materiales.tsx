@@ -24,7 +24,7 @@ const fecha = (s: string) => fechaCorta(s)
 
 /** Materiales: catálogo con stock, pedidos a proveedor, libro de movimientos y restos. */
 export function Materiales() {
-  const { tienda, vocab, rol, gr } = useAuth()
+  const { tienda, vocab, rol } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [sp, setSp] = useSearchParams()
   const vista = (sp.get('v') as Vista) || 'catalogo'
@@ -180,7 +180,7 @@ function DialogoStock({ m, unidad, onClose, onSaved }: { m: MaterialEstado | nul
 function FichaMaterial({ m, mats, provs, soloLectura, onClose, onSaved }: {
   m: MaterialEstado | 'nuevo' | null; mats: MaterialEstado[]; provs: ProveedorFila[]; soloLectura: boolean; onClose: () => void; onSaved: () => Promise<void>
 }) {
-  const { tienda, vocab, gr } = useAuth()
+  const { tienda, gr } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const nuevo = m === 'nuevo'
   const vacio = { tipo: '', variante: '', proveedor_id: '', umbral: '', unidad_pedido: '', ubicacion: '', notas: '', activo: true }

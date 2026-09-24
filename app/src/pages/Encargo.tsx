@@ -58,7 +58,6 @@ export function Encargo() {
   const [e, setE] = React.useState<EncargoEstado | null>(null)
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
   // Ficha técnica y complementos: solo si la tienda los usa; el aviso de «sin ficha», solo a quien puede crearla
-  const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const usaComplementos = fic.usaComplementos
   const usaFichas = fic.construcciones.length > 0 || conMaterial
   const puedeEditarProd = rol === 'ADMIN' || rol === 'OPERATIVO'
@@ -543,7 +542,7 @@ export function Encargo() {
 
       <Dialog open={modal === 'anular'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Anular ${min(vocab.encargo)} ${num3(e)}`}
-        description={`No se borra: queda en «Anulados» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
+        description={`No se borra: queda en «Anulad${gr.o('encargo', true)}» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
         actions={[{ label: impacto || impactoErr ? 'Anular' : 'Comprobando…', variant: 'danger', disabled: !impacto && !impactoErr, onClick: () => hacer(async () => {
           // Material y anulación en una sola operación del servidor (o todo o nada)
           await anularEncargo(e.id, nota, recibidoMat.length ? devolverMat : null)

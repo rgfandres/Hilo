@@ -96,6 +96,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     const vaciado = (antes: Record<string, unknown>, ahora: Record<string, unknown>) => (c: Campo) => c.obligatorio && !ahora[c.clave] && !!antes[c.clave]
     const falta = [...camposEnc.filter(vaciado(inicial.dEnc, f.dEnc)), ...camposCli.filter(vaciado(inicial.dCli, f.dCli))]
     if (!soloProveedor && falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
+    if ((f.importe !== '' && !(Number(f.importe) >= 0)) || (f.aCuenta !== '' && !(Number(f.aCuenta) >= 0))) { setErr('El importe y lo entregado a cuenta tienen que ser números de 0 o más'); return }
     if (f.aCuenta !== '' && Number(f.aCuenta) > 0 && f.importe === '') { setErr('Si hay algo entregado a cuenta, pon también el importe'); return }
     if (f.importe !== '' && f.aCuenta !== '' && Number(f.aCuenta) > Number(f.importe)) { setErr('Lo entregado a cuenta no puede ser mayor que el importe'); return }
     setBusy(true); setErr(null)

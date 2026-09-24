@@ -1,4 +1,5 @@
 import type { EncargoEstado, Rol } from '@/lib/types'
+import { generosDe, vocabDe } from '@/lib/vocab'
 
 /**
  * Reglas de bandeja compartidas por la lista, el panel y los contadores del menú.
@@ -16,7 +17,8 @@ export const puedeMarcar = (e: EncargoEstado, rol: Rol | null) =>
 export function motivosRevision(e: EncargoEstado, ajustes: Record<string, unknown>): string[] {
   const m: string[] = []
   if (e.en_revision) m.push('Incidencia abierta')
-  if (e.revisar_manual) m.push('Marcado a mano' + (e.revisar_nota ? `: ${e.revisar_nota}` : ''))
+  const o = generosDe(ajustes, vocabDe(ajustes)).encargo === 'f' ? 'a' : 'o'
+  if (e.revisar_manual) m.push(`Marcad${o} a mano` + (e.revisar_nota ? `: ${e.revisar_nota}` : ''))
   if (e.estancado) m.push(`Sin cambios desde hace más de ${Number(ajustes.dias_estancado ?? 10)} días`)
   if (e.atascado) m.push(`${e.dias_en_etapa} días en «${e.etapa_actual_nombre}» (más de ${Number(ajustes.dias_atasco_proveedor ?? 15)})`)
   return m

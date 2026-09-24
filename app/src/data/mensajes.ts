@@ -34,7 +34,8 @@ export const MARCADORES: { k: string; ayuda: string }[] = [
   { k: 'nombre', ayuda: 'Nombre del cliente' },
   { k: 'nombre_pila', ayuda: 'Solo el primer nombre' },
   { k: 'numero', ayuda: 'Número del encargo' },
-  { k: 'tu_producto', ayuda: 'Palabra del catálogo + nombre entre comillas: «tu pieza "Solitario clásico"». Concuerda siempre' },
+  { k: 'tu_producto', ayuda: 'Palabra del catálogo + nombre entre comillas: «tu producto "Nombre"». Concuerda siempre' },
+  { k: 'el_producto', ayuda: 'Con artículo: «el producto "Nombre"» (concuerda con la palabra del catálogo)' },
   { k: 'o', ayuda: 'Final que concuerda con la palabra del catálogo: list{o} → «lista» o «listo»' },
   { k: 'producto', ayuda: 'Solo el nombre del producto (sin artículo delante: no se sabe su género)' },
   { k: 'proveedor', ayuda: 'Proveedor asignado' },
@@ -84,3 +85,9 @@ export function telefonoWhatsApp(tel: string | null | undefined, prefijo: string
 export const enlaceWhatsApp = (tel: string, texto: string) => `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`
 export const enlaceCorreo = (email: string, asunto: string, texto: string) =>
   `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`
+
+/** Ayuda de un marcador con el vocabulario de la tienda (cliente, encargo, proveedor, producto) */
+export function ayudaMarcador(texto: string, v: { cliente: string; encargo: string; proveedor: string; producto: string }) {
+  const m = (x: string) => x.charAt(0).toLowerCase() + x.slice(1)
+  return texto.replace(/\bcliente\b/g, m(v.cliente)).replace(/\bencargo\b/g, m(v.encargo)).replace(/\bproveedor\b/gi, (w) => (w[0] === 'P' ? v.proveedor : m(v.proveedor))).replace(/\bproducto\b/g, m(v.producto))
+}

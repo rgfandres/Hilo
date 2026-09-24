@@ -9,7 +9,7 @@ import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Dialog, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
-import { num3, relativo } from '@/lib/utils'
+import { num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 /** Lista de proveedores con lo que tiene cada uno en su mano. */
@@ -54,7 +54,7 @@ export function Proveedores() {
                 <Td className="text-fg-3">{p.accesos === 0 ? 'sin acceso' : `${p.accesos} ${p.accesos === 1 ? 'correo' : 'correos'}`}</Td>
               </Tr>
             ))}
-            {lista && visibles.length === 0 && <tr><td colSpan={6} className="h-24 text-center text-fg-3">Todavía no hay {min(vocab.proveedores)}.</td></tr>}
+            {lista && visibles.length === 0 && <tr><td colSpan={6} className="h-24 text-center text-fg-3">{lista.length ? `Tod${gr.o('proveedor', true)} están inactiv${gr.o('proveedor', true)}: activa «Ver inactiv${gr.o('proveedor', true)}» para verl${gr.o('proveedor', true)}.` : `Todavía no hay ${min(vocab.proveedores)}.`}</td></tr>}
           </tbody>
         </Table>
       </div>
@@ -91,7 +91,8 @@ export function Proveedor() {
     return etapas.some((x) => x.tipo_encargo_id === e.tipo_encargo_id && x.visible_para_proveedor && x.orden > a.orden)
   }
   const ahora = encs.filter((e) => !e.es_final && enSuMano(e))
-  const resto = encs.filter((e) => !ahora.includes(e))
+  // Mismo criterio que la lista: lo terminado no cuenta como asignado
+  const resto = encs.filter((e) => !e.es_final && !ahora.includes(e))
 
   const tabla = (lista: EncargoEstado[]) => (
     <Table>
@@ -150,6 +151,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
 }) {
   const { tienda, vocab, gr } = useAuth()
   const [f, setF] = React.useState({ nombre: '', tel: '', email: '', notas: '', activo: true })
+  const idCreado = React.useRef<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [confirmar, setConfirmar] = React.useState(false)
@@ -173,7 +175,8 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
     try {
       const u = unidad.trim() ? Number(unidad.replace(',', '.')) : null
       if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
-      const id = await guardarProveedor(tienda.id, p?.id ?? null, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo })
+      const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo })
+      idCreado.current = id   // si el segundo paso falla, reintentar edita este y no crea otro
       if (matAj.activo) await guardarUnidadProveedor(id, u)
       onSaved(id); onClose()
     } catch (x) { setErr(errorNombre(mensajeError(x), gr.con('proveedor', 'un'))) } finally { setBusy(false) }

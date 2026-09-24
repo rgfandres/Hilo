@@ -95,6 +95,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  // Periodo activo (uno por tienda; si no hay, se trabaja sin filtro)
+  const cargarPeriodo = React.useCallback(async (tiendaId: string | null) => {
+    if (!tiendaId) { setPeriodoDe(null); return }
+    const { data } = await supabase.from('periodo').select('id,nombre,ajustes').eq('tienda_id', tiendaId).eq('activo', true).maybeSingle()
+    setPeriodoDe((prev) => {
+      const p = (data as Periodo) ?? null
+      return prev && prev.tiendaId === tiendaId && JSON.stringify(prev.p) === JSON.stringify(p) ? prev : { tiendaId, p }
+    })
+  }, [])
+
   React.useEffect(() => {
     if (!userId) { setTiendas([]); setMiembros([]); setTiendaState(null); setPeriodoDe(null); setLoading(false); return }
     let alive = true
@@ -139,15 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false }
   }, [userId, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Periodo activo (uno por tienda; si no hay, se trabaja sin filtro)
-  const cargarPeriodo = React.useCallback(async (tiendaId: string | null) => {
-    if (!tiendaId) { setPeriodoDe(null); return }
-    const { data } = await supabase.from('periodo').select('id,nombre,ajustes').eq('tienda_id', tiendaId).eq('activo', true).maybeSingle()
-    setPeriodoDe((prev) => {
-      const p = (data as Periodo) ?? null
-      return prev && prev.tiendaId === tiendaId && JSON.stringify(prev.p) === JSON.stringify(p) ? prev : { tiendaId, p }
-    })
-  }, [])
   // Al cambiar de tienda y al volver a la pestaña (otro dispositivo puede haber activado otro periodo)
   React.useEffect(() => { if (tienda && periodoDe?.tiendaId !== tienda.id) cargarPeriodo(tienda.id).catch(() => {}) }, [tienda]) // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {

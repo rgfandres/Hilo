@@ -21,7 +21,7 @@ function Cifra({ titulo, valor, nota }: { titulo: string; valor: string; nota?: 
 
 /** Facturación estimada con el importe real de cada encargo. */
 export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Intervalo; encargos: EncargoEstado[] }) {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   // Importes de todos los encargos que salen en el informe (de cualquier periodo, también anulados)
   const [importes, setImportes] = React.useState<Map<string, { importe: number | null }>>(new Map())
@@ -58,7 +58,7 @@ export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Inter
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <Cifra titulo="Entrada" valor={dinero(entrada.t, din.moneda)} nota={nota(entrada)} />
         <Cifra titulo={`Vuelto de ${min(vocab.proveedor)}`} valor={dinero(prod.t, din.moneda)} nota={nota(prod)} />
-        <Cifra titulo="Entregado" valor={dinero(entregado.t, din.moneda)} nota={nota(entregado)} />
+        <Cifra titulo={`Terminad${gr.o('encargo', true)}`} valor={dinero(entregado.t, din.moneda)} nota={nota(entregado)} />
         <Cifra titulo="En curso (cartera)" valor={dinero(cartera.t, din.moneda)} nota={nota(cartera)} />
         <Cifra titulo="Pendiente de cobro" valor={dinero(totalPend, din.moneda)} nota={`${pendCobro.length} con algo pendiente`} />
       </div>

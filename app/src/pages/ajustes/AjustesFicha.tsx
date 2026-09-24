@@ -3,8 +3,10 @@ import { useAuth } from '@/auth/AuthProvider'
 import { camposDe, plantillas as leerCampos, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { MARCADORES_FICHA, fichaHTML, guardarPlantillaFicha, obtenerPlantillaFicha, plantillaDefecto, type DatosFicha } from '@/data/ficha'
-import { Button, Select, Textarea } from '@/ui'
-import { BarraGuardar, Bloque, Estado } from './Ajustes'
+import { Button, Dialog, Select, Textarea } from '@/ui'
+import { confirmarSalida } from '@/lib/salir'
+import { ayudaMarcador } from '@/data/mensajes'
+import { BarraGuardar, Bloque } from './Ajustes'
 import { listarTipos, ponerAjustePeriodo } from '@/data/ajustes'
 import { SelectorAmbito, useAmbito } from '@/components/Ambito'
 
@@ -63,9 +65,11 @@ export function AjustesFicha() {
     setTexto(texto.slice(0, a) + ins + texto.slice(b))
     requestAnimationFrame(() => { t.focus(); t.selectionStart = t.selectionEnd = a + ins.length })
   }
+  const [busy, setBusy] = React.useState(false)
+  const [confirmarQuitar, setConfirmarQuitar] = React.useState(false)
   async function guardar(valor: string | null) {
-    if (!tienda) return
-    setErr(null); setOk(null)
+    if (!tienda || busy) return
+    setErr(null); setOk(null); setBusy(true)
     try {
       if (amb.periodo) {
         await ponerAjustePeriodo(amb.periodo.id, 'ficha', valor); await amb.recargarPeriodos()
@@ -75,19 +79,19 @@ export function AjustesFicha() {
         setGuardado(valor); if (valor == null) setTexto(defecto)
         setOk(valor == null ? 'Vuelve a usarse la ficha por defecto' : 'Guardado')
       }
-    } catch (x) { setErr(mensajeError(x)) }
+    } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
   const sucio = texto !== (guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))
 
   return (
     <Bloque titulo="Ficha imprimible" ayuda={`La hoja que sale con «Imprimir ficha» en cada ${vocab.encargo.toLowerCase()}. También se puede guardar en PDF o copiar como texto.`}>
-      <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={amb.setAmbito} clave="ficha" />
+      <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="ficha" />
       {amb.periodo && amb.propio == null && <span className="text-sm text-fg-3">Este periodo usa la ficha de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>}
       <div className="flex flex-col gap-1.5">
         <span className="text-sm text-fg-3">«# » título · «## » sección · los bloques van solos en su línea. Pulsa un marcador para insertarlo.</span>
         <div className="flex flex-wrap gap-1">
           {MARCADORES_FICHA.map((m) => (
-            <button key={m.k} title={m.ayuda} onClick={() => insertar(m.k)} className="rounded-sm border border-border bg-bg px-1.5 py-0.5 font-mono text-xs hover:border-border-strong">{`{${m.k}}`}</button>
+            <button key={m.k} title={ayudaMarcador(m.ayuda, vocab)} onClick={() => insertar(m.k)} className="rounded-sm border border-border bg-bg px-1.5 py-0.5 font-mono text-xs hover:border-border-strong">{`{${m.k}}`}</button>
           ))}
           {campos.map((c) => (
             <button key={c.clave} title={c.etiqueta} onClick={() => insertar(c.clave)} className="rounded-sm border border-dashed border-border bg-bg px-1.5 py-0.5 font-mono text-xs text-fg-2 hover:border-border-strong">{`{${c.clave}}`}</button>
@@ -105,8 +109,11 @@ export function AjustesFicha() {
           <iframe title="Vista previa de la ficha" srcDoc={vista} className="min-h-[420px] w-full rounded-sm border border-border bg-white" />
         </div>
       </div>
-      <BarraGuardar sucio={sucio} ok={ok} err={err} onGuardar={() => guardar(texto)} onDescartar={() => setTexto(guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))}
-        extra={guardado != null && <Button variant="ghost" onClick={() => guardar(null)}>{amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}</Button>} />
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={() => guardar(texto)} onDescartar={() => setTexto(guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))}
+        extra={guardado != null && <Button variant="ghost" onClick={() => setConfirmarQuitar(true)}>{amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}</Button>} />
+      <Dialog open={confirmarQuitar} onOpenChange={setConfirmarQuitar} title={amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}
+        description={amb.periodo ? 'El periodo vuelve a usar la ficha de la tienda y la suya se borra.' : 'Se borra la ficha personalizada de la tienda y se usa la de por defecto.'}
+        actions={[{ label: 'Confirmar', variant: 'danger', onClick: () => { setConfirmarQuitar(false); guardar(null) } }]} />
     </Bloque>
   )
 }

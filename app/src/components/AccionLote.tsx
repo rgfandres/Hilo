@@ -155,7 +155,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
             if (!xs.length) return null
             return (
               <p key={m} className="m-0 text-fg-2">
-                <b>Se quedan ({TEXTO_MOTIVO[m]}):</b> {m === 'bloqueado'
+                <b>Se quedan ({m === 'anulado' ? `anulad${gr.o('encargo', xs.length !== 1)}` : m === 'bloqueado' ? `bloquead${gr.o('encargo', xs.length !== 1)}` : TEXTO_MOTIVO[m]}):</b> {m === 'bloqueado'
                   ? xs.slice(0, 4).map((x) => `${num3(x.e)} — ${x.detalle}`).join(' · ') + (xs.length > 4 ? '…' : '')
                   : lista(xs.map((x) => x.e))}
               </p>

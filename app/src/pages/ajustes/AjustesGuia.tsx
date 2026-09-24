@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { confirmarSalida } from '@/lib/salir'
 import { IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { guardarTienda, ponerAjustePeriodo } from '@/data/ajustes'
@@ -7,7 +8,7 @@ import { mensajeError } from '@/data/encargos'
 import { plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
-import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
 
 type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string; medida?: boolean; unidad?: string }
 
@@ -66,7 +67,7 @@ export function AjustesGuia() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={amb.setAmbito} clave="guia_medidas" />
+        <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="guia_medidas" />
         {amb.periodo && (amb.propio == null
           ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>
           : <Button size="sm" variant="ghost" onClick={() => setQuitarPropia(true)}>Quitar la guía propia del periodo</Button>)}

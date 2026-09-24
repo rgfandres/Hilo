@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { aHoraTienda, deHoraTienda } from '@/lib/utils'
 
 export interface HitoInforme {
   id: string; encargo_id: string; fecha: string; tipo: 'NORMAL' | 'INCIDENCIA' | 'REENTRADA'
@@ -7,17 +8,22 @@ export interface HitoInforme {
   etapa_id: string; etapa_nombre: string; etapa_orden: number; es_final: boolean; etapa_proveedor: boolean; es_espera: boolean
 }
 
+/** Si el histórico es tan grande que se corta, se avisa en la pantalla */
+export let informeCortado = false
 export async function hitosInforme(tiendaId: string, desde: Date | null, periodoId: string | null): Promise<HitoInforme[]> {
   const out: HitoInforme[] = []
-  // Por páginas de 1000 (límite del servidor)
-  for (let pag = 0; pag < 50; pag++) {
+  informeCortado = false
+  // Por páginas de 1000 (límite del servidor); orden estable por fecha e id para no repetir ni saltar filas
+  const MAX = 200
+  for (let pag = 0; pag < MAX; pag++) {
     let q = supabase.from('v_informe_hitos').select('*').eq('tienda_id', tiendaId)
     if (desde) q = q.gte('fecha', desde.toISOString())
     if (periodoId) q = q.eq('periodo_id', periodoId)
-    const { data, error } = await q.order('fecha').range(pag * 1000, pag * 1000 + 999)
+    const { data, error } = await q.order('fecha').order('id').range(pag * 1000, pag * 1000 + 999)
     if (error) throw error
     out.push(...((data ?? []) as HitoInforme[]))
     if (!data || data.length < 1000) break
+    if (pag === MAX - 1) informeCortado = true
   }
   return out
 }
@@ -29,23 +35,33 @@ export type TipoIntervalo = 'semana' | 'quincena' | 'mes' | 'trimestre' | 'año'
 export interface Intervalo { tipo: TipoIntervalo; ini: Date; fin: Date; titulo: string }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-const d0 = (y: number, m: number, d: number) => new Date(y, m, d, 0, 0, 0, 0)
-const corta = (d: Date) => `${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`
+// Los límites de cada intervalo son las 0:00 en la zona horaria de la tienda (no la del ordenador)
+const d0 = (y: number, m: number, d: number) => {
+  const n = new Date(Date.UTC(y, m, d))   // normaliza desbordes (día 32, mes 13…)
+  return deHoraTienda(`${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, '0')}-${String(n.getUTCDate()).padStart(2, '0')}T00:00`)
+}
+/** Año, mes (0–11), día y día de la semana (0 = domingo) de un instante, en la zona de la tienda */
+const enZona = (f: Date) => {
+  const [y, m, d] = aHoraTienda(f).slice(0, 10).split('-').map(Number)
+  return { y, m: m - 1, d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() }
+}
+const corta = (f: Date) => { const z = enZona(f); return `${z.d} ${MESES[z.m].slice(0, 3)}` }
 
 /** Intervalo que contiene `f`: semana lunes-domingo, quincena 1–15 / 16–fin, mes, trimestre o año. */
 export function intervaloDe(tipo: Exclude<TipoIntervalo, 'periodo'>, f: Date): Intervalo {
-  const y = f.getFullYear(), m = f.getMonth()
+  const z = enZona(f)
+  const y = z.y, m = z.m
   let ini: Date, fin: Date, titulo: string
   switch (tipo) {
     case 'semana': {
-      const dia = (f.getDay() + 6) % 7
-      ini = d0(y, m, f.getDate() - dia); fin = d0(y, m, f.getDate() - dia + 7)
-      const ult = new Date(fin.getTime() - 864e5)
-      titulo = `Semana del ${corta(ini)} al ${corta(ult)}${ult.getFullYear() !== new Date().getFullYear() ? ` de ${ult.getFullYear()}` : ''}`
+      const dia = (z.dow + 6) % 7
+      ini = d0(y, m, z.d - dia); fin = d0(y, m, z.d - dia + 7)
+      const ult = new Date(fin.getTime() - 864e5 / 2)
+      titulo = `Semana del ${corta(ini)} al ${corta(ult)}${enZona(ult).y !== enZona(new Date()).y ? ` de ${enZona(ult).y}` : ''}`
       break
     }
     case 'quincena': {
-      const primera = f.getDate() <= 15
+      const primera = z.d <= 15
       ini = d0(y, m, primera ? 1 : 16); fin = primera ? d0(y, m, 16) : d0(y, m + 1, 1)
       titulo = `${primera ? '1ª' : '2ª'} quincena de ${MESES[m]} ${y}`
       break
@@ -59,8 +75,8 @@ export function intervaloDe(tipo: Exclude<TipoIntervalo, 'periodo'>, f: Date): I
 /** Anterior (-1) o siguiente (+1). El siguiente nunca pasa de hoy. */
 export function mover(i: Intervalo, paso: -1 | 1): Intervalo | null {
   if (i.tipo === 'periodo') return null
-  const ref = paso === -1 ? new Date(i.ini.getTime() - 864e5) : i.fin
-  if (paso === 1 && ref > new Date()) return null
+  const ref = paso === -1 ? new Date(i.ini.getTime() - 864e5 / 2) : new Date(i.fin.getTime() + 864e5 / 2)
+  if (paso === 1 && i.fin > new Date()) return null
   return intervaloDe(i.tipo, ref)
 }
 export function ultimos(i: Intervalo, n: number): Intervalo[] {

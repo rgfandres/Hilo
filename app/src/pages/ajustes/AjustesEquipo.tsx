@@ -31,6 +31,7 @@ export function AjustesEquipo() {
   const [nueva, setNueva] = React.useState<Invitacion | null>(null)
   const [quitar, setQuitar] = React.useState<MiembroEquipo | null>(null)
   const [desactivar, setDesactivar] = React.useState<MiembroEquipo | null>(null)
+  const [anularInv, setAnularInv] = React.useState<Invitacion | null>(null)
   const [dErr, setDErr] = React.useState<string | null>(null)
 
   const cargar = React.useCallback(async () => {
@@ -120,7 +121,7 @@ export function AjustesEquipo() {
                 </div>
                 <Tag color="gray">{nombresRol[i.rol]}</Tag>
                 <Button variant="ghost" size="sm" onClick={() => copiar(i.token)}>Copiar enlace</Button>
-                <Button variant="danger" size="sm" onClick={() => hacer(() => revocarInvitacion(i.id), 'Invitación anulada')}>Anular</Button>
+                <Button variant="danger" size="sm" onClick={() => setAnularInv(i)}>Anular</Button>
               </FilaLista>
             ))}
           </Lista>
@@ -165,7 +166,7 @@ export function AjustesEquipo() {
       <Dialog open={!!desactivar} onOpenChange={(o) => !o && setDesactivar(null)}
         title={desactivar?.soy_yo ? 'Desactivarte a ti' : `Desactivar a ${desactivar?.email ?? ''}`}
         description={desactivar?.soy_yo
-          ? 'Dejarás de poder entrar en esta tienda en cuanto salgas. Solo otra persona con administración podrá activarte de nuevo.'
+          ? 'Dejarás de poder entrar en esta tienda en este mismo momento. Solo otra persona con administración podrá activarte de nuevo.'
           : 'No podrá entrar en la tienda hasta que la actives otra vez. Lo que hizo se conserva. Se puede deshacer con «Activar».'}
         actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => {
           const m = desactivar; if (!m) return
@@ -173,6 +174,9 @@ export function AjustesEquipo() {
           await hacer(() => activarMiembro(m.tienda_id, m.user_id, false), 'Desactivado')
           if (m.soy_yo) recargar()
         } }]} />
+      <Dialog open={!!anularInv} onOpenChange={(o) => !o && setAnularInv(null)} title="Anular la invitación"
+        description={anularInv?.email ? `El enlace enviado a ${anularInv.email} dejará de funcionar.` : 'El enlace abierto dejará de funcionar para quien lo tenga.'}
+        actions={[{ label: 'Anular', variant: 'danger', onClick: async () => { const i = anularInv; setAnularInv(null); if (i) await hacer(() => revocarInvitacion(i.id), 'Invitación anulada') } }]} />
     </>
   )
 }

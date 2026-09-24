@@ -30,9 +30,11 @@ export function relativo(iso: string | null | undefined): string {
 export function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
+  // Una fecha sin hora (2027-01-01) es ese día en cualquier zona: se lee como UTC para no correrla un día
+  const soloDia = /^\d{4}-\d{2}-\d{2}$/.test(iso)
   // Con año solo si no es el actual (para no mezclar días de años distintos)
   const otroAno = d.getFullYear() !== new Date().getFullYear()
-  return d.toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short', ...(otroAno ? { year: 'numeric' } : {}) })
+  return d.toLocaleDateString(locale(), { timeZone: soloDia ? 'UTC' : zona(), day: 'numeric', month: 'short', ...(otroAno ? { year: 'numeric' } : {}) })
 }
 
 /** Nº de encargo con 3 cifras y, si lo tiene, el prefijo de su serie: «007», «S012». */

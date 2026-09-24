@@ -164,7 +164,7 @@ export function Cliente() {
           </div>
         </section>
       </div>
-      <EditarCliente open={editar} cliente={c} onClose={() => setEditar(false)} onSaved={() => { cargar() }} titulo={`Editar ${gr.con('cliente', 'el').split(' ')[1]}`} />
+      <EditarCliente open={editar} cliente={c} onClose={() => setEditar(false)} onSaved={() => { cargar() }} titulo={`Editar ${min(vocab.cliente)}`} />
     </>
   )
 }

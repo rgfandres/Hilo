@@ -1,3 +1,4 @@
+import { mensajeError } from '@/data/encargos'
 import * as React from 'react'
 import { IconMessageCircle, IconMessageCircleFilled } from '@tabler/icons-react'
 import type { NotaCampo as Nota } from '@/data/encargos'
@@ -46,7 +47,7 @@ export function NotaCampo({ etiqueta, nota, autor, editable, onGuardar }: {
   async function guardar(t: string) {
     setGuardando(true); setErr(null)
     try { await onGuardar(t); setOpen(false) }
-    catch (x) { setErr(x instanceof Error ? x.message : (x as { message?: string })?.message ?? 'No se pudo guardar') }
+    catch (x) { setErr(mensajeError(x)) }
     finally { setGuardando(false) }
   }
   const cuando = nota ? `${fechaCorta(nota.actualizado_en)} ${new Date(nota.actualizado_en).toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })}` : ''

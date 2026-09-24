@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { listarEncargos, listarEtapas, listarProductos, listarProveedores, mensajeError } from '@/data/encargos'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import {
-  alcanzanEtapa, enviadosProveedor, hitosInforme, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
+  alcanzanEtapa, enviadosProveedor, hitosInforme, informeCortado, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
   terminados, ultimos, type HitoInforme, type Intervalo, type TipoIntervalo,
 } from '@/data/informes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
@@ -67,6 +67,9 @@ export function Informes() {
     return { tipo, ini: primera ? new Date(primera) : new Date(), fin: new Date(Date.now() + 1000), titulo: periodo ? `Periodo ${periodo.nombre}` : 'Todo' }
   }, [tipo, ref, hsVista, periodo])
   const prev = mover(iv, -1)
+  // Con el intervalo en curso se compara con el mismo tramo del anterior (hasta el mismo día), no con el anterior entero
+  const enCursoIv = iv.tipo !== 'periodo' && iv.fin > new Date()
+  const prevCmp = React.useMemo(() => (prev && enCursoIv ? { ...prev, fin: new Date(prev.ini.getTime() + (Date.now() - iv.ini.getTime())) } : prev), [prev?.ini.getTime(), enCursoIv, iv.ini.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
   const sig = mover(iv, 1)
 
   // Etapas en orden del flujo (por nombre, sin repetir)
@@ -77,12 +80,12 @@ export function Informes() {
   }, [etapas])
 
   const prod = React.useMemo(() => {
-    const act = alcanzanEtapa(hsVista, iv), ant = prev ? alcanzanEtapa(hsVista, prev) : null
+    const act = alcanzanEtapa(hsVista, iv), ant = prevCmp ? alcanzanEtapa(hsVista, prevCmp) : null
     return {
-      nuevos: nuevos(hsVista, iv), nuevosAnt: prev ? nuevos(hsVista, prev) : null,
+      nuevos: nuevos(hsVista, iv), nuevosAnt: prevCmp ? nuevos(hsVista, prevCmp) : null,
       etapas: ordenEtapas.map((e) => ({ e, n: act.get(e.nombre) ?? 0, ant: ant ? ant.get(e.nombre) ?? 0 : null })),
     }
-  }, [hsVista, iv, prev, ordenEtapas])
+  }, [hsVista, iv, prevCmp, ordenEtapas])
 
   const evolucion = React.useMemo(() => {
     if (tipo === 'periodo') return []
@@ -135,7 +138,8 @@ export function Informes() {
               {typeof (tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url === 'string' && <img src={(tienda!.ajustes as Record<string, string>).logo_url} alt="" className="h-8 max-w-[140px] object-contain" />}
               {iv.titulo}
             </h1>
-            <span className="text-sm text-fg-3">{tienda?.nombre} · generado el {ahora.toLocaleDateString(locale(), { timeZone: zona() })} a las {ahora.toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })}{prev ? ` · comparado con ${prev.titulo.toLowerCase()}` : ''}</span>
+            <span className="text-sm text-fg-3">{tienda?.nombre} · generado el {ahora.toLocaleDateString(locale(), { timeZone: zona() })} a las {ahora.toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })}{prev ? ` · comparado con ${prev.titulo.toLowerCase()}${enCursoIv ? ' hasta el mismo día' : ''}` : ''}</span>
+            {informeCortado && <span className="text-sm text-warn-fg">El histórico es muy grande: solo se han leído los primeros 200.000 pasos.</span>}
           </div>
           {err && <div className="flex items-center gap-2 rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}<Button size="sm" onClick={cargar}>↻ Reintentar</Button></div>}
           {cargando && <div className="text-fg-3">Calculando…</div>}
@@ -188,7 +192,7 @@ export function Informes() {
                 {filasProv.length === 0 ? <p className="m-0 text-fg-3">Nada ha pasado por {min(vocab.proveedores)} en este intervalo.</p> : (
                   <TablaSimple cabecera={[vocab.proveedor, `Enviad${os}`, `Recibid${os}`, 'Días medios', 'En curso', `Atascad${os}`]} alinear={[false, true, true, true, true, true]}
                     filas={filasProv.map((r) => [<Link key={r.id} to={`/proveedores/${r.id}`} className="font-medium hover:underline">{r.nombre}</Link>, r.enviados, r.recibidos, uno(r.dias), r.enCurso,
-                      r.atascados ? <span className="text-danger-fg">{r.atascados}</span> : 0])} />
+                      r.atascados ? <span key="a" className="text-danger-fg">{r.atascados}</span> : 0])} />
                 )}
               </section>
 
@@ -196,7 +200,7 @@ export function Informes() {
                 <section className="flex flex-col gap-2">
                   <SectionLabel>Terminad{os} por {min(vocab.producto)}</SectionLabel>
                   {topProducto.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
-                    : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`]} alinear={[false, true]} filas={topProducto.map(([k, n]) => [k || <span className="text-warn-fg">Sin {min(vocab.producto)}</span>, n])} />}
+                    : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`]} alinear={[false, true]} filas={topProducto.map(([k, n]) => [k || <span key="s" className="text-warn-fg">Sin {min(vocab.producto)}</span>, n])} />}
                 </section>
                 {camposEncargo.length > 0 && (
                   <section className="flex flex-col gap-2">
@@ -208,7 +212,7 @@ export function Informes() {
                     </div>
                     {topCampo.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
                       : <TablaSimple cabecera={[camposEncargo.find((c) => c.clave === campo)?.etiqueta ?? '', `Terminad${os}`]} alinear={[false, true]}
-                          filas={topCampo.map(([k, n]) => [k || <span className="text-warn-fg">Sin dato</span>, n])} />}
+                          filas={topCampo.map(([k, n]) => [k || <span key="s" className="text-warn-fg">Sin dato</span>, n])} />}
                   </section>
                 )}
               </div>
@@ -252,6 +256,7 @@ function TablaSimple({ cabecera, filas, alinear }: { cabecera: React.ReactNode[]
 
 /** Barra horizontal por etapa (en orden del flujo) con incidencias y atascados aparte. */
 function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa[] }) {
+  const { gr } = useAuth()
   const n = new Map<string, number>()
   for (const e of actuales) { const k = e.etapa_actual_nombre ?? ''; n.set(k, (n.get(k) ?? 0) + 1) }
   const filas = [...(n.has('') ? [{ nombre: '', color: null as string | null }] : []), ...etapas.filter((e) => !e.es_final).map((e) => ({ nombre: e.nombre, color: e.color }))]
@@ -273,7 +278,7 @@ function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa
       ))}
       <div className="mt-1 flex gap-4 text-sm text-fg-2">
         <span><Tag color="red">Incidencia</Tag> {inc}</span>
-        <span className="text-danger-fg">Atascados: {atasc}</span>
+        <span className="text-danger-fg">Atascad{gr.o('encargo', true)}: {atasc}</span>
       </div>
     </div>
   )

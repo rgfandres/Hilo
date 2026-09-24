@@ -192,7 +192,7 @@ export async function buscarClientes(tiendaId: string, q: string) {
   const { data, error } = await supabase.from('cliente')
     .select('id,nombre,telefono,email,datos')
     .eq('tienda_id', tiendaId)
-    .or(`nombre_plano.ilike.%${plano(q).replace(/[%,()]/g, ' ')}%,telefono.ilike.%${q.replace(/[%,()]/g, ' ')}%`)
+    .or(filtroCliente(q))
     .order('nombre').limit(8)
   if (error) throw error
   return (data ?? []) as { id: string; nombre: string; telefono: string | null; email: string | null; datos: Record<string, unknown> }[]
@@ -252,4 +252,11 @@ export async function impactoAnular(encargoId: string): Promise<ImpactoAnular> {
   const { data, error } = await supabase.rpc('impacto_anular', { p_encargo: encargoId })
   if (error) throw error
   return data as ImpactoAnular
+}
+
+/** Búsqueda de clientes: nombre sin tildes y teléfono solo por dígitos (con o sin espacios) */
+export function filtroCliente(q: string, conEmail = false) {
+  const t = q.trim().replace(/[%,()]/g, ' ')
+  const dig = t.replace(/\D/g, '')
+  return [`nombre_plano.ilike.%${plano(t)}%`, dig.length >= 3 ? `telefono_digitos.ilike.%${dig}%` : null, conEmail ? `email.ilike.%${t}%` : null].filter(Boolean).join(',')
 }

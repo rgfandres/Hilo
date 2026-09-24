@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import * as React from 'react'
+import { coincide } from '@/lib/texto'
 import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, errorNombre, guardarProducto, listarProductosCat, subirFoto, tieneFicha, type ProductoFila } from '@/data/catalogos'
@@ -42,8 +43,8 @@ export function Productos() {
   React.useEffect(() => { const u = new URLSearchParams(loc.search).get('q'); if (u != null) setQ(u) }, [loc.search])
   // Si lo buscado solo está entre los inactivos, se muestran
   React.useEffect(() => {
-    const t = q.trim().toLowerCase(); if (!t || !lista) return
-    const m = lista.filter((p) => p.nombre.toLowerCase().includes(t))
+    if (!q.trim() || !lista) return
+    const m = lista.filter((p) => coincide(q, [p.nombre]))
     if (m.length && m.every((p) => !p.activo)) setInactivos(true)
   }, [q, lista])
   const [editar, setEditar] = React.useState<ProductoFila | 'nuevo' | null>(null)
@@ -56,8 +57,9 @@ export function Productos() {
   }, [tienda])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
-  const t = q.trim().toLowerCase()
-  const visibles = (lista ?? []).filter((p) => (inactivos || p.activo) && (!t || p.nombre.toLowerCase().includes(t)))
+  // Búsqueda sin tildes ni mayúsculas (igual que el buscador general)
+  const visibles = (lista ?? []).filter((p) => (inactivos || p.activo) && (!q.trim() || coincide(q, [p.nombre])))
+  const [fotoMal, setFotoMalLista] = React.useState<Set<string>>(new Set())
   const nInactivos = (lista ?? []).filter((p) => !p.activo).length
 
   return (
@@ -85,8 +87,9 @@ export function Productos() {
               <button key={p.id} onClick={() => setEditar(p)}
                 className={cn('flex flex-col overflow-hidden rounded-md border border-border bg-bg text-left hover:border-border-strong', !p.activo && 'opacity-55')}>
                 <div className="flex aspect-[4/3] items-center justify-center bg-bg-3">
-                  {p.foto_url ? <img src={p.foto_url} alt="" className="h-full w-full object-cover" loading="lazy"
-                    onError={(e) => { const img = e.currentTarget; img.style.display = 'none'; img.insertAdjacentHTML('afterend', '<span class="text-sm text-fg-3">La foto no carga</span>') }} /> : <IconPhoto size={28} className="text-gray-7" />}
+                  {p.foto_url && !fotoMal.has(p.foto_url) ? <img src={p.foto_url} alt="" className="h-full w-full object-cover" loading="lazy"
+                    onError={() => setFotoMalLista((s) => new Set(s).add(p.foto_url!))} />
+                    : p.foto_url ? <span className="text-sm text-fg-3">La foto no carga</span> : <IconPhoto size={28} className="text-gray-7" />}
                 </div>
                 <div className="flex flex-col gap-1 p-2.5">
                   <div className="flex items-center gap-1.5">
@@ -190,7 +193,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
             <div className="flex gap-1.5">
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) subir(file); e.target.value = '' }} />
               <Button size="sm" disabled={subiendo} onClick={() => fileRef.current?.click()}><IconUpload size={13} /> {subiendo ? 'Subiendo…' : 'Subir foto'}</Button>
-              <Input className="h-6 text-sm" placeholder="…o pega un enlace a la foto" value={f.foto.startsWith('http') ? f.foto : ''} onChange={(e) => { setF({ ...f, foto: e.target.value }); setFotoMal(false) }} />
+              <Input className="h-6 text-sm" placeholder="…o pega un enlace a la foto" value={f.foto} onChange={(e) => { setF({ ...f, foto: e.target.value }); setFotoMal(false) }} />
             </div>
           )}
         </div>
@@ -213,9 +216,9 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
               <Input className="h-7" list="tipos-mat-prod" disabled={soloLectura} value={f.mtipo} onChange={(e) => setF({ ...f, mtipo: e.target.value })} />
             </FormRow>
           </>}
-          <FormRow label={`Consumo${mat.activo ? ` (${mat.unidad})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
+          {(mat.activo || f.consumo) && <FormRow label={`Consumo${mat.activo ? ` (${mat.unidad})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
             <Input className="h-7 w-[120px]" inputMode="decimal" disabled={soloLectura} value={f.consumo} onChange={(e) => setF({ ...f, consumo: e.target.value })} />
-          </FormRow>
+          </FormRow>}
           {(fic.construcciones.length > 0 || f.construccion) && (
             <FormRow label="Elaboración">
               <Select disabled={soloLectura} value={f.construccion} onChange={(e) => setF({ ...f, construccion: e.target.value })}>
@@ -224,9 +227,10 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
               </Select>
             </FormRow>
           )}
-          <FormRow label={fic.etiqueta} ayuda={`Receta: se muestra como pista al crear ${min(vocab.encargos)}; allí solo se anota la variante.`}>
+          {(fic.usaComplementos || f.receta) && <FormRow label={fic.etiqueta} ayuda={`Receta: se muestra como pista al crear ${min(vocab.encargos)}; allí solo se anota la variante.`}>
             <Textarea disabled={soloLectura} value={f.receta} onChange={(e) => setF({ ...f, receta: e.target.value })} placeholder="Qué lleva y cuánto" />
-          </FormRow>
+          </FormRow>}
+          {!mat.activo && !f.consumo && !fic.usaComplementos && !f.receta && fic.construcciones.length === 0 && !f.construccion && <span className="text-sm text-fg-3">Sin datos técnicos que rellenar con los ajustes actuales.</span>}
         </div>
         {campos.length === 0 && !soloLectura && (
           <p className="text-sm text-fg-3">¿Necesitas más datos de cada {min(vocab.producto)}? Añádelos en Ajustes → Campos → {vocab.producto}.</p>

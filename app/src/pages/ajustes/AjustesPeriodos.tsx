@@ -40,7 +40,7 @@ export function AjustesPeriodos() {
             {lista.filter((p) => !p.archivado).map((p) => (
               <FilaLista key={p.id}>
                 <span className="flex-1 font-medium">{p.nombre}</span>
-                <span className="text-sm text-fg-3">{p.fecha_inicio || p.fecha_fin ? `${fechaCorta(p.fecha_inicio)} – ${fechaCorta(p.fecha_fin)}` : ''}</span>
+                <span className="text-sm text-fg-3">{p.fecha_inicio && p.fecha_fin ? `${fechaCorta(p.fecha_inicio)} – ${fechaCorta(p.fecha_fin)}` : p.fecha_inicio ? `desde ${fechaCorta(p.fecha_inicio)}` : p.fecha_fin ? `hasta ${fechaCorta(p.fecha_fin)}` : ''}</span>
                 {p.activo ? <Tag color="green">Activo</Tag> : <Button size="sm" onClick={() => { setActivar(p); setDErr(null) }}>Activar</Button>}
                 <Button variant="ghost" size="sm" onClick={() => { setEditar(p); setDErr(null) }}>Editar</Button>
                 {!p.activo && <Button variant="ghost" size="sm" title="Sale de la lista; sus encargos se conservan" onClick={() => archivar(p, true)}>Archivar</Button>}

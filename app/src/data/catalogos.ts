@@ -1,4 +1,4 @@
-import { plano } from '@/lib/texto'
+import { filtroCliente } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
 import type { EncargoEstado } from '@/lib/types'
 
@@ -45,7 +45,8 @@ export async function subirFoto(tiendaId: string, file: File): Promise<string> {
   return supabase.storage.from('fotos').getPublicUrl(ruta).data.publicUrl
 }
 async function reducir(file: File, max: number, calidad: number): Promise<Blob> {
-  const img = await createImageBitmap(file)
+  let img: ImageBitmap
+  try { img = await createImageBitmap(file) } catch { throw new Error('No se puede leer esa imagen. Usa una foto JPG o PNG (las HEIC del iPhone: compártela como JPG).') }
   const k = Math.min(1, max / Math.max(img.width, img.height))
   const c = document.createElement('canvas')
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
@@ -62,7 +63,7 @@ export interface ClienteFila {
 export async function listarClientesCat(tiendaId: string, q: string, pagina: number, porPagina: number) {
   let consulta = supabase.from('v_clientes').select('*', { count: 'exact' }).eq('tienda_id', tiendaId)
   const t = q.trim().replace(/[%,()]/g, ' ')
-  if (t) consulta = consulta.or(`nombre_plano.ilike.%${plano(t)}%,telefono.ilike.%${t}%,email.ilike.%${t}%`)
+  if (t) consulta = consulta.or(filtroCliente(t, true))
   const { data, error, count } = await consulta.order('nombre').range(pagina * porPagina, pagina * porPagina + porPagina - 1)
   if (error) throw error
   return { filas: (data ?? []) as ClienteFila[], total: count ?? 0 }
@@ -113,9 +114,10 @@ export function errorNombre(m: string, que: string) {
  */
 async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nombre: string): Promise<string> {
   const n = nombre.trim()
-  const buscar = async () => (await supabase.from(tabla).select('id').eq('tienda_id', tiendaId).ilike('nombre', n.replace(/[%_\\]/g, (c) => '\\' + c)).limit(1)).data?.[0]?.id as string | undefined
+  const buscar = async () => (await supabase.from(tabla).select('id,activo').eq('tienda_id', tiendaId).ilike('nombre', n.replace(/[%_\\]/g, (c) => '\\' + c)).limit(1)).data?.[0]?.id as string | undefined
   const ya = await buscar()
-  if (ya) return ya
+  // Si existía dado de baja, se vuelve a activar (si no, se elegiría algo que no sale en las listas)
+  if (ya) { await supabase.from(tabla).update({ activo: true }).eq('id', ya).eq('activo', false); return ya }
   const r = await supabase.from(tabla).insert({ tienda_id: tiendaId, nombre: n }).select('id').single()
   if (r.error) { const otra = await buscar(); if (otra) return otra; throw r.error }
   return (r.data as { id: string }).id

@@ -18,7 +18,7 @@ export const MARCADORES_FICHA: { k: string; ayuda: string }[] = [
   { k: 'proveedor', ayuda: 'Proveedor asignado' }, { k: 'etapa', ayuda: 'Etapa actual' }, { k: 'tipo', ayuda: 'Tipo de encargo' },
   { k: 'fecha', ayuda: 'Fecha de impresión' },
   { k: 'campos_encargo', ayuda: 'Bloque: todos los campos del encargo (los vacíos quedan para rellenar a mano)' },
-  { k: 'campos_cliente', ayuda: 'Bloque: los campos del cliente (medidas, etc.)' },
+  { k: 'campos_cliente', ayuda: 'Bloque: los campos del cliente' },
   { k: 'hilo', ayuda: 'Bloque: pasos con su fecha' }, { k: 'lineas', ayuda: 'Bloque: renglones en blanco para notas' },
 ]
 

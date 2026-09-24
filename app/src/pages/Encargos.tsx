@@ -144,7 +144,7 @@ export function Encargos() {
   const etapasTab = [...new Map(etapas.filter((e) => !e.es_final).map((e) => [e.nombre, e])).values()]
   const hayGrupos = etapasTab.some((e) => e.grupo)
   const finGrupo = hayGrupos ? ' ' : null
-  const CRITERIO_REVISAR = `Incidencias abiertas, marcados a mano, más de ${Number(aj.dias_estancado ?? 10)} días sin cambios y más de ${Number(aj.dias_atasco_proveedor ?? 15)} días en una etapa de espera`
+  const CRITERIO_REVISAR = `Incidencias abiertas, marcad${gr.o('encargo', true)} a mano, más de ${Number(aj.dias_estancado ?? 10)} días sin cambios y más de ${Number(aj.dias_atasco_proveedor ?? 15)} días en una etapa de espera`
   const fin = textosFin(etapas, gr)
   const EXTRA: Record<string, string> = { listos: fin.listos, proveedor: `En ${min(vocab.proveedor)}` }
   const tabs = [
@@ -357,7 +357,7 @@ export function Encargos() {
             className={cn('flex h-[26px] w-7 items-center justify-center border-l border-border', vista === 'tablero' ? 'bg-bg-4 text-fg' : 'text-fg-3 hover:text-fg')}><IconLayoutKanban size={14} /></button>
         </div>
         {vista === 'lista' && rol !== 'LOGISTICA' && (
-          <Button variant={sel ? 'default' : 'ghost'} onClick={() => setSel(sel ? null : new Set())} title="Seleccionar varios para pasarlos de etapa a la vez">
+          <Button variant={sel ? 'default' : 'ghost'} onClick={() => setSel(sel ? null : new Set())} title={`Seleccionar varios para pasarl${gr.o('encargo', true)} de etapa a la vez`}>
             <IconSquareCheck size={14} /><span className="hidden xl:inline">{sel ? 'Seleccionando' : 'Seleccionar'}</span>
           </Button>
         )}
@@ -442,13 +442,13 @@ export function Encargos() {
                       <Tr key={e.id} className={cn('group cursor-pointer', sel?.has(e.id) && 'bg-bg-4')} aria-selected={sel ? sel.has(e.id) : undefined} onClick={() => sel ? alternar(e.id) : nav(`/encargos/${e.id}`)}>
                         <Td className={cn('titular sticky left-0 z-10 bg-bg text-fg-3 tabular group-hover:bg-bg-2', e.atascado ? 'marca-atasco' : listoParaMi(e, rol) && 'marca-lista',
                           e.atascado ? 'shadow-[inset_3px_0_0_var(--color-danger)]' : listoParaMi(e, rol) && 'shadow-[inset_3px_0_0_var(--accent)]')}
-                          title={e.atascado ? `${e.dias_en_etapa} días en «${e.etapa_actual_nombre}»` : listoParaMi(e, rol) ? 'Listo para el siguiente paso' : undefined}>
+                          title={e.atascado ? `${e.dias_en_etapa} días en «${e.etapa_actual_nombre}»` : listoParaMi(e, rol) ? `List${gr.o('encargo')} para el siguiente paso` : undefined}>
                           {sel ? <input type="checkbox" aria-label={`Seleccionar ${num3(e)}`} checked={sel.has(e.id)} onClick={(x) => x.stopPropagation()} onChange={() => alternar(e.id)} /> : num3(e)}
                         </Td>
                         <Td className="titular sticky left-10 z-10 max-w-[220px] bg-bg font-medium group-hover:bg-bg-2" title={[e.cliente_nombre, ...motivosRevision(e, aj)].join(' · ')}>
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{e.cliente_nombre}</span>
-                            {e.revisar_manual && <IconAlertTriangle size={13} className="shrink-0 text-warn-fg" aria-label="Marcado para revisar" />}
+                            {e.revisar_manual && <IconAlertTriangle size={13} className="shrink-0 text-warn-fg" aria-label={`Marcad${gr.o('encargo')} para revisar`} />}
                             {(e.estancado || e.atascado) && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg"><IconClock size={11} />{e.atascado ? e.dias_en_etapa : Math.floor((Date.now() - new Date(e.actualizado_en).getTime()) / 864e5)} d</span>}
                             {chipMat(e)}
                             {e.n_comentarios > 0 && <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-fg-3" title={`${e.n_comentarios} comentario${e.n_comentarios === 1 ? '' : 's'}`}><IconMessage size={12} />{e.n_comentarios}</span>}

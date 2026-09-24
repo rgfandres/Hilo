@@ -17,7 +17,8 @@ export async function listarAdjuntos(entidad: string, entidadId: string): Promis
 /** Reduce una foto grande (máx. 2000 px, JPEG 0,85) antes de subirla. El resto de ficheros va tal cual. */
 async function preparar(f: File): Promise<Blob> {
   if (!/^image\/(jpeg|png|webp)$/.test(f.type) || f.size < 1.5e6) return f
-  const img = await createImageBitmap(f)
+  let img: ImageBitmap
+  try { img = await createImageBitmap(f) } catch { return f }   // si no se puede reducir, se sube tal cual
   const k = Math.min(1, 2000 / Math.max(img.width, img.height))
   const c = document.createElement('canvas')
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)

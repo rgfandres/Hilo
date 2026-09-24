@@ -9,7 +9,7 @@ import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Select, Textare
 import { ajustesFicha, altaRapidaProducto, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
 import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
-import { ajustesDinero } from '@/lib/utils'
+import { ajustesDinero, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { SelectorMaterial } from '@/components/Material'
 import { AvisoGuia, useGuia } from '@/components/Guia'
@@ -36,6 +36,10 @@ export function NuevoEncargo() {
   const [existente, setExistente] = React.useState<ClienteLite | null>(null)
   const [nombre, setNombre] = React.useState(''); const [tel, setTel] = React.useState(''); const [email, setEmail] = React.useState('')
   const [sugeridos, setSugeridos] = React.useState<ClienteLite[]>([])
+  const [mismoTel, setMismoTel] = React.useState<ClienteLite[]>([])
+  const [avisoElegido, setAvisoElegido] = React.useState<string | null>(null)
+  // Cliente que llega por el enlace (?cliente=): no cuenta como «algo escrito» para el borrador
+  const [deParam, setDeParam] = React.useState(false)
   const [dCli, setDCli] = React.useState<Record<string, string>>({})
   const [dEnc, setDEnc] = React.useState<Record<string, string>>({})
   const [comentario, setComentario] = React.useState('')
@@ -69,19 +73,20 @@ export function NuevoEncargo() {
     if (!tienda) return
     ;(async () => {
       const [t, p, c] = await Promise.all([
-        supabase.from('tipo_encargo').select('id,clave,nombre').eq('tienda_id', tienda.id).eq('activo', true),
+        supabase.from('tipo_encargo').select('id,clave,nombre').eq('tienda_id', tienda.id).eq('activo', true).order('nombre'),
         supabase.from('producto').select('id,nombre,precio_base').eq('tienda_id', tienda.id).eq('activo', true).order('nombre'),
         plantillas(tienda.id),
       ])
       setTipos(t.data ?? []); setProductos(p.data ?? []); setPs(c)
-      setTipo(t.data?.[0]?.id ?? '')
+      // Solo se elige el tipo si aún no hay uno (una recarga no cambia lo que ya se ha elegido)
+      setTipo((actual) => (actual && (t.data ?? []).some((x) => x.id === actual) ? actual : t.data?.[0]?.id ?? ''))
       const cid = params.get('cliente')
       if (cid) {
         const { data } = await supabase.from('cliente').select('id,nombre,telefono,email').eq('id', cid).maybeSingle()
-        if (data) setExistente(data as ClienteLite)
+        if (data) { setDeParam(true); setExistente(data as ClienteLite) }
       }
     })().catch((x) => setErr(mensajeError(x)))
-  }, [tienda, params])
+  }, [tienda?.id, params]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // El importe se rellena con el precio del producto mientras no se haya escrito a mano
   React.useEffect(() => {
@@ -104,11 +109,27 @@ export function NuevoEncargo() {
     }).catch(() => {})
   }, [producto, conMaterial])
 
-  // Nº que se asignará (orientativo: se fija al guardar)
+  // Nº previsto (orientativo: se fija al guardar); una respuesta vieja no pisa la del tipo elegido
   React.useEffect(() => {
-    if (!tienda || !tipo) return
-    siguienteNumero(tipo, periodo?.id ?? null).then(setNumero)
+    if (!tienda || !tipo) { setNumero(null); return }
+    let vivo = true
+    siguienteNumero(tipo, periodo?.id ?? null).then((n) => { if (vivo) setNumero(n) }).catch(() => {})
+    return () => { vivo = false }
   }, [tienda, periodo, tipo])
+
+  // Mismo teléfono que alguien que ya existe (compara solo los dígitos)
+  React.useEffect(() => {
+    const dig = tel.replace(/\D/g, '')
+    if (!tienda || existente || dig.length < 6) { setMismoTel([]); return }
+    const t = setTimeout(() => { buscarClientes(tienda.id, dig).then((cs) => setMismoTel(cs.filter((c) => (c.telefono ?? '').replace(/\D/g, '').includes(dig)))).catch(() => setMismoTel([])) }, 250)
+    return () => clearTimeout(t)
+  }, [tel, tienda, existente])
+  function elegirCliente(s: ClienteLite) {
+    const escrito = [tel.trim() && 'el teléfono', email.trim() && 'el correo', Object.values(dCli).some(Boolean) && 'los datos'].filter(Boolean)
+    setAvisoElegido(escrito.length ? `Has elegido a ${s.nombre}: ${escrito.join(', ')} que habías escrito no se guarda${escrito.length > 1 ? 'n' : ''}. Si ha cambiado, actualízalo en su ficha.` : null)
+    setDeParam(false)
+    setExistente(s); setNombre(s.nombre); setSugeridos([]); setMismoTel([])
+  }
 
   // Sugerencias de clientes existentes al escribir el nombre (desde 2 letras)
   React.useEffect(() => {
@@ -119,7 +140,8 @@ export function NuevoEncargo() {
 
   // Borrador autoguardado (solo en este dispositivo): se recupera si se cierra sin guardar
   const claveBorrador = tienda ? `hilo.borrador.${tienda.id}` : ''
-  const hayDatos = !!(nombre.trim() || tel.trim() || existente || Object.values(dCli).some(Boolean) || Object.values(dEnc).some(Boolean) || comentario.trim() || comp.trim() || producto)
+  const hayDatos = !!(nombre.trim() || tel.trim() || email.trim() || (existente && !deParam) || Object.values(dCli).some(Boolean) || Object.values(dEnc).some(Boolean)
+    || comentario.trim() || comp.trim() || producto || (!importeAuto && importe) || aCuenta || mLineas.some((l) => l.material_id))
   const [borrador, setBorrador] = React.useState<{ fecha: string; d: Record<string, unknown> } | null>(null)
   const guardadoRef = React.useRef(false)
   React.useEffect(() => {
@@ -159,7 +181,10 @@ export function NuevoEncargo() {
   async function guardar(ev: React.FormEvent) {
     ev.preventDefault()
     if (!tienda) return
+    if (!tipo) { setErr(`No hay ningún tipo de ${min(vocab.encargo)} que se pueda elegir. Actívalo en Ajustes → Flujos.`); return }
     if (!existente && !nombre.trim()) { setErr(`Falta el nombre ${gr.con('cliente', 'del')}`); return }
+    if (!existente && email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setErr('Ese correo no parece válido'); return }
+    if (din.usa && ((importe !== '' && !(Number(importe.replace(',', '.')) >= 0)) || (aCuenta !== '' && !(Number(aCuenta.replace(',', '.')) >= 0)))) { setErr('El importe y lo entregado a cuenta tienen que ser números de 0 o más'); return }
     const falta = [
       ...camposEnc.filter((c) => c.obligatorio && !dEnc[c.clave]),
       ...(existente ? [] : camposCli.filter((c) => c.obligatorio && !dCli[c.clave])),
@@ -194,14 +219,15 @@ export function NuevoEncargo() {
         await comentar(enc.id, `Guía de medidas: ${guia.sug.motivo}.`)
       }
       } catch (x) { avisar({ tipo: 'aviso', persistente: true, texto: `${vocab.encargo} cread${gr.o('encargo')}, pero algo no se guardó: ${mensajeError(x)}` }) }
-      avisar({ tipo: 'ok', texto: `${vocab.encargo} cread${gr.o("encargo")} para ${nombre.trim() || existente?.nombre}` })
+      const { data: real } = await supabase.from('encargo').select('numero,serie').eq('id', enc.id).maybeSingle()
+      avisar({ tipo: 'ok', texto: `${vocab.encargo} ${real ? num3(real as { numero: number; serie: string }) : ''} cread${gr.o("encargo")} para ${existente?.nombre ?? nombre.trim()}` })
       nav(`/encargos/${enc.id}`)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
 
   return (
     <>
-      <PageHeader title={gr.Con('encargo', 'nuevo')} subtitle={numero ? `Se asignará el nº ${numero}` : undefined} />
+      <PageHeader title={gr.Con('encargo', 'nuevo')} subtitle={numero ? `Nº previsto: ${numero}` : undefined} />
       <form onSubmit={guardar} className="flex max-w-[560px] flex-col gap-5 overflow-auto p-8">
         {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
         {borrador && (
@@ -220,9 +246,11 @@ export function NuevoEncargo() {
                 <span className="font-medium">{existente.nombre}</span>
                 <span className="text-sm text-fg-3">{[existente.telefono, existente.email].filter(Boolean).join(' · ') || `${vocab.cliente} existente`}</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => { setExistente(null); setNombre('') }}>Cambiar</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setExistente(null); setNombre(''); setAvisoElegido(null); setDeParam(false) }}>Cambiar</Button>
             </div>
-          ) : (
+          ) : null}
+          {existente && avisoElegido && <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">{avisoElegido}</p>}
+          {!existente && (
             <>
               <FormRow label="Nombre *">
                 <div className="relative">
@@ -231,7 +259,7 @@ export function NuevoEncargo() {
                     <div className="absolute left-0 right-0 top-8 z-10 rounded-md border border-border bg-bg p-1 shadow-light">
                       <div className="px-2 py-1 text-xs text-fg-3">{vocab.clientes} existentes</div>
                       {sugeridos.map((s) => (
-                        <button type="button" key={s.id} onClick={() => { setExistente(s); setSugeridos([]) }}
+                        <button type="button" key={s.id} onClick={() => elegirCliente(s)}
                           className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-bg-4">
                           <span className="flex-1 truncate">{s.nombre}</span>
                           <span className="text-sm text-fg-3">{s.telefono ?? ''}</span>
@@ -242,6 +270,13 @@ export function NuevoEncargo() {
                 </div>
               </FormRow>
               <FormRow label="Teléfono"><Input className="h-7" type="tel" value={tel} onChange={(e) => setTel(e.target.value)} /></FormRow>
+              {mismoTel.length > 0 && (
+                <div className="flex flex-col gap-1 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg md:ml-[128px]">
+                  {mismoTel.slice(0, 3).map((c) => (
+                    <span key={c.id}>Ya existe con ese teléfono: <b>{c.nombre}</b> · <button type="button" className="underline" onClick={() => elegirCliente(c)}>Usar</button></span>
+                  ))}
+                </div>
+              )}
               <FormRow label="Correo"><Input className="h-7" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></FormRow>
               <CamposForm pegar campos={camposCli} valores={dCli} onCambio={(k, v) => setDCli((d) => ({ ...d, [k]: v }))} />
             </>
@@ -250,6 +285,7 @@ export function NuevoEncargo() {
 
         <div className="flex flex-col gap-1">
           <SectionLabel>{vocab.encargo}</SectionLabel>
+          {tipos.length === 0 && ps.length > 0 && <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">No hay ningún tipo de {min(vocab.encargo)} que se pueda elegir.{rol === 'ADMIN' && <> <Link to="/ajustes/flujos" className="underline">Configúralo en Ajustes → Flujos</Link></>}</p>}
           {tipos.length > 1 && (
             <FormRow label="Tipo">
               <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
@@ -266,7 +302,7 @@ export function NuevoEncargo() {
                 return id
               } : undefined} />
           </FormRow>
-          {productos.length === 0 && <p className="pb-1 pl-[118px] text-sm text-fg-3">No hay {min(vocab.productos)} en el catálogo. <Link to="/productos" className="underline">Añadir</Link></p>}
+          {productos.length === 0 && <p className="pb-1 text-sm text-fg-3 md:pl-[128px]">No hay {min(vocab.productos)} en el catálogo.{(rol === 'ADMIN' || rol === 'OPERATIVO') && <> <Link to="/productos" className="underline">Añadir</Link></>}</p>}
           <CamposForm campos={guia.adaptar(camposEnc)} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}

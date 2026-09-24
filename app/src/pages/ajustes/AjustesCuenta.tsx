@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import { mensajeError } from '@/data/encargos'
 import { ActivarDosPasos, seguridadDe } from '@/components/Seguridad'
 import { Button, Dialog, FormRow, Input } from '@/ui'
 import { Bloque, Estado } from './Ajustes'
@@ -16,6 +17,7 @@ export function AjustesCuenta() {
   const [nivel, setNivel] = React.useState<string | null>(null)
   const [activando, setActivando] = React.useState(false)
   const [quitar, setQuitar] = React.useState<string | null>(null)
+  const [errMfa, setErrMfa] = React.useState<string | null>(null)
   const exigida = seguridadDe(tienda?.ajustes).exigir_2fa
   const email = session?.user.email ?? ''
   const proveedor = session?.user.app_metadata?.provider as string | undefined
@@ -84,7 +86,10 @@ export function AjustesCuenta() {
 
       <Dialog open={!!quitar} onOpenChange={() => setQuitar(null)} title="Desactivar la verificación en dos pasos"
         description="Ya no se te pedirá el código del móvil al entrar: solo tu forma de entrar habitual. Puedes volver a activarla cuando quieras."
-        actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => { if (quitar) await supabase.auth.mfa.unenroll({ factorId: quitar }); setQuitar(null); await leer() } }]} />
+        actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => {
+          if (quitar) { const { error } = await supabase.auth.mfa.unenroll({ factorId: quitar }); if (error) { setErrMfa(mensajeError(error)); return } }
+          setQuitar(null); setErrMfa(null); await leer()
+        } }]} error={errMfa} />
     </>
   )
 }

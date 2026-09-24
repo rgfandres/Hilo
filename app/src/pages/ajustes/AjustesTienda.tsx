@@ -6,7 +6,7 @@ import { guardarTienda } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
-import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
 
 const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'encargo', kp: 'encargos', ayuda: 'Lo que la tienda hace por encargo' },
@@ -177,7 +177,7 @@ export function AjustesTienda() {
                   const file = e.target.files?.[0]; e.target.value = ''
                   if (!file || !tienda) return
                   setSubiendo(true); setErr(null)
-                  try { setF((s) => ({ ...s, logo: '' })); const url = await subirFoto(tienda.id, file); setF((s) => ({ ...s, logo: url })) }
+                  try { const url = await subirFoto(tienda.id, file); setF((s) => ({ ...s, logo: url })) }
                   catch (x) { setErr(mensajeError(x)) } finally { setSubiendo(false) }
                 }} />
               </label>
@@ -315,7 +315,7 @@ export function AjustesTienda() {
             {f.hojaCol && (() => {
               const col = camposEnc.find((c) => c.clave === f.hojaCol)
               const elegidas = f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean)
-              if (!col?.opciones.length) return <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>
+              if (!col?.opciones.length) return <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="Por ejemplo: A, B, C…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>
               return (
                 <FormRow label="Columnas" ayuda="Las opciones que salen como columna, en el orden del campo. Ninguna marcada = una sola columna con el valor escrito.">
                   <div className="flex flex-wrap gap-1">

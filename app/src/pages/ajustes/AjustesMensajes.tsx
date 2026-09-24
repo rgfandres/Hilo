@@ -5,7 +5,7 @@ import { claveUnica, listarEtapasDe, listarTipos } from '@/data/ajustes'
 import { plantillas as leerCampos, type Campo } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import {
-  MARCADORES, actualizarPlantilla, marcadoresConcordancia, borrarPlantilla, crearPlantilla, listarPlantillas, rellenar, type Canal, type PlantillaMensaje,
+  MARCADORES, ayudaMarcador, actualizarPlantilla, marcadoresConcordancia, borrarPlantilla, crearPlantilla, listarPlantillas, rellenar, type Canal, type PlantillaMensaje,
 } from '@/data/mensajes'
 import { Button, Dialog, Input, Select, Textarea } from '@/ui'
 import { Bloque, Estado } from './Ajustes'
@@ -41,7 +41,7 @@ export function AjustesMensajes() {
   // Solo los marcadores que tienen sentido en esta tienda (sin reseña configurada o sin importes, no se ofrecen)
   const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const usaDinero = ajustesDinero(ajT).usa
-  const marcadores = MARCADORES.filter((m) => !(m.k === 'enlace_resena' && !ajT.enlace_resena) && !(['importe', 'a_cuenta', 'pendiente'].includes(m.k) && !usaDinero))
+  const marcadores = MARCADORES.map((m) => ({ ...m, ayuda: ayudaMarcador(m.ayuda, vocab) })).filter((m) => !(m.k === 'enlace_resena' && !ajT.enlace_resena) && !(['importe', 'a_cuenta', 'pendiente'].includes(m.k) && !usaDinero))
     .concat(campos.map((c) => ({ k: c.clave, ayuda: c.etiqueta })))
   // Ejemplo para la vista previa
   const ejemplo: Record<string, unknown> = {

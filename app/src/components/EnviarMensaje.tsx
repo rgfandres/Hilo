@@ -49,7 +49,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
       ...marcadoresConcordancia(vocab.producto, gr.genero.producto, encargo.producto_nombre),
     })
     return c
-  }, [encargo, cliente, campos, tienda, aj.enlace_resena, vocab.producto, gr.genero.producto])
+  }, [encargo, cliente, campos, tienda, aj.enlace_resena, aj.moneda, vocab.producto, gr.genero.producto])
 
   // Se rellena al abrir (o al cambiar de plantilla); una recarga de la ficha no pisa lo que se ha retocado
   const ctxRef = React.useRef(ctx); ctxRef.current = ctx

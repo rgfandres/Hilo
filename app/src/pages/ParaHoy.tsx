@@ -74,10 +74,10 @@ export function ParaHoy() {
   const prov = min(vocab.proveedor)
 
   const indicadores = [
-    { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar, en el periodo activo' },
+    { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar (lo abierto de cualquier periodo)' },
     { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
     { k: 'listos', label: fin.listos, n: listos.length, to: aLista({ b: 'listos', desde: fin.listos }), title: fin.listosTitulo, tono: 'ok' },
-    { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: 'Incidencias, marcados a mano, estancados y atascados', tono: 'danger' },
+    { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: `Incidencias, marcad${gr.o('encargo', true)} a mano, estancad${gr.o('encargo', true)} y atascad${gr.o('encargo', true)}`, tono: 'danger' },
     { k: 'fuera', label: `En ${prov}`, n: fuera.length, to: aLista({ b: 'proveedor', desde: `En ${prov}` }), title: `En una etapa que ve ${gr.con('proveedor', 'el')}` },
     { k: 'bloq', label: `Bloquead${gr.o('encargo', true)}`, n: bloq.length, to: aLista({ b: 'bloqueados', desde: `Bloquead${gr.o('encargo', true)}` }), title: 'El siguiente paso tiene una condición que bloquea', tono: 'warn' },
   ]
@@ -198,7 +198,7 @@ export function ParaHoy() {
                         className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
                         <span className={cn('truncate', k ? 'font-medium' : 'text-warn-fg')}>{k || `Sin ${prov}`}</span>
                         <span className="flex-1" />
-                        {v.atascados > 0 && <span className="rounded-sm bg-danger-bg px-1.5 text-xs text-danger-fg">{v.atascados} atascado{v.atascados === 1 ? '' : 's'}</span>}
+                        {v.atascados > 0 && <span className="rounded-sm bg-danger-bg px-1.5 text-xs text-danger-fg">{v.atascados} atascad{gr.o('encargo', v.atascados !== 1)}</span>}
                         <span className="tabular text-fg-2">{v.n}</span>
                       </Link>
                     ))}

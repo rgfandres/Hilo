@@ -35,12 +35,12 @@ export function Demo() {
             <thead><tr><Th className="w-10">Nº</Th><Th className="w-[190px]">Cliente</Th><Th className="w-[110px]">Producto</Th><Th className="w-12">Medida</Th><Th className="w-[170px]">Etapa</Th><Th className="w-[110px]">Proveedor</Th><Th>Siguiente</Th></tr></thead>
             <tbody>
               <GroupRow colSpan={7}>NORTE <span className="ml-1.5 text-fg-3">3</span></GroupRow>
-              <Tr><Td className="text-fg-3 tabular">037</Td><Td className="font-medium">Julia Romero</Td><Td>ARO</Td><Td>40</Td><Td><Tag color="red">Incidencia</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Revisar</Button></Td></Tr>
-              <Tr><Td className="text-fg-3 tabular">033</Td><Td className="font-medium">Marta Ruiz</Td><Td>ARO</Td><Td>38</Td><Td><Tag color="purple">En proveedor</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Recibido del proveedor</Button></Td></Tr>
-              <Tr><Td className="text-fg-3 tabular">038</Td><Td className="font-medium">Rocío Gálvez</Td><Td>COLGANTE</Td><Td>36</Td><Td><Tag color="blue">Enviado a preparar</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Recogido de preparación</Button></Td></Tr>
+              <Tr><Td className="text-fg-3 tabular">037</Td><Td className="font-medium">Julia Romero</Td><Td>PRODUCTO A</Td><Td>40</Td><Td><Tag color="red">Incidencia</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Revisar</Button></Td></Tr>
+              <Tr><Td className="text-fg-3 tabular">033</Td><Td className="font-medium">Marta Ruiz</Td><Td>PRODUCTO A</Td><Td>38</Td><Td><Tag color="purple">En proveedor</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Recibido del proveedor</Button></Td></Tr>
+              <Tr><Td className="text-fg-3 tabular">038</Td><Td className="font-medium">Rocío Gálvez</Td><Td>PRODUCTO B</Td><Td>36</Td><Td><Tag color="blue">Enviado a preparar</Tag></Td><Td>NORTE</Td><Td><Button size="sm">Recogido de preparación</Button></Td></Tr>
               <GroupRow colSpan={7}>Sin proveedor <span className="ml-1.5 text-fg-3">2</span></GroupRow>
-              <Tr><Td className="text-fg-3 tabular">040</Td><Td className="font-medium">Inés Carmona</Td><Td>ARO</Td><Td>44</Td><Td><Tag color="amber">Esperando material</Tag></Td><Td className="text-fg-3">—</Td><Td><Button size="sm">Material recibido</Button></Td></Tr>
-              <Tr><Td className="text-fg-3 tabular">035</Td><Td className="font-medium">Paula Moreno</Td><Td>ARO</Td><Td>40</Td><Td><Tag color="green">En tienda</Tag></Td><Td className="text-fg-3">—</Td><Td><Button size="sm">Entregar</Button></Td></Tr>
+              <Tr><Td className="text-fg-3 tabular">040</Td><Td className="font-medium">Inés Carmona</Td><Td>PRODUCTO A</Td><Td>44</Td><Td><Tag color="amber">Esperando material</Tag></Td><Td className="text-fg-3">—</Td><Td><Button size="sm">Material recibido</Button></Td></Tr>
+              <Tr><Td className="text-fg-3 tabular">035</Td><Td className="font-medium">Paula Moreno</Td><Td>PRODUCTO A</Td><Td>40</Td><Td><Tag color="green">En tienda</Tag></Td><Td className="text-fg-3">—</Td><Td><Button size="sm">Entregar</Button></Td></Tr>
             </tbody>
           </Table>
         </div>
@@ -53,7 +53,7 @@ export function Demo() {
               <span className="text-sm text-danger-fg">Antes hay que resolver la incidencia.</span>
               <div className="flex gap-1.5"><Button>Incidencia</Button><Button variant="primary">Marcar recogido</Button></div>
             </div>
-            <div><Field label="Producto">ARO</Field><Field label="Medida">40</Field><Field label="Acabado">Oro rosa</Field><Field label="Proveedor">NORTE</Field></div>
+            <div><Field label="Producto">PRODUCTO A</Field><Field label="Medida">40</Field><Field label="Acabado">Acabado mate</Field><Field label="Proveedor">NORTE</Field></div>
             <div className="flex flex-col gap-1"><SectionLabel>Añadir comentario</SectionLabel><Input placeholder="Escribe algo para el equipo…" /></div>
             <div className="flex gap-2"><Button variant="danger">Anular encargo</Button><Button variant="ghost">Cancelar</Button></div>
           </div>
@@ -64,12 +64,12 @@ export function Demo() {
               <Segmented value={seg} onChange={setSeg} items={[{ key: 'recoger', label: 'Recoger', count: 4 }, { key: 'revisar', label: 'Revisar', count: 2 }, { key: 'llevar', label: 'Llevar', count: 3 }]} />
               <div className="mt-3 flex flex-col gap-2.5 border-b border-border py-3.5">
                 <div className="flex items-baseline gap-2.5"><span className="text-base text-fg-3 tabular">039</span><span className="flex-1 text-md font-semibold">Elena Castro</span><span className="text-base text-fg-2">NORTE</span></div>
-                <div className="text-md text-fg-2">ARO · medida 42 · plata</div>
+                <div className="text-md text-fg-2">PRODUCTO A · medida 42 · acabado claro</div>
                 <Button variant="armed" size="touch">¿Confirmar? Llevado a NORTE</Button>
               </div>
               <div className="flex flex-col gap-2.5 py-3.5">
                 <div className="flex items-baseline gap-2.5"><span className="text-base text-fg-3 tabular">043</span><span className="flex-1 text-md font-semibold">Teresa Núñez</span><span className="text-base text-fg-2">SUR</span></div>
-                <div className="text-md text-fg-2">COLGANTE · medida 38 · oro</div>
+                <div className="text-md text-fg-2">PRODUCTO B · medida 38 · acabado oscuro</div>
                 <Button size="touch">Llevado al proveedor</Button>
               </div>
               {undo && <UndoBar className="mt-2" message="038 llevado a NORTE" onUndo={() => setUndo(false)} onExpire={() => setUndo(false)} />}
