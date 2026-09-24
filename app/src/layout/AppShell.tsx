@@ -11,7 +11,8 @@ import { listarEncargos } from '@/data/encargos'
 import { ajustesMaterial, listarMateriales, propuestaPedido } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica } from '@/data/logistica'
-import { activo, pendientesDe, tope99 } from '@/lib/bandejas'
+import { activo, bloqueado, enRevisar, miTrabajo, pendientesDe, tope99 } from '@/lib/bandejas'
+import { bandejasLista, pendientesConf } from '@/lib/listaBandejas'
 import { cn } from '@/lib/utils'
 import { useCerrarConAtras } from '@/lib/movil'
 import { useConexion } from '@/lib/conexion'
@@ -55,7 +56,8 @@ export function AppShell() {
       if (document.hidden) return
       listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((rows) => {
         // «Atascados» = demasiados días en manos de un proveedor (lo mismo que se ve en su pantalla)
-        if (vivo) setCuenta({ encargos: pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,
+        const conf = bandejasLista(tienda.ajustes as Record<string, unknown>)
+        if (vivo) setCuenta({ encargos: conf ? pendientesConf(conf, rows, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) : pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,
           logistica: rows.filter((r) => activo(r) && r.etapa_siguiente_rol === 'LOGISTICA').length })
       }).catch(() => {})
       if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')) listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})

@@ -28,6 +28,7 @@ import { AjustesTienda, AjustesRegion, AjustesPalabras, AjustesPapeles, AjustesR
 import { AjustesEquipo } from '@/pages/ajustes/AjustesEquipo'
 import { AjustesProveedores } from '@/pages/ajustes/AjustesProveedores'
 import { AjustesFlujos } from '@/pages/ajustes/AjustesFlujos'
+import { AjustesBandejas } from '@/pages/ajustes/AjustesBandejas'
 import { AjustesCampos } from '@/pages/ajustes/AjustesCampos'
 import { AjustesPeriodos } from '@/pages/ajustes/AjustesPeriodos'
 import { AjustesMensajes } from '@/pages/ajustes/AjustesMensajes'
@@ -103,6 +104,7 @@ function Pantallas() {
           <Route path="equipo" element={<AjustesEquipo />} />
           <Route path="proveedores" element={<AjustesProveedores />} />
           <Route path="flujos" element={<AjustesFlujos />} />
+          <Route path="bandejas" element={<AjustesBandejas />} />
           <Route path="campos" element={<AjustesCampos />} />
           <Route path="periodos" element={<AjustesPeriodos />} />
           <Route path="guia" element={<AjustesGuia />} />

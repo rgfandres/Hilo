@@ -22,6 +22,7 @@ const GRUPOS: { titulo: string; items: Sec[] }[] = [
   ] },
   { titulo: 'Cómo trabajáis', items: [
     { to: 'flujos', label: () => 'Tipos y etapas', quien: 'admin' },
+    { to: 'bandejas', label: () => 'Bandejas de la lista', quien: 'admin' },
     { to: 'campos', label: () => 'Datos que guardáis', quien: 'admin' },
     { to: 'periodos', label: () => 'Periodos', quien: 'admin' },
     { to: 'reglas', label: () => 'Avisos y reglas', quien: 'admin' },

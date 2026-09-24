@@ -17,6 +17,7 @@ import { AccionLote } from '@/components/AccionLote'
 import { haceCuanto, useTiempoReal } from '@/lib/tiempoReal'
 import { min, textosFin } from '@/lib/vocab'
 import { useDobleToque } from '@/lib/movil'
+import { bandejasLista, enEtapas, type BandejaLista } from '@/lib/listaBandejas'
 
 type Vista = 'lista' | 'tablero'
 const LS_COLS = 'hilo.columnas_ocultas'
@@ -53,8 +54,11 @@ export function Encargos() {
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const toque = useDobleToque(Number(aj.segundos_doble_toque ?? 3.5))
 
+  // Bandejas configuradas por la tienda (si no, las automáticas)
+  const conf = React.useMemo(() => bandejasLista(tienda?.ajustes as Record<string, unknown> | undefined), [tienda?.ajustes])
+  const primera = conf?.[0]?.key ?? 'todos'
   // Estado de la vista en la URL: se puede recargar, compartir y volver atrás sin perderlo
-  const bandeja = params.get('b') ?? 'todos'
+  const bandeja = params.get('b') ?? primera
   const q = params.get('q') ?? ''
   // Agrupar: lo elegido en la URL; si no, lo último que eligió esta persona (sin agrupar por defecto)
   const agrGuardado = (() => { try { return localStorage.getItem('hilo.agrupar') } catch { return null } })()
@@ -71,7 +75,7 @@ export function Encargos() {
   }, [setParams])
   const setFiltros = (f: Filtros) => setP({ f: filtrosAUrl(f) || null })
   // Cambiar de bandeja empieza limpio (sin búsqueda ni filtros)
-  const setBandeja = (b: string) => setP({ b: b === 'todos' ? null : b, q: null, f: null, desde: null, g: null, m: null })
+  const setBandeja = (b: string) => setP({ b: b === primera ? null : b, q: null, f: null, desde: null, g: null, m: null })
 
   React.useEffect(() => { if (tienda) setOcultas(leerOcultas(tienda.id)) }, [tienda])
   function toggleColumna(k: string) {
@@ -147,7 +151,30 @@ export function Encargos() {
   const CRITERIO_REVISAR = `Incidencias abiertas, marcad${gr.o('encargo', true)} a mano, más de ${Number(aj.dias_estancado ?? 10)} días sin cambios y más de ${Number(aj.dias_atasco_proveedor ?? 15)} días en una etapa de espera`
   const fin = textosFin(etapas, gr)
   const EXTRA: Record<string, string> = { listos: fin.listos, proveedor: `En ${min(vocab.proveedor)}` }
-  const tabs = [
+  const pideYa = (r: EncargoEstado) => lineasMat.some((l) => l.encargo_id === r.id && l.estado === 'PENDIENTE' && !!avisoStock(matsEst.find((m) => m.id === l.material_id)).nivel)
+  /** ¿Está este encargo en esta bandeja configurada? */
+  const enConf = (b: BandejaLista, r: EncargoEstado): boolean => {
+    switch (b.tipo) {
+      case 'todos': return b.con_terminados ? r.estado === 'ACTIVO' : activo(r)
+      case 'etapas': return enEtapas(b, r)
+      case 'mio': return miTrabajo(r, rol)
+      case 'pedir': return activo(r) && matPedir.has(r.id) && (!b.solo_falta || pideYa(r))
+      case 'espera_material': return activo(r) && matEspera.has(r.id)
+      case 'revisar': return enRevisar(r)
+      case 'bloqueados': return activo(r) && bloqueado(r)
+      case 'terminados': return !!r.es_final
+      case 'anulados': return false
+    }
+  }
+  const tabsConf = conf?.map((b) => {
+    const n = b.tipo === 'anulados' ? anulados.length : rows.filter((r) => enConf(b, r)).length
+    return { key: b.key, label: b.nombre, count: n, grupo: b.grupo?.trim() || null, aviso: !!b.accionable && n > 0,
+      tone: b.accionable ? 'danger' as const : undefined, title: b.ayuda || (b.tipo === 'revisar' ? CRITERIO_REVISAR : undefined) }
+  })
+  const tabs = tabsConf ? [
+    ...tabsConf,
+    ...(EXTRA[bandeja] ? [{ key: bandeja, label: EXTRA[bandeja], count: rows.filter(bandeja === 'listos' ? listoParaEntregar : enProveedor).length, grupo: null }] : []),
+  ] : [
     ...(mios.length || bandeja === 'mio' ? [{ key: 'mio', label: 'Mi trabajo', count: mios.length, aviso: mios.length > 0, title: 'Lo que te toca: el siguiente paso lo marca tu rol y nada lo bloquea' }] : []),
     { key: 'todos', label: `Tod${gr.o('encargo', true)}`, count: activos.length, title: 'Todo lo que está en curso' },
     ...etapasTab
@@ -167,7 +194,9 @@ export function Encargos() {
   ]
 
   // Conjunto de la bandeja (base de filtros y recuentos) y lo que se ve tras buscar y filtrar
-  const base = React.useMemo(() => bandeja === 'anulados' ? anulados : rows.filter((r) => {
+  const defActual = conf?.find((b) => b.key === bandeja)
+  const base = React.useMemo(() => bandeja === 'anulados' || defActual?.tipo === 'anulados' ? anulados : rows.filter((r) => {
+    if (defActual) return enConf(defActual, r) && (!filtroMat || !['pedir', 'espera_material'].includes(defActual.tipo) || lineasMat.some((l) => l.encargo_id === r.id && l.material_id === filtroMat))
     switch (bandeja) {
       case 'todos': return !r.es_final
       case 'mio': return miTrabajo(r, rol)
@@ -180,7 +209,8 @@ export function Encargos() {
       case 'mat-espera': return activo(r) && matEspera.has(r.id) && (!filtroMat || lineasMat.some((l) => l.encargo_id === r.id && l.material_id === filtroMat))
       default: return 'n:' + r.etapa_actual_nombre === bandeja && !r.es_final
     }
-  }), [bandeja, rows, anulados, rol, matPedir, matEspera, filtroMat, lineasMat])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [bandeja, rows, anulados, rol, matPedir, matEspera, filtroMat, lineasMat, defActual, matsEst])
 
   const tiposEnPantalla = React.useMemo(() => [...new Set(base.map((v) => v.tipo_encargo_id))], [base])
   // Todos los campos del encargo de los tipos en pantalla (para filtrar y agrupar)
