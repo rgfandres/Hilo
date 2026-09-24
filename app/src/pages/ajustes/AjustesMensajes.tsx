@@ -98,7 +98,8 @@ function TarjetaPlantilla({ p, etapas, ejemplo, marcadores, onGuardar, onBorrar 
   p: PlantillaMensaje; etapas: EtapaOpcion[]; ejemplo: Record<string, unknown>; marcadores: { k: string; ayuda: string }[]
   onGuardar: (patch: Partial<PlantillaMensaje>) => Promise<void>; onBorrar: () => void
 }) {
-  const inicial = React.useMemo(() => ({ nombre: p.nombre, etapa_id: p.etapa_id ?? '', canal: p.canal, texto: p.texto }), [p])
+  // Memo por contenido: recargar la lista (al guardar otra) no reinicia lo que se está escribiendo aquí
+  const inicial = React.useMemo(() => ({ nombre: p.nombre, etapa_id: p.etapa_id ?? '', canal: p.canal, texto: p.texto }), [p.nombre, p.etapa_id, p.canal, p.texto])
   const [f, setF] = React.useState(inicial)
   const ref = React.useRef<HTMLTextAreaElement>(null)
   React.useEffect(() => setF(inicial), [inicial])

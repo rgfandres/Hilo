@@ -137,5 +137,5 @@ export function fichaTexto(plantilla: string, d: DatosFicha): string {
     if (l.startsWith('## ')) return `\n— ${rellenarLinea(l.slice(3), t)} —`
     if (l.startsWith('# ')) return rellenarLinea(l.slice(2), t).toUpperCase()
     return rellenarLinea(l, t)
-  }).filter((l) => l !== '').join('\n').replace(/\n— [^\n]* —\n(?=\n— |$)/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+  }).filter((l) => l !== '').join('\n').replace(/\n— [^\n]* —(?=\n+— |\s*$)/g, '').replace(/\n{3,}/g, '\n\n').trim()
 }

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
-import { actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, marcarCheck } from '@/data/encargos'
+import { actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, marcarCheck, mensajeError } from '@/data/encargos'
 import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
 import type { EncargoEstado, Puerta } from '@/lib/types'
 import { Button, Combobox } from '@/ui'
@@ -10,7 +10,12 @@ import { min } from '@/lib/vocab'
 type Cat = { id: string; nombre: string; activo: boolean }
 const cache: { tienda?: string; prov?: Promise<Cat[]>; prod?: Promise<Cat[]> } = {}
 function catalogos(tiendaId: string) {
-  if (cache.tienda !== tiendaId) { cache.tienda = tiendaId; cache.prov = listarProveedores(tiendaId); cache.prod = listarProductos(tiendaId) }
+  if (cache.tienda !== tiendaId) {
+    cache.tienda = tiendaId
+    // Si una carga falla, se olvida para volver a intentarlo la próxima vez
+    cache.prov = listarProveedores(tiendaId).catch((x) => { cache.tienda = undefined; throw x })
+    cache.prod = listarProductos(tiendaId).catch((x) => { cache.tienda = undefined; throw x })
+  }
   return { prov: cache.prov!, prod: cache.prod! }
 }
 
@@ -35,14 +40,14 @@ export function ArregloPuerta({ e, p, onHecho, onCompletar, compacto }: {
 
   async function hacer(fn: () => Promise<unknown>) {
     setErr(null)
-    try { await fn(); cache.tienda = undefined; onHecho() } catch (x) { setErr((x as { message?: string })?.message ?? 'No se pudo') }
+    try { await fn(); cache.tienda = undefined; onHecho() } catch (x) { setErr(mensajeError(x)) }
   }
   const ancho = compacto ? 'w-[200px]' : 'w-full'
   let control: React.ReactNode = null
   if (p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'proveedor_id' && rol !== 'ATENCION') {
     control = <Combobox className={ancho} vacio={`Asignar ${min(vocab.proveedor)}…`} value="" ariaLabel={`Asignar ${min(vocab.proveedor)}`}
       opciones={prov.filter((x) => x.activo)} onChange={(id) => id && hacer(() => asignarProveedor(e.id, id))}
-      crear={rol === 'ADMIN' ? (n) => altaRapidaProveedor(e.tienda_id, n) : undefined} etiquetaCrear="Añadir" />
+      crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? (n) => altaRapidaProveedor(e.tienda_id, n) : undefined} etiquetaCrear="Añadir" />
   } else if (p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'producto_id' && editar) {
     control = <Combobox className={ancho} vacio={`Elegir ${min(vocab.producto)}…`} value="" ariaLabel={`Elegir ${min(vocab.producto)}`}
       opciones={prod.filter((x) => x.activo)} onChange={(id) => id && hacer(() => actualizarEncargo(e.id, { producto_id: id }))}

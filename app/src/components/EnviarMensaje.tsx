@@ -51,11 +51,14 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
     return c
   }, [encargo, cliente, campos, tienda, aj.enlace_resena, vocab.producto, gr.genero.producto])
 
+  // Se rellena al abrir (o al cambiar de plantilla); una recarga de la ficha no pisa lo que se ha retocado
+  const ctxRef = React.useRef(ctx); ctxRef.current = ctx
+  const plantillasRef = React.useRef(plantillas); plantillasRef.current = plantillas
   React.useEffect(() => {
     if (!open) return
-    const p = plantillas.find((x) => x.id === inicial) ?? null
-    setPid(p?.id ?? ''); setTexto(p ? rellenar(p.texto, ctx) : ''); setErr(null); setCopiado(false)
-  }, [open, inicial, plantillas, ctx])
+    const p = plantillasRef.current.find((x) => x.id === inicial) ?? null
+    setPid(p?.id ?? ''); setTexto(p ? rellenar(p.texto, ctxRef.current) : ''); setErr(null); setCopiado(false)
+  }, [open, inicial])
 
   const plantilla = plantillas.find((x) => x.id === pid) ?? null
   const tel = telefonoWhatsApp(cliente?.telefono, String(aj.prefijo_telefono ?? '34'))

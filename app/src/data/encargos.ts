@@ -16,7 +16,8 @@ export async function listarEncargos(
     .select('*')
     .eq('tienda_id', tiendaId)
     .eq('estado', opts.estado ?? 'ACTIVO')
-  if (opts.periodoId) q = q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
+  // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
+  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId) : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
   const { data, error } = await q.order('numero', { ascending: false })
   if (error) throw error
   return (data ?? []) as EncargoEstado[]
@@ -160,8 +161,9 @@ export async function cambiarFechaHito(hitoId: string, fecha: Date) {
   if (error) throw error
 }
 
-export async function anularEncargo(encargoId: string, motivo: string) {
-  const { error } = await supabase.rpc('anular_encargo', { p_encargo: encargoId, p_motivo: motivo })
+/** devolverMaterial: null = no hay material asignado; true = vuelve al stock; false = se da por usado */
+export async function anularEncargo(encargoId: string, motivo: string, devolverMaterial: boolean | null = null) {
+  const { error } = await supabase.rpc('anular_encargo', { p_encargo: encargoId, p_motivo: motivo, p_devolver_material: devolverMaterial })
   if (error) throw error
 }
 

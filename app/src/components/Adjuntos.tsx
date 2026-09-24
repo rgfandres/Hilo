@@ -19,11 +19,19 @@ export function Adjuntos({ entidad, entidadId, soloLectura }: { entidad: string;
   const camara = React.useRef<HTMLInputElement>(null)
   const puedeBorrar = rol === 'ADMIN' || rol === 'OPERATIVO' || rol === 'ATENCION'
 
+  const firmado = React.useRef(0)
   const cargar = React.useCallback(async () => {
     const l = await listarAdjuntos(entidad, entidadId)
-    setLista(l); setUrls(await enlacesAdjuntos(l))
+    setLista(l); setUrls(await enlacesAdjuntos(l)); firmado.current = Date.now()
   }, [entidad, entidadId])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
+  // Los enlaces caducan a la hora: se renuevan solos (y al volver a la pestaña si han caducado)
+  React.useEffect(() => {
+    const renovar = () => { if (Date.now() - firmado.current > 50 * 60e3) cargar().catch(() => {}) }
+    const t = setInterval(renovar, 5 * 60e3)
+    document.addEventListener('visibilitychange', renovar)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', renovar) }
+  }, [cargar])
 
   async function subir(files: FileList | File[] | null) {
     if (!files || !tienda) return

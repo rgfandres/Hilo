@@ -54,7 +54,15 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   const [descartar, setDescartar] = React.useState(false)
   const [quitarProv, setQuitarProv] = React.useState(false)
 
-  React.useEffect(() => { if (open) { setF(inicial); setErr(null) } }, [open, inicial])
+  // Se carga al abrir; una recarga en tiempo real con el panel abierto no borra lo que se está escribiendo
+  const inicialRef = React.useRef(inicial); inicialRef.current = inicial
+  React.useEffect(() => { if (open) { setF(inicialRef.current); setErr(null) } }, [open])
+  // Si llegan datos nuevos con el panel abierto y aún no se ha tocado nada, se muestran los nuevos
+  const previo = React.useRef(inicial)
+  React.useEffect(() => {
+    const antes = previo.current; previo.current = inicial
+    if (open) setF((s) => (JSON.stringify(s) === JSON.stringify(antes) ? inicial : s))
+  }, [inicial]) // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
     if (!open || !tienda) return
     Promise.all([listarProductos(tienda.id), listarProveedores(tienda.id)])

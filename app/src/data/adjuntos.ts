@@ -43,6 +43,8 @@ export async function subirAdjunto(tiendaId: string, entidad: string, entidadId:
 export async function borrarAdjunto(a: Adjunto) {
   const r = await supabase.storage.from(BUCKET).remove([a.url])
   if (r.error) throw r.error
+  // Si el almacenamiento no lo ha borrado (sin permiso), no se quita la ficha: no quedan archivos huérfanos
+  if (!r.data?.length) throw new Error('permission denied: no se pudo borrar el archivo')
   const { error } = await supabase.from('adjunto').delete().eq('id', a.id)
   if (error) throw error
 }

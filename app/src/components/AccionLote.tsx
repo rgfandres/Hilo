@@ -71,6 +71,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
   const conAvisoN = plan.pasan.filter((x) => x.avisos.length).length
   const vanA = plan.pasan.filter((x) => conAvisos || !x.avisos.length)
   const saltan = vanA.filter((x) => x.salta.length)
+  const saltanTodos = plan.pasan.filter((x) => x.salta.length).length
 
   async function ejecutar() {
     if (!et) return
@@ -136,6 +137,12 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
             <div className="rounded-sm bg-warn-bg px-2.5 py-1.5 text-warn-fg">
               <b>Se saltan pasos</b> en {saltan.length}: {saltan.slice(0, 4).map((x) => `${num3(x.e)} (sin «${x.salta.join('», «')}»)`).join(', ')}{saltan.length > 4 ? '…' : ''}. Asegúrate de que esos pasos no hacen falta.
             </div>
+          )}
+          {conAvisoN === 0 && saltanTodos > 0 && (
+            <label className="flex items-start gap-2 rounded-sm bg-bg-3 px-2.5 py-1.5">
+              <input type="checkbox" className="mt-0.5" checked={conAvisos} onChange={(x) => setConAvisos(x.target.checked)} />
+              <span>Si «{et?.nombre}» tiene avisos, pasarl{gr.o('encargo', true)} igualmente (al saltar etapas no se ven antes).</span>
+            </label>
           )}
           {conAvisoN > 0 && (
             <label className="flex items-start gap-2 rounded-sm bg-bg-3 px-2.5 py-1.5">

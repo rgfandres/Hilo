@@ -26,7 +26,7 @@ function leerOcultas(tiendaId: string): string[] {
 }
 
 export function Encargos() {
-  const { tienda, rol, vocab, periodo, gr } = useAuth()
+  const { tienda, rol, vocab, periodo, gr, nombresRol } = useAuth()
   const nav = useNavigate()
   const avisar = useAvisos()
   const [params, setParams] = useSearchParams()
@@ -83,14 +83,18 @@ export function Encargos() {
   const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
   const [matsEst, setMatsEst] = React.useState<MaterialEstado[]>([])
   const filtroMat = params.get('m')
+  // Cada lectura lleva número: si llega una más vieja después de otra más nueva, se descarta
+  const nLectura = React.useRef(0)
   const recargar = React.useCallback(async () => {
     if (!tienda) return
+    const n = ++nLectura.current
     const pid = periodo?.id ?? null
     const [r, a, e, p] = await Promise.all([
       listarEncargos(tienda.id, { periodoId: pid }),
       listarEncargos(tienda.id, { periodoId: pid, estado: 'ANULADO' }),
       listarEtapas(tienda.id), plantillas(tienda.id),
     ])
+    if (n !== nLectura.current) return
     setRows(r); setAnulados(a); setEtapas(e); setPs(p); setCargado(true)
     if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) {
       const [l, m] = await Promise.all([lineasDeTienda(tienda.id).catch(() => []), listarMateriales(tienda.id).catch(() => [])])
@@ -222,6 +226,8 @@ export function Encargos() {
   }, [visibles, dimAgr, totalGrupo])
   const enPagina = React.useMemo(() => ordenados.slice(pag * porPagina, pag * porPagina + porPagina), [ordenados, pag, porPagina])
 
+  // «Todos» en la selección: los de la página que se ven (no los de grupos plegados)
+  const seleccionables = dimAgr ? enPagina.filter((r) => !plegados.has(dimAgr.valor(r))) : enPagina
   const grupos = React.useMemo((): [string, EncargoEstado[]][] => {
     if (!dimAgr) return [['', enPagina]]
     const m = new Map<string, EncargoEstado[]>()
@@ -231,7 +237,9 @@ export function Encargos() {
 
   // Cola de cambios: se aplican en el orden de los clics; la fila cambia al momento (optimista)
   const cola = React.useRef<Promise<unknown>>(Promise.resolve())
-  const { ultima, marcar } = useTiempoReal(tienda?.id, () => recargar().catch(() => {}))
+  // Mientras hay avances en cola no se recarga (pisaría lo que ya se ve); al vaciarse, una sola lectura
+  const enCola = React.useRef(0)
+  const { ultima, marcar } = useTiempoReal(tienda?.id, () => { if (enCola.current === 0) recargar().catch(() => {}) })
   const [, tic] = React.useState(0)
   React.useEffect(() => { const t = setInterval(() => tic((n) => n + 1), 15000); return () => clearInterval(t) }, [])
   function siguiente(e: EncargoEstado, confirmado = false) {
@@ -241,6 +249,7 @@ export function Encargos() {
     setConfirmar(null)
     setErr(null)
     setRows((rs) => rs.map((r) => r.id === e.id ? { ...r, etapa_actual_nombre: e.etapa_siguiente_nombre, etapa_actual_id: e.etapa_siguiente_id, etapa_siguiente_nombre: null, etapa_siguiente_clave: null, puertas_pendientes: [], es_final: e.siguiente_es_final } : r))
+    enCola.current++
     cola.current = cola.current.then(() => avanzarEnServidor(e))
   }
   async function avanzarEnServidor(e: EncargoEstado) {
@@ -249,11 +258,14 @@ export function Encargos() {
       const hito = await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: (e.puertas_pendientes ?? []).some((p) => !p.dura) })
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${e.cliente_nombre} → ${e.etapa_siguiente_nombre}`,
         accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id, hito).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
-      await recargar()
     } catch (ex) {
-      // Si falla, se vuelve a leer todo: la fila recupera su estado real
-      avisar({ tipo: 'error', texto: mensajeError(ex) }); await recargar().catch(() => {})
-    } finally { setBusy(null); marcar() }
+      // Si falla, la lectura de después devuelve la fila a su estado real
+      avisar({ tipo: 'error', texto: mensajeError(ex) })
+    } finally {
+      setBusy(null); marcar()
+      enCola.current--
+      if (enCola.current === 0) await recargar().catch(() => {})
+    }
   }
 
   const cols: Campo[] = columnasTabla(ps, tiposEnPantalla)
@@ -276,16 +288,24 @@ export function Encargos() {
   }
   const botonSiguiente = (e: EncargoEstado) => {
     const dura = e.puertas_pendientes?.some((p) => p.dura)
-    if (dura && bandeja === 'bloqueados') return arreglo(e)
+    if (dura && bandeja === 'bloqueados') {
+      const motivoB = e.puertas_pendientes.filter((p) => p.dura).map((p) => p.mensaje).join(' · ')
+      return (
+        <span className="inline-flex flex-col items-start gap-0.5">
+          {arreglo(e) ?? <Link to={`/encargos/${e.id}`} className="text-sm underline">{puedeMarcar(e) ? 'Abrir la ficha' : `Lo resuelve «${nombresRol[(e.etapa_siguiente_rol ?? 'OPERATIVO') as keyof typeof nombresRol]}»`}</Link>}
+          <span className="max-w-[220px] truncate text-xs text-warn-fg" title={motivoB}>{motivoB}</span>
+        </span>
+      )
+    }
     if (!(e.estado === 'ACTIVO' && e.etapa_siguiente_nombre && puedeMarcar(e))) return null
-    const motivo = dura ? e.puertas_pendientes.filter((p) => p.dura).map((p) => p.mensaje).join(' · ') : ''
+    const motivo = e.en_revision ? 'Incidencia abierta: resuélvela en la ficha' : dura ? e.puertas_pendientes.filter((p) => p.dura).map((p) => p.mensaje).join(' · ') : ''
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
-        <Button size="sm" variant={toque.armado === e.id ? 'armed' : 'default'} disabled={busy === e.id || dura} title={motivo || undefined}
+        <Button size="sm" variant={toque.armado === e.id ? 'armed' : 'default'} disabled={busy === e.id || dura || e.en_revision} title={motivo || undefined}
           onClick={(ev) => { ev.stopPropagation(); if (toque.pulsar(e.id)) siguiente(e) }}>
           {toque.armado === e.id ? `¿${e.etapa_siguiente_nombre}? Toca otra vez` : e.etapa_siguiente_nombre}
         </Button>
-        {dura && <span className="max-w-[220px] truncate text-xs text-warn-fg" title={motivo}>{motivo}</span>}
+        {motivo && <span className="max-w-[220px] truncate text-xs text-warn-fg" title={motivo}>{motivo}</span>}
       </span>
     )
   }
@@ -377,7 +397,7 @@ export function Encargos() {
           </span>
         )}
         {bandeja === 'revisar' && <span className="text-fg-2">Aquí entran: {CRITERIO_REVISAR.charAt(0).toLowerCase() + CRITERIO_REVISAR.slice(1)}. Los días se cambian en Ajustes → Tienda.</span>}
-        {bandeja === 'bloqueados' && <span className="text-fg-2">Resuelve lo que falta en la propia fila y el botón de avanzar vuelve a funcionar.</span>}
+        {bandeja === 'bloqueados' && <span className="text-fg-2">Resuelve lo que falta desde la fila (o desde la ficha) y el botón de avanzar vuelve a funcionar.</span>}
         {err && <span className="ml-2 inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); recargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></span>}
       </div>
 
@@ -390,8 +410,8 @@ export function Encargos() {
             <thead className="sticky top-0 z-20 bg-bg">
               <tr>
                 <Th className="sticky left-0 z-20 w-10 bg-bg">{sel ? (
-                  <input type="checkbox" aria-label="Seleccionar todos los visibles" checked={enPagina.length > 0 && enPagina.every((v) => sel.has(v.id))}
-                    onChange={(x) => setSel(x.target.checked ? new Set(enPagina.map((v) => v.id)) : new Set())} />
+                  <input type="checkbox" aria-label="Seleccionar todos los visibles" checked={seleccionables.length > 0 && seleccionables.every((v) => sel.has(v.id))}
+                    onChange={(x) => setSel(x.target.checked ? new Set(seleccionables.map((v) => v.id)) : new Set())} />
                 ) : 'Nº'}</Th>
                 <Th className="sticky left-10 z-20 w-[190px] bg-bg">{vocab.cliente}</Th>
                 {ver('producto') && <Th className="w-[140px]">{vocab.producto}</Th>}
@@ -456,10 +476,10 @@ export function Encargos() {
                   </React.Fragment>
                 )
               })}
-              {cargado && rows.length === 0 && bandeja !== 'anulados' && (
+              {cargado && rows.length === 0 && anulados.length === 0 && (
                 <tr><td colSpan={NCOL} className="h-24 text-center text-fg-3">Todavía no hay {min(vocab.encargos)}. Crea {gr.genero.encargo === 'f' ? 'la primera' : 'el primero'} con «+ {vocab.encargo}».</td></tr>
               )}
-              {rows.length > 0 && visibles.length === 0 && (
+              {cargado && (rows.length > 0 || anulados.length > 0) && visibles.length === 0 && (
                 <tr><td colSpan={NCOL} className="h-24 text-center text-fg-3">
                   {hayFiltro ? <>Nada coincide con la búsqueda o los filtros. <button className="underline" onClick={() => setP({ q: null, f: null })}>Limpiar todo</button></> : 'Esta bandeja está vacía.'}
                 </td></tr>
@@ -477,7 +497,7 @@ export function Encargos() {
       )}
       {sel && vista === 'lista' && (
         <AccionLote seleccion={visibles.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
-          onTodos={() => setSel(new Set(enPagina.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
+          onTodos={() => setSel(new Set(seleccionables.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
       )}
       <Dialog open={!!confirmar} onOpenChange={(o) => !o && setConfirmar(null)}
         title={confirmar ? `${confirmar.etapa_siguiente_nombre}: ${num3(confirmar)} · ${confirmar.cliente_nombre ?? ''}` : ''}
@@ -540,7 +560,7 @@ function Tablero({ visibles, etapas, tipos, etiqueta, boton, abrir, sinProveedor
           </div>
         )
       })}
-      {visibles.length === 0 && <div className="m-auto text-fg-3">{hayFiltro ? 'Nada coincide con la búsqueda o los filtros.' : 'Nada que mostrar.'}</div>}
+      {visibles.length === 0 && <div className="m-auto text-fg-3">{hayFiltro ? 'Nada coincide con la búsqueda o los filtros.' : 'Esta bandeja está vacía.'}</div>}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
 import { AvisosProvider } from '@/ui/Avisos'
 import { AppShell } from '@/layout/AppShell'
@@ -59,7 +59,7 @@ function Gate() {
         <Route path="para-hoy" element={<ParaHoy />} />
         <Route path="encargos" element={<Encargos />} />
         <Route path="encargos/nuevo" element={rol === 'LOGISTICA' ? <Navigate to="/encargos" replace /> : <NuevoEncargo />} />
-        <Route path="encargos/:id" element={<Encargo />} />
+        <Route path="encargos/:id" element={<EncargoPorId />} />
         <Route path="clientes" element={<Clientes />} />
         <Route path="clientes/:id" element={<Cliente />} />
         <Route path="productos" element={<Productos />} />
@@ -99,4 +99,10 @@ export default function App() {
       </AuthProvider>
     </BrowserRouter>
   )
+}
+
+/** La ficha se monta de nuevo al cambiar de encargo: no arrastra «Deshacer», diálogos ni sugerencias del anterior */
+function EncargoPorId() {
+  const { id } = useParams()
+  return <Encargo key={id} />
 }

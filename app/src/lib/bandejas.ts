@@ -26,11 +26,11 @@ export const enRevisar = (e: EncargoEstado) =>
 
 /** Siguiente paso de mi rol (sin contar los bloqueados por una condición dura). */
 export const miTrabajo = (e: EncargoEstado, rol: Rol | null) =>
-  activo(e) && !!e.etapa_siguiente_id && e.etapa_siguiente_rol === rol && !bloqueado(e)
+  activo(e) && !!e.etapa_siguiente_id && e.etapa_siguiente_rol === rol && !bloqueado(e) && !e.en_revision
 
 /** Listo para avanzar ahora mismo por quien mira (sin condiciones pendientes). */
 export const listoParaMi = (e: EncargoEstado, rol: Rol | null) =>
-  activo(e) && !!e.etapa_siguiente_id && puedeMarcar(e, rol) && (e.puertas_pendientes ?? []).length === 0
+  activo(e) && !!e.etapa_siguiente_id && puedeMarcar(e, rol) && (e.puertas_pendientes ?? []).length === 0 && !e.en_revision
 
 export const listoParaEntregar = (e: EncargoEstado) => activo(e) && e.siguiente_es_final
 export const enProveedor = (e: EncargoEstado) => activo(e) && e.en_proveedor

@@ -23,9 +23,9 @@ import { MaterialesEncargo } from '@/components/Material'
 import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
-import { ajustesMaterial, liberarMaterial } from '@/data/materiales'
+import { ajustesMaterial } from '@/data/materiales'
 import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
-import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona } from '@/lib/utils'
+import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, aHoraTienda, deHoraTienda, diasEntre } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
@@ -38,21 +38,18 @@ type Modal = null | 'incidencia' | 'resolver' | 'volver' | 'anular' | 'recuperar
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })
 /** Días de calendario entre dos momentos (20 → 23 = 3), en hora local */
-const dias = (a: string, b: string | Date) => {
-  const d0 = new Date(a); d0.setHours(0, 0, 0, 0)
-  const d1 = new Date(b); d1.setHours(0, 0, 0, 0)
-  return Math.max(0, Math.round((d1.getTime() - d0.getTime()) / 864e5))
-}
-/** yyyy-MM-ddTHH:mm en hora local, para <input type="datetime-local"> */
-const aLocal = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16) }
+const dias = (a: string, b: string | Date) => diasEntre(a, b)
+/** yyyy-MM-ddTHH:mm en la hora de la tienda, para <input type="datetime-local"> */
+const aLocal = (iso: string) => aHoraTienda(iso)
 
 export function Encargo() {
   const { id } = useParams()
   const nav = useNavigate()
-  const { rol, vocab, tienda, gr, session } = useAuth()
+  const { rol, vocab, tienda, gr, session, nombresRol } = useAuth()
   const avisar = useAvisos()
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [impacto, setImpacto] = React.useState<ImpactoAnular | null>(null)
+  const [impactoErr, setImpactoErr] = React.useState(false)
   const [devolverMat, setDevolverMat] = React.useState(true)
   const ajMat = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const conMaterial = ajMat.activo
@@ -94,12 +91,14 @@ export function Encargo() {
   const [ficha, setFicha] = React.useState<{ html: string; texto: string } | null>(null)
   const [autores, setAutores] = React.useState<Record<string, string>>({})
   const [notas, setNotas] = React.useState<Record<string, TNota>>({})
+  const [noExiste, setNoExiste] = React.useState(false)
 
   const cargar = React.useCallback(async () => {
     if (!id) return
     const enc = await obtenerEncargo(id)
     setE(enc)
-    if (!enc) return
+    if (!enc) { setNoExiste(true); return }
+    setNoExiste(false)
     const [h, c, cl, ck, dc, ps, et, an, pm, ev] = await Promise.all([
       listarHitos(id), listarComentarios(id),
       supabase.from('cliente').select('*').eq('id', enc.cliente_id).maybeSingle(),
@@ -139,7 +138,7 @@ export function Encargo() {
     return out
   }
   function abrir(m: Modal) {
-    if (m === 'anular' && e) { setImpacto(null); impactoAnular(e.id).then(setImpacto).catch(() => setImpacto(null)) }
+    if (m === 'anular' && e) { setImpacto(null); setImpactoErr(false); impactoAnular(e.id).then(setImpacto).catch(() => setImpactoErr(true)) }
     setModal(m); setNota(''); setModalErr(null)
     if (m && typeof m === 'object' && 'fecha' in m) setFecha(aLocal(m.fecha.fecha))
     if (m && typeof m === 'object' && 'nota' in m) setNota(m.nota.nota ?? '')
@@ -190,7 +189,7 @@ export function Encargo() {
     if (!e) return
     const v = !checks[clave]
     setChecks((c) => ({ ...c, [clave]: v }))
-    try { await marcarCheck(e.id, clave, v); await cargar() } catch (x) { setErr(mensajeError(x)) }
+    try { await marcarCheck(e.id, clave, v); await cargar() } catch (x) { setChecks((c) => ({ ...c, [clave]: !v })); setErr(mensajeError(x)) }
   }
   async function enviarComentario(ev: React.SyntheticEvent) {
     ev.preventDefault()
@@ -198,7 +197,12 @@ export function Encargo() {
     try { await comentar(e.id, texto.trim()); setTexto(''); setComs(await listarComentarios(e.id)) } catch (x) { setErr(mensajeError(x)) }
   }
 
-  if (!e) return <div className="p-8 text-fg-3">{err ?? 'Cargando…'}</div>
+  if (!e) return (
+    <div className="flex flex-col items-start gap-2 p-8 text-fg-3">
+      <span>{noExiste ? `${gr.Con('encargo', 'este')} no existe o no tienes acceso.` : err ?? 'Cargando…'}</span>
+      {(noExiste || err) && <Link to="/encargos" className="underline">Volver a {min(vocab.encargos)}</Link>}
+    </div>
+  )
 
   const anulado = e.estado === 'ANULADO'
   const gestion = rol === 'ADMIN' || rol === 'OPERATIVO'
@@ -278,6 +282,7 @@ export function Encargo() {
             </div>
           )}
 
+          {err && <div className="flex items-start gap-2 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg"><span className="flex-1">{err}</span><button className="underline" onClick={() => setErr(null)}>Cerrar</button></div>}
           {!anulado && motivos.length > 0 && (
             <div className="flex flex-col gap-1.5 rounded-md border border-warn-bg bg-warn-bg/40 p-3">
               <span className="text-sm font-medium text-warn-fg">En «Revisar» por:</span>
@@ -307,10 +312,11 @@ export function Encargo() {
                   <ArregloPuerta e={e} p={p} onHecho={() => cargar().catch((x) => setErr(mensajeError(x)))} onCompletar={() => setEditar(true)} />
                 </div>
               ))}
-              {err && <span className="text-sm text-danger-fg">{err}</span>}
+              {incAbierta && <span className="text-sm text-danger-fg">Hay una incidencia abierta: resuélvela para poder avanzar.</span>}
+              {!puedeMarcar && e.etapa_siguiente_rol && <span className="text-sm text-fg-3">Lo marca «{nombresRol[e.etapa_siguiente_rol as keyof typeof nombresRol] ?? e.etapa_siguiente_rol}».</span>}
               <div className="mt-0.5 flex flex-wrap gap-1.5">
                 {e.etapa_actual_clave && !incAbierta && <Button onClick={() => abrir('incidencia')}>Incidencia</Button>}
-                {puedeMarcar && <Button variant="primary" disabled={duras.length > 0} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `${e.etapa_siguiente_nombre} igualmente` : e.etapa_siguiente_nombre}</Button>}
+                {puedeMarcar && <Button variant="primary" disabled={duras.length > 0 || !!incAbierta} title={incAbierta ? 'Resuelve antes la incidencia' : undefined} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `${e.etapa_siguiente_nombre} igualmente` : e.etapa_siguiente_nombre}</Button>}
               </div>
             </div>
           )}
@@ -538,15 +544,16 @@ export function Encargo() {
       <Dialog open={modal === 'anular'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Anular ${min(vocab.encargo)} ${num3(e)}`}
         description={`No se borra: queda en «Anulados» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
-        actions={[{ label: 'Anular', variant: 'danger', onClick: () => hacer(async () => {
-          if (recibidoMat.length) await liberarMaterial(e.id, devolverMat)
-          await anularEncargo(e.id, nota)
+        actions={[{ label: impacto || impactoErr ? 'Anular' : 'Comprobando…', variant: 'danger', disabled: !impacto && !impactoErr, onClick: () => hacer(async () => {
+          // Material y anulación en una sola operación del servidor (o todo o nada)
+          await anularEncargo(e.id, nota, recibidoMat.length ? devolverMat : null)
         }, () => {
           const manual = pendientesAlAnular(impacto)
-          if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulado. Queda por hacer a mano: ${manual.join(' · ')}` })
+          if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulad${gr.o('encargo')}. Queda por hacer a mano: ${manual.join(' · ')}` })
           nav('/encargos')
         }) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
+        {impactoErr && <p className="m-0 text-sm text-warn-fg">No se ha podido comprobar qué queda por hacer (material, cobros, avisos). Revísalo tú antes de anular.</p>}
         {recibidoMat.length > 0 && (
           <div className="mt-2 flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
             <div className="font-medium">{vocab.material} ya asignad{gr.o('material')}: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
@@ -573,7 +580,7 @@ export function Encargo() {
       <Dialog open={!!modal && typeof modal === 'object' && 'fecha' in modal} onOpenChange={() => setModal(null)} error={modalErr}
         title="Cambiar fecha"
         description={modal && typeof modal === 'object' && 'fecha' in modal ? `${modal.fecha.tipo === 'INCIDENCIA' ? 'Incidencia en ' : ''}${modal.fecha.etapa?.nombre}. No puede ser futura ni saltarse el paso anterior o el siguiente.` : ''}
-        actions={[{ label: 'Guardar', disabled: !fecha, onClick: () => hacer(() => cambiarFechaHito((modal as { fecha: Hito }).fecha.id, new Date(fecha))) }]}>
+        actions={[{ label: 'Guardar', disabled: !fecha, onClick: () => hacer(() => cambiarFechaHito((modal as { fecha: Hito }).fecha.id, deHoraTienda(fecha))) }]}>
         <Input type="datetime-local" value={fecha} max={aLocal(new Date().toISOString())} onChange={(x) => setFecha(x.target.value)} />
       </Dialog>
     </>
