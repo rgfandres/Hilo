@@ -91,3 +91,10 @@ export function leerNumero(s: string): number | null {
   const n = Number(t)
   return Number.isFinite(n) ? n : null
 }
+
+/**
+ * Marcador por el nombre visible del campo: «Color elegido» → {color_elegido}. Sirve además de la clave
+ * interna ({color}), para que al renombrar un campo también funcione lo que se escribe con el nombre nuevo.
+ */
+export const marcadorEtiqueta = (c: Pick<Campo, 'etiqueta'>) =>
+  c.etiqueta.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')

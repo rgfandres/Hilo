@@ -2,7 +2,7 @@ import * as React from 'react'
 import { IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { claveUnica, guardarTienda, listarEtapasDe, listarTipos } from '@/data/ajustes'
-import { plantillas as leerCampos, type Campo } from '@/data/config'
+import { marcadorEtiqueta, plantillas as leerCampos, type Campo } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import {
   MARCADORES, ayudaMarcador, fraseEtapa, actualizarPlantilla, marcadoresConcordancia, borrarPlantilla, crearPlantilla, listarPlantillas, rellenar, type Canal, type PlantillaMensaje,
@@ -41,13 +41,15 @@ export function AjustesMensajes() {
   // Solo los marcadores que tienen sentido en esta tienda (sin reseña configurada o sin importes, no se ofrecen)
   const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const usaDinero = ajustesDinero(ajT).usa
+  // Los campos se ofrecen con su nombre visible ({tipo_tela}); si choca con un marcador fijo, con su clave
+  const alias = (c: Campo) => { const a = marcadorEtiqueta(c); return a && !MARCADORES.some((m) => m.k === a) ? a : c.clave }
   const marcadores = MARCADORES.map((m) => ({ ...m, ayuda: ayudaMarcador(m.ayuda, vocab) })).filter((m) => !(m.k === 'enlace_resena' && !ajT.enlace_resena) && !(['importe', 'a_cuenta', 'pendiente'].includes(m.k) && !usaDinero))
-    .concat(campos.map((c) => ({ k: c.clave, ayuda: c.etiqueta })))
+    .concat(campos.map((c) => ({ k: alias(c), ayuda: c.etiqueta })))
   // Ejemplo para la vista previa
   const ejemplo: Record<string, unknown> = {
     nombre: 'Ana García', nombre_pila: 'Ana', numero: '042', proveedor: vocab.proveedor,
     etapa: etapas[0]?.nombre ?? 'Etapa', estado: fraseEtapa(ajT, etapas[0]?.nombre ?? 'Etapa'), complementos: 'lazo rojo', usuario: 'Ana', tienda: tienda?.nombre, enlace_resena: (tienda?.ajustes as Record<string, unknown>)?.enlace_resena ?? 'https://…',
-    ...Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta.toLowerCase()])),
+    ...Object.fromEntries(campos.flatMap((c) => [[c.clave, c.etiqueta.toLowerCase()], [alias(c), c.etiqueta.toLowerCase()]])),
     producto: 'Nombre de ejemplo', importe: '120,00 €', a_cuenta: '40,00 €', pendiente: '80,00 €',
     ...marcadoresConcordancia(vocab.producto, gr.genero.producto, 'Nombre de ejemplo'),
   }

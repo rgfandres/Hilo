@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
-import { camposDe, plantillas as leerCampos, type PlantillaCampos } from '@/data/config'
+import { camposDe, marcadorEtiqueta, plantillas as leerCampos, type Campo, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { MARCADORES_FICHA, fichaHTML, guardarPlantillaFicha, obtenerPlantillaFicha, plantillaDefecto, type DatosFicha } from '@/data/ficha'
 import { Button, Dialog, Select, Textarea } from '@/ui'
@@ -55,6 +55,8 @@ export function AjustesFicha() {
   }
   const vista = fichaHTML(texto, ejemplo)
   const campos = [...camposTodos, ...camposCli].filter((c, i, a) => a.findIndex((x) => x.clave === c.clave) === i)
+  // Con su nombre visible ({tipo_tela}); si choca con un marcador fijo, con su clave
+  const aliasF = (c: Campo) => { const a = marcadorEtiqueta(c); return a && !MARCADORES_FICHA.some((m) => m.k === a) && !['fecha_alta', 'año', 'complementos', 'notas'].includes(a) ? a : c.clave }
 
   function insertar(k: string) {
     const t = area.current
@@ -97,7 +99,7 @@ export function AjustesFicha() {
             <button key={m.k} title={ayudaMarcador(m.ayuda, vocab)} onClick={() => insertar(m.k)} className="rounded-sm border border-border bg-bg px-1.5 py-0.5 font-mono text-xs hover:border-border-strong">{`{${m.k}}`}</button>
           ))}
           {campos.map((c) => (
-            <button key={c.clave} title={c.etiqueta} onClick={() => insertar(c.clave)} className="rounded-sm border border-dashed border-border bg-bg px-1.5 py-0.5 font-mono text-xs text-fg-2 hover:border-border-strong">{`{${c.clave}}`}</button>
+            <button key={c.clave} title={`${c.etiqueta} (también {${c.clave}})`} onClick={() => insertar(aliasF(c))} className="rounded-sm border border-dashed border-border bg-bg px-1.5 py-0.5 font-mono text-xs text-fg-2 hover:border-border-strong">{`{${aliasF(c)}}`}</button>
           ))}
         </div>
       </div>

@@ -3,16 +3,16 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconMail, IconPhone, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  actualizarClienteCat, crearCliente, encargosDeCliente, listarClientesCat, obtenerCliente, type ClienteFila,
+  actualizarClienteCat, borrarCliente, crearCliente, fusionarClientes, encargosDeCliente, listarClientesCat, obtenerCliente, type ClienteFila,
 } from '@/data/catalogos'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
-import { listarEtapas, mensajeError } from '@/data/encargos'
+import { buscarClientes, listarEtapas, mensajeError } from '@/data/encargos'
 import { telefonoWhatsApp } from '@/data/mensajes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { CamposForm, CamposVista, aTexto, limpiar } from '@/components/CampoInput'
 import { HistorialCliente } from '@/components/HistorialMedidas'
-import { Button, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
+import { Button, Dialog, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
 import { fechaCorta, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
@@ -97,6 +97,19 @@ export function Cliente() {
   const [editar, setEditar] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
   const nav = useNavigate()
+  // Duplicados: fusionar con otro o borrar (solo administración)
+  const [fusion, setFusion] = React.useState(false)
+  const [borrar, setBorrar] = React.useState(false)
+  const [qF, setQF] = React.useState('')
+  const [candidatos, setCandidatos] = React.useState<{ id: string; nombre: string; telefono: string | null; email: string | null }[]>([])
+  const [otro, setOtro] = React.useState<string | null>(null)
+  const [quedaEste, setQuedaEste] = React.useState(true)
+  const [errM, setErrM] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (!fusion || !tienda || qF.trim().length < 2) { setCandidatos([]); return }
+    const t = setTimeout(() => { buscarClientes(tienda.id, qF.trim()).then((r) => setCandidatos((r as typeof candidatos).filter((x) => x.id !== id))).catch(() => {}) }, 250)
+    return () => clearTimeout(t)
+  }, [fusion, qF, tienda, id])
 
   const cargar = React.useCallback(async () => {
     if (!id || !tienda) return
@@ -115,6 +128,8 @@ export function Cliente() {
   return (
     <>
       <PageHeader title={<span><Link to="/clientes" className="text-fg-3">{vocab.clientes}</Link><span className="mx-2 text-border-strong">/</span>{c.nombre}</span>}>
+        {rol === 'ADMIN' && <Button variant="ghost" onClick={() => { setFusion(true); setQF(c.nombre); setOtro(null); setQuedaEste(true); setErrM(null) }} title="Si está repetido: junta sus encargos y medidas en uno">Fusionar con…</Button>}
+        {rol === 'ADMIN' && encs.length === 0 && <Button variant="ghost" onClick={() => { setBorrar(true); setErrM(null) }}>Borrar</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {puedeEditar && <Button variant="primary" asChild><Link to={`/encargos/nuevo?cliente=${c.id}`}>+ {vocab.encargo}</Link></Button>}
       </PageHeader>
@@ -165,6 +180,39 @@ export function Cliente() {
         </section>
       </div>
       <EditarCliente open={editar} cliente={c} onClose={() => setEditar(false)} onSaved={() => { cargar() }} titulo={`Editar ${min(vocab.cliente)}`} />
+      <Dialog open={fusion} onOpenChange={setFusion} error={errM} className="w-[520px]" title={`Fusionar ${min(vocab.cliente)} repetid${gr.o('cliente')}`}
+        description={`Los ${min(vocab.encargos)} y el historial de medidas pasan a ${gr.con('cliente', 'el')} que se queda; lo que le falte (teléfono, correo, medidas) se completa con ${gr.con('cliente', 'el')} otr${gr.o('cliente')}, y las notas se juntan. ${gr.Con('cliente', 'el')} que sobra se borra. No se puede deshacer.`}
+        actions={[{ label: 'Fusionar', variant: 'danger', disabled: !otro, onClick: async () => {
+          if (!otro) return
+          try {
+            const queda = quedaEste ? c.id : otro
+            await fusionarClientes(queda, quedaEste ? otro : c.id)
+            setFusion(false)
+            if (quedaEste) await cargar(); else nav(`/clientes/${queda}`, { replace: true })
+          } catch (x) { setErrM(mensajeError(x)) }
+        } }]}>
+        <Input value={qF} onChange={(e) => { setQF(e.target.value); setOtro(null) }} placeholder="Buscar por nombre, teléfono o correo" autoFocus />
+        <div className="flex max-h-[220px] flex-col overflow-auto">
+          {candidatos.length === 0 && qF.trim().length >= 2 && <span className="text-sm text-fg-3">Nadie más con ese nombre.</span>}
+          {candidatos.map((x) => (
+            <label key={x.id} className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-bg-3">
+              <input type="radio" name="fusion" checked={otro === x.id} onChange={() => setOtro(x.id)} />
+              <span className="font-medium">{x.nombre}</span><span className="text-sm text-fg-3">{[x.telefono, x.email].filter(Boolean).join(' · ') || 'sin teléfono ni correo'}</span>
+            </label>
+          ))}
+        </div>
+        {otro && (
+          <div className="flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
+            <label className="flex items-center gap-2"><input type="radio" checked={quedaEste} onChange={() => setQuedaEste(true)} /> Se queda {gr.con('cliente', 'este')} ({encs.length} {min(encs.length === 1 ? vocab.encargo : vocab.encargos)}) y se borra el otro</label>
+            <label className="flex items-center gap-2"><input type="radio" checked={!quedaEste} onChange={() => setQuedaEste(false)} /> Se queda el otro y se borra {gr.con('cliente', 'este')}</label>
+          </div>
+        )}
+      </Dialog>
+      <Dialog open={borrar} onOpenChange={setBorrar} error={errM} title={`Borrar a ${c.nombre}`}
+        description={`No tiene ningún ${min(vocab.encargo)}. Se borra con sus medidas y no se puede deshacer.`}
+        actions={[{ label: 'Borrar', variant: 'danger', onClick: async () => {
+          try { await borrarCliente(c.id); setBorrar(false); nav('/clientes', { replace: true }) } catch (x) { setErrM(mensajeError(x)) }
+        } }]} />
     </>
   )
 }

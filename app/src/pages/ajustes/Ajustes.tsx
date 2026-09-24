@@ -186,7 +186,7 @@ export function Estado({ ok, err }: { ok?: string | null; err?: string | null })
 /** Interruptor accesible (checkbox con aspecto de switch). */
 export function Interruptor({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean }) {
   return (
-    <label className={cn('inline-flex items-center gap-2', disabled ? 'opacity-50' : 'cursor-pointer')}>
+    <label className={cn('relative inline-flex items-center gap-2', disabled ? 'opacity-50' : 'cursor-pointer')}>
       <input type="checkbox" role="switch" className="peer sr-only" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="relative h-4 w-7 rounded-full bg-gray-6 transition-colors peer-checked:bg-gray-12 peer-focus-visible:ring-2 peer-focus-visible:ring-gray-8 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
       {label && <span>{label}</span>}

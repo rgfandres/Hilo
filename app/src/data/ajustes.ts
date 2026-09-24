@@ -96,6 +96,8 @@ export async function marcarFinal(etapaId: string, final: boolean) {
 }
 export async function actualizarTipo(id: string, patch: { nombre?: string; activo?: boolean; serie?: string }) {
   okFila(await supabase.from('tipo_encargo').update(patch).eq('id', id).select('id'))
+  // El menú (tipos con menú propio) se entera sin recargar la página
+  window.dispatchEvent(new Event('hilo:tipos'))
 }
 export async function listarEtapasDe(tipoId: string) {
   return ok(await supabase.from('etapa').select('*').eq('tipo_encargo_id', tipoId).order('orden')) as Etapa[]

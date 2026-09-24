@@ -6,7 +6,7 @@ import {
 } from '@/data/mensajes'
 import { mensajeError } from '@/data/encargos'
 import type { Campo } from '@/data/config'
-import { formatearValor } from '@/data/config'
+import { formatearValor, marcadorEtiqueta } from '@/data/config'
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { num3, dinero, pendiente } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -40,7 +40,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
     // Campos configurables primero (con su formato), y los fijos encima
     for (const f of campos) {
       const v = encargo.datos?.[f.clave] ?? cliente?.datos?.[f.clave]
-      if (v != null && v !== '') c[f.clave] = formatearValor(f, v)
+      if (v != null && v !== '') { c[f.clave] = formatearValor(f, v); const a = marcadorEtiqueta(f); if (a && !(a in c)) c[a] = c[f.clave] }
     }
     const nombre = cliente?.nombre ?? encargo.cliente_nombre ?? ''
     Object.assign(c, {

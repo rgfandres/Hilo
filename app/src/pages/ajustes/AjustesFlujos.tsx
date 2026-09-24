@@ -161,7 +161,6 @@ export function AjustesFlujos() {
                     <span className="w-5 text-right text-sm text-fg-3 tabular">{i + 1}</span>
                     <ColorEtapa value={e.color} onChange={(c) => hacer(() => actualizarEtapa(e.id, { color: c }))} />
                     <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(() => actualizarEtapa(e.id, { nombre: v })) }} />
-                    <div className="flex-1" />
                     {ps.some((p) => p.dura) && <IconLock size={13} className="text-danger-fg" />}
                     {ps.some((p) => !p.dura) && <IconAlertTriangle size={13} className="text-warn-fg" />}
                     {e.es_final && <Tag color="green">final</Tag>}

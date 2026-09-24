@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { formatearValor, type Campo } from '@/data/config'
+import { formatearValor, marcadorEtiqueta, type Campo } from '@/data/config'
 import { num3, locale, zona } from '@/lib/utils'
 import type { Vocab } from '@/lib/vocab'
 
@@ -85,6 +85,8 @@ function textos(d: DatosFicha): Record<string, string> {
     const src = d.camposEncargo.includes(c) ? d.datosEncargo : d.datosCliente
     const v = formatearValor(c, src?.[c.clave])
     t[c.clave] = v === '—' ? '' : v
+    const alias = marcadorEtiqueta(c)
+    if (alias && !(alias in t)) t[alias] = t[c.clave]
   }
   return t
 }

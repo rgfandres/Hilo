@@ -56,7 +56,10 @@ export function AppShell() {
   const aparteKey = aparte.join(',')
   React.useEffect(() => {
     if (!tienda || !aparteKey) { setTiposMenu([]); return }
-    listarTipos(tienda.id).then((ts) => setTiposMenu(ts.filter((t) => aparteKey.split(',').includes(t.id)).map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {})
+    const leer = () => listarTipos(tienda.id).then((ts) => setTiposMenu(ts.filter((t) => aparteKey.split(',').includes(t.id)).map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {})
+    leer()
+    window.addEventListener('hilo:tipos', leer)
+    return () => window.removeEventListener('hilo:tipos', leer)
   }, [tienda, aparteKey])
   const ajMat = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const conMateriales = ajMat.activo && rol !== 'LOGISTICA'

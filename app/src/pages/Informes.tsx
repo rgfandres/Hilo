@@ -134,9 +134,10 @@ export function Informes() {
     for (const h of hsVista) if (ids.has(h.encargo_id) && !visto.has(h.encargo_id)) {
       visto.add(h.encargo_id)
       const k = h.producto_id ? prods.get(h.producto_id) ?? '' : ''
-      eur.set(k, (eur.get(k) ?? 0) + (importeDe.get(h.encargo_id) ?? 0))
+      const x = importeDe.get(h.encargo_id)
+      if (x != null) eur.set(k, (eur.get(k) ?? 0) + x)
     }
-    return rankingTerminados(hsVista, iv, (h) => (h.producto_id ? prods.get(h.producto_id) ?? null : null)).slice(0, 10).map(([k, n]) => [k, n, eur.get(k) ?? 0] as [string, number, number])
+    return rankingTerminados(hsVista, iv, (h) => (h.producto_id ? prods.get(h.producto_id) ?? null : null)).slice(0, 10).map(([k, n]) => [k, n, eur.get(k) ?? null] as [string, number, number | null])
   }, [hsVista, iv, prods, importeDe])
   const topCampo = React.useMemo(() => campo ? rankingTerminados(hsVista, iv, (h) => { const v = h.datos?.[campo]; return v == null || v === '' ? null : String(v) }).slice(0, 10) : [], [hsVista, iv, campo])
 
@@ -232,7 +233,7 @@ export function Informes() {
                   <SectionLabel>Terminad{os} por {min(vocab.producto)}</SectionLabel>
                   {topProducto.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
                     : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`, ...(dn.usa ? ['Importe'] : [])]} alinear={[false, true, true]}
-                        filas={topProducto.map(([k, n, eur]) => [k || <span key="s" className="text-warn-fg">Sin {min(vocab.producto)}</span>, n, ...(dn.usa ? [dinero(eur, dn.moneda)] : [])])} />}
+                        filas={topProducto.map(([k, n, eur]) => [k || <span key="s" className="text-warn-fg">Sin {min(vocab.producto)}</span>, n, ...(dn.usa ? [eur == null ? <span key="sp" className="text-fg-3">sin precio</span> : dinero(eur, dn.moneda)] : [])])} />}
                 </section>
                 {camposEncargo.length > 0 && (
                   <section className="flex flex-col gap-2">
@@ -267,10 +268,17 @@ function PorDatoPeriodo({ encargos, importeDe, campos, usaImporte, moneda }: { e
   const os = gr.o('encargo', true)
   const [dato, setDato] = React.useState('producto')
   const valor = (e: EncargoEstado) => { const v = dato === 'producto' ? e.producto_nombre : e.datos?.[dato]; return v == null || v === '' ? '' : String(v) }
-  const m = new Map<string, { n: number; fin: number; eur: number }>()
-  for (const e of encargos) { const k = valor(e); const r = m.get(k) ?? { n: 0, fin: 0, eur: 0 }; r.n++; if (e.es_final) r.fin++; r.eur += importeDe.get(e.id) ?? 0; m.set(k, r) }
+  const m = new Map<string, { n: number; fin: number; eur: number; sin: number }>()
+  for (const e of encargos) {
+    const k = valor(e); const r = m.get(k) ?? { n: 0, fin: 0, eur: 0, sin: 0 }; r.n++; if (e.es_final) r.fin++
+    const x = importeDe.get(e.id); if (x == null) r.sin++; else r.eur += x
+    m.set(k, r)
+  }
+  const sinPrecio = [...m.values()].reduce((s, r) => s + r.sin, 0)
+  // Sin ningún importe conocido no se pone 0 €, sino «sin precio»
+  const eur = (r: { n: number; eur: number; sin: number }) => (r.sin === r.n ? <span key="sp" className="text-fg-3">sin precio</span> : dinero(r.eur, moneda))
   const filas = [...m].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
-  const tot = filas.reduce((s, [, r]) => ({ n: s.n + r.n, fin: s.fin + r.fin, eur: s.eur + r.eur }), { n: 0, fin: 0, eur: 0 })
+  const tot = filas.reduce((s, [, r]) => ({ n: s.n + r.n, fin: s.fin + r.fin, eur: s.eur + r.eur, sin: s.sin + r.sin }), { n: 0, fin: 0, eur: 0, sin: 0 })
   const etiqueta = dato === 'producto' ? vocab.producto : campos.find((c) => c.clave === dato)?.etiqueta ?? ''
   return (
     <section className="flex flex-col gap-2">
@@ -283,9 +291,10 @@ function PorDatoPeriodo({ encargos, importeDe, campos, usaImporte, moneda }: { e
       </div>
       {filas.length === 0 ? <p className="m-0 text-fg-3">No hay {min(vocab.encargos)} en el periodo.</p> : (
         <TablaSimple cabecera={[etiqueta, vocab.encargos, `Terminad${os}`, ...(usaImporte ? ['Importe'] : [])]} alinear={[false, true, true, true]}
-          filas={[...filas.map(([k, r]) => [k || <span key="s" className="text-warn-fg">Sin dato</span>, r.n, r.fin, ...(usaImporte ? [dinero(r.eur, moneda)] : [])]),
-            [<b key="t">Total</b>, <b key="n">{tot.n}</b>, <b key="f">{tot.fin}</b>, ...(usaImporte ? [<b key="e">{dinero(tot.eur, moneda)}</b>] : [])]]} />
+          filas={[...filas.map(([k, r]) => [k || <span key="s" className="text-warn-fg">Sin dato</span>, r.n, r.fin, ...(usaImporte ? [eur(r)] : [])]),
+            [<b key="t">Total</b>, <b key="n">{tot.n}</b>, <b key="f">{tot.fin}</b>, ...(usaImporte ? [<b key="e">{eur(tot)}</b>] : [])]]} />
       )}
+      {usaImporte && sinPrecio > 0 && <p className="m-0 text-sm text-fg-3">{sinPrecio} {sinPrecio === 1 ? min(vocab.encargo) : min(vocab.encargos)} sin importe ni precio en el catálogo de {min(vocab.productos)}: no suman.</p>}
     </section>
   )
 }
