@@ -5,6 +5,7 @@ import {
   type ProveedorConAcceso,
 } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
+import { ajustesFicha } from '@/data/catalogos'
 import { Link } from 'react-router-dom'
 import { Button, FormRow, Input, Select, Tag } from '@/ui'
 import { min } from '@/lib/vocab'
@@ -103,6 +104,14 @@ function QueVe() {
     try { await guardarTienda(tienda.id, tienda.nombre, { ...aj, proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: v } }); await recargar(); setOk('Guardado') }
     catch (x) { setErr(mensajeError(x)) }
   }
+  const verComp = aj.complementos_a_proveedor !== false
+  const { etiqueta: etiq, usaComplementos } = ajustesFicha(aj)
+  async function ponerComp(v: boolean) {
+    if (!tienda) return
+    setErr(null); setOk(null)
+    try { await guardarTienda(tienda.id, tienda.nombre, { ...aj, complementos_a_proveedor: v ? null : false }); await recargar(); setOk('Guardado') }
+    catch (x) { setErr(mensajeError(x)) }
+  }
   return (
     <Bloque titulo={`Qué ve ${gr.con('proveedor', 'el')}`} ayuda={`Teléfono y correo ${gr.con('cliente', 'del')} nunca se muestran.`}>
       <FormRow label={`Nombre ${gr.con('cliente', 'del')}`}>
@@ -112,6 +121,14 @@ function QueVe() {
           <option value="no">Nada (solo el número)</option>
         </Select>
       </FormRow>
+      {usaComplementos && (
+        <FormRow label={etiq}>
+          <Select className="w-[260px]" value={verComp ? 'si' : 'no'} onChange={(e) => ponerComp(e.target.value === 'si')}>
+            <option value="si">Los ve (en la fila y en la ficha)</option>
+            <option value="no">No los ve</option>
+          </Select>
+        </FormRow>
+      )}
       <Estado ok={ok} err={err} />
     </Bloque>
   )

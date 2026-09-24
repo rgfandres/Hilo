@@ -187,7 +187,7 @@ function FrasesYCorreo({ aj, etapas, onGuardar }: { aj: Record<string, unknown>;
       </div>
       <details>
         <summary className="cursor-pointer text-fg-2">Cómo se dice cada etapa en los mensajes: <code>{'{estado}'}</code></summary>
-        <p className="my-1 text-fg-3">«Se encuentra {'{estado}'}». Vacío: el nombre de la etapa en minúscula.</p>
+        <p className="my-1 text-fg-3">«Se encuentra {'{estado}'}». Puede llevar marcadores: «en manos de {'{proveedor}'}». Vacío: el nombre de la etapa en minúscula.</p>
         <div className="flex flex-col gap-1">
           {etapas.map((n) => (
             <div key={n} className="flex items-center gap-2">

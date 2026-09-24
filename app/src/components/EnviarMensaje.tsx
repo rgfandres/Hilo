@@ -51,6 +51,8 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
       ...(encargo.importe != null ? { importe: dinero(encargo.importe, String(aj.moneda ?? 'EUR')), a_cuenta: dinero(encargo.a_cuenta, String(aj.moneda ?? 'EUR')), pendiente: dinero(pendiente(encargo), String(aj.moneda ?? 'EUR')) } : {}),
       ...marcadoresConcordancia(vocab.producto, gr.genero.producto, encargo.producto_nombre),
     })
+    // La frase de la etapa puede llevar marcadores («en el taller de {proveedor}»)
+    if (typeof c.estado === 'string') c.estado = rellenar(c.estado, c)
     return c
   }, [encargo, cliente, campos, tienda, aj, session?.user, vocab.producto, gr.genero.producto])
 

@@ -7,14 +7,14 @@ import { useAuth } from '@/auth/AuthProvider'
 import { listarEncargos, listarEtapas, listarProductos, listarProveedores, mensajeError } from '@/data/encargos'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import {
-  alcanzanEtapa, enviadosProveedor, hitosInforme, informeCortado, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
+  alcanzanEtapa, hitosInforme, recibidosProveedor, informeCortado, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
   terminados, ultimos, type HitoInforme, type Intervalo, type TipoIntervalo,
 } from '@/data/informes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Select, SectionLabel, Tag, tagColorFromHex } from '@/ui'
 import { Facturacion, InformeMateriales } from '@/components/InformesExtra'
-import { cn, locale, zona } from '@/lib/utils'
+import { ajustesDinero, cn, dinero, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { activo } from '@/lib/bandejas'
 
@@ -95,12 +95,15 @@ export function Informes() {
     }
   }, [hsVista, iv, prevCmp, ordenEtapas])
 
+  // Nuevos · vueltos del proveedor (producción terminada) · terminados. En «Periodo», los últimos 12 meses
   const evolucion = React.useMemo(() => {
-    if (tipo === 'periodo') return []
-    return ultimos(iv, tipo === 'año' ? 6 : 12).map((x) => ({
-      i: x, nuevos: nuevos(hsVista, x), proveedor: enviadosProveedor(hsVista, x).size, terminados: terminados(hsVista, x).size,
+    const base = tipo === 'periodo' ? intervaloDe('mes', new Date()) : iv
+    return ultimos(base, tipo === 'año' ? 6 : 12).map((x) => ({
+      i: x, nuevos: nuevos(hsVista, x), proveedor: recibidosProveedor(hsVista, x).size, terminados: terminados(hsVista, x).size,
     }))
   }, [hsVista, iv, tipo])
+  const dn = ajustesDinero(tienda?.ajustes as Record<string, unknown> | undefined)
+  const importeDe = React.useMemo(() => new Map(actuales.map((e) => [e.id, e.importe == null ? null : Number(e.importe)])), [actuales])
 
   const pz = React.useMemo(() => plazos(hsVista, iv), [hsVista, iv])
   const descartados = pz.reduce((n, p) => n + p.descartados, 0)
@@ -121,7 +124,17 @@ export function Informes() {
       .filter((c) => c.tipo !== 'fecha' && !vistos.has(c.clave) && (vistos.add(c.clave), true))
   }, [ps, etapas])
   React.useEffect(() => { if (!campo && camposEncargo[0]) setCampo(camposEncargo[0].clave) }, [campo, camposEncargo])
-  const topProducto = React.useMemo(() => rankingTerminados(hsVista, iv, (h) => (h.producto_id ? prods.get(h.producto_id) ?? null : null)).slice(0, 10), [hsVista, iv, prods])
+  const topProducto = React.useMemo(() => {
+    const ids = terminados(hsVista, iv)
+    const eur = new Map<string, number>()
+    const visto = new Set<string>()
+    for (const h of hsVista) if (ids.has(h.encargo_id) && !visto.has(h.encargo_id)) {
+      visto.add(h.encargo_id)
+      const k = h.producto_id ? prods.get(h.producto_id) ?? '' : ''
+      eur.set(k, (eur.get(k) ?? 0) + (importeDe.get(h.encargo_id) ?? 0))
+    }
+    return rankingTerminados(hsVista, iv, (h) => (h.producto_id ? prods.get(h.producto_id) ?? null : null)).slice(0, 10).map(([k, n]) => [k, n, eur.get(k) ?? 0] as [string, number, number])
+  }, [hsVista, iv, prods, importeDe])
   const topCampo = React.useMemo(() => campo ? rankingTerminados(hsVista, iv, (h) => { const v = h.datos?.[campo]; return v == null || v === '' ? null : String(v) }).slice(0, 10) : [], [hsVista, iv, campo])
 
   const cargando = hs == null && !err
@@ -176,7 +189,7 @@ export function Informes() {
                     <button className="no-imprimir text-sm text-fg-3 hover:text-fg" onClick={() => setTabla((t) => !t)}>{tabla ? 'Ver gráfico' : 'Ver como tabla'}</button>
                   </div>
                   {tabla ? (
-                    <TablaSimple cabecera={['Intervalo', `Nuev${os}`, `A ${min(vocab.proveedor)}`, `Terminad${os}`]}
+                    <TablaSimple cabecera={['Intervalo', `Nuev${os}`, `Vuelt${os} de ${min(vocab.proveedor)}`, `Terminad${os}`]}
                       filas={evolucion.map((x) => [x.i.titulo, x.nuevos, x.proveedor, x.terminados])} />
                   ) : (
                     <Evolucion datos={evolucion} proveedor={min(vocab.proveedor)} os={os} />
@@ -197,7 +210,7 @@ export function Informes() {
 
               <section className="flex flex-col gap-2">
                 <SectionLabel>Dónde está cada {min(vocab.encargo)} ahora</SectionLabel>
-                <Embudo actuales={enCurso} etapas={ordenEtapas} />
+                <Embudo actuales={enCurso} etapas={ordenEtapas} entregados={actuales.filter((e) => e.es_final).length} />
               </section>
 
               <InformeMateriales iv={iv} />
@@ -215,7 +228,8 @@ export function Informes() {
                 <section className="flex flex-col gap-2">
                   <SectionLabel>Terminad{os} por {min(vocab.producto)}</SectionLabel>
                   {topProducto.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
-                    : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`]} alinear={[false, true]} filas={topProducto.map(([k, n]) => [k || <span key="s" className="text-warn-fg">Sin {min(vocab.producto)}</span>, n])} />}
+                    : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`, ...(dn.usa ? ['Importe'] : [])]} alinear={[false, true, true]}
+                        filas={topProducto.map(([k, n, eur]) => [k || <span key="s" className="text-warn-fg">Sin {min(vocab.producto)}</span>, n, ...(dn.usa ? [dinero(eur, dn.moneda)] : [])])} />}
                 </section>
                 {camposEncargo.length > 0 && (
                   <section className="flex flex-col gap-2">
@@ -231,11 +245,45 @@ export function Informes() {
                   </section>
                 )}
               </div>
+
+              <PorDatoPeriodo encargos={actuales} campos={camposEncargo.map((c) => ({ clave: c.clave, etiqueta: c.etiqueta }))} usaImporte={dn.usa} moneda={dn.moneda} />
             </>
           )}
         </div>
       </div>
     </>
+  )
+}
+
+/**
+ * Todo el periodo por un dato (el producto o cualquier campo del encargo): cuántos hay, cuántos terminados
+ * y el importe. Es el ranking de la temporada y los recuentos por campo de la tienda de origen.
+ */
+function PorDatoPeriodo({ encargos, campos, usaImporte, moneda }: { encargos: EncargoEstado[]; campos: { clave: string; etiqueta: string }[]; usaImporte: boolean; moneda: string }) {
+  const { vocab, gr } = useAuth()
+  const os = gr.o('encargo', true)
+  const [dato, setDato] = React.useState('producto')
+  const valor = (e: EncargoEstado) => { const v = dato === 'producto' ? e.producto_nombre : e.datos?.[dato]; return v == null || v === '' ? '' : String(v) }
+  const m = new Map<string, { n: number; fin: number; eur: number }>()
+  for (const e of encargos) { const k = valor(e); const r = m.get(k) ?? { n: 0, fin: 0, eur: 0 }; r.n++; if (e.es_final) r.fin++; r.eur += Number(e.importe ?? 0); m.set(k, r) }
+  const filas = [...m].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
+  const tot = filas.reduce((s, [, r]) => ({ n: s.n + r.n, fin: s.fin + r.fin, eur: s.eur + r.eur }), { n: 0, fin: 0, eur: 0 })
+  const etiqueta = dato === 'producto' ? vocab.producto : campos.find((c) => c.clave === dato)?.etiqueta ?? ''
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <SectionLabel className="flex-1">Todo el periodo por</SectionLabel>
+        <Select className="no-imprimir h-7 w-[180px]" value={dato} onChange={(e) => setDato(e.target.value)} aria-label="Dato">
+          <option value="producto">{vocab.producto}</option>
+          {campos.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
+        </Select>
+      </div>
+      {filas.length === 0 ? <p className="m-0 text-fg-3">No hay {min(vocab.encargos)} en el periodo.</p> : (
+        <TablaSimple cabecera={[etiqueta, vocab.encargos, `Terminad${os}`, ...(usaImporte ? ['Importe'] : [])]} alinear={[false, true, true, true]}
+          filas={[...filas.map(([k, r]) => [k || <span key="s" className="text-warn-fg">Sin dato</span>, r.n, r.fin, ...(usaImporte ? [dinero(r.eur, moneda)] : [])]),
+            [<b key="t">Total</b>, <b key="n">{tot.n}</b>, <b key="f">{tot.fin}</b>, ...(usaImporte ? [<b key="e">{dinero(tot.eur, moneda)}</b>] : [])]]} />
+      )}
+    </section>
   )
 }
 
@@ -270,7 +318,7 @@ function TablaSimple({ cabecera, filas, alinear }: { cabecera: React.ReactNode[]
 }
 
 /** Barra horizontal por etapa (en orden del flujo) con incidencias y atascados aparte. */
-function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa[] }) {
+function Embudo({ actuales, etapas, entregados }: { actuales: EncargoEstado[]; etapas: Etapa[]; entregados: number }) {
   const { gr } = useAuth()
   const n = new Map<string, number>()
   for (const e of actuales) { const k = e.etapa_actual_nombre ?? ''; n.set(k, (n.get(k) ?? 0) + 1) }
@@ -292,6 +340,8 @@ function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa
         </div>
       ))}
       <div className="mt-1 flex gap-4 text-sm text-fg-2">
+        <span>Terminad{gr.o('encargo', true)} en el periodo: <b className="tabular">{entregados}</b></span>
+        <span>En curso: <b className="tabular">{actuales.length}</b> · Total: <b className="tabular">{actuales.length + entregados}</b></span>
         <span><Tag color="red">Incidencia</Tag> {inc}</span>
         <span className="text-danger-fg">Atascad{gr.o('encargo', true)}: {atasc}</span>
       </div>
@@ -303,7 +353,7 @@ function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa
 function Evolucion({ datos, proveedor, os = 'os' }: { datos: { i: Intervalo; nuevos: number; proveedor: number; terminados: number }[]; proveedor: string; os?: string }) {
   const series = [
     { k: 'nuevos' as const, label: `Nuev${os}`, color: '#2a78d6' },
-    { k: 'proveedor' as const, label: `A ${proveedor}`, color: '#eb6834' },
+    { k: 'proveedor' as const, label: `Vuelt${os} de ${proveedor}`, color: '#eb6834' },
     { k: 'terminados' as const, label: `Terminad${os}`, color: '#1baf7a' },
   ]
   const [hover, setHover] = React.useState<number | null>(null)

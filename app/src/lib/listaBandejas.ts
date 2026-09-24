@@ -115,3 +115,33 @@ export function pendientesConf(conf: BandejaLista[], rows: EncargoEstado[], extr
   }
   return n
 }
+
+/**
+ * Tarjetas de «Para hoy» elegidas por la tienda (Ajustes → Tarjetas de Para hoy). Cada una cuenta
+ * una bandeja de la lista, unas etapas o las incidencias abiertas, y al pulsarla abre la lista así.
+ */
+export interface TarjetaInicio {
+  nombre: string
+  que: 'bandeja' | 'etapas' | 'incidencias'
+  bandeja?: string
+  etapas?: string[]
+  tono?: 'ok' | 'warn' | 'danger'
+}
+export function tarjetasInicio(aj: Record<string, unknown> | null | undefined): TarjetaInicio[] | null {
+  const t = aj?.inicio_tarjetas
+  return Array.isArray(t) && t.length ? (t as TarjetaInicio[]) : null
+}
+
+/** Cuántos hay en una bandeja configurada (null en las de material y anulados, que no se leen aquí) */
+export function cuentaBandeja(b: BandejaLista, rows: EncargoEstado[], extra: { miTrabajo: (e: EncargoEstado) => boolean; revisar: (e: EncargoEstado) => boolean; bloqueado: (e: EncargoEstado) => boolean }): number | null {
+  const vivo = (e: EncargoEstado) => e.estado === 'ACTIVO' && !e.es_final
+  switch (b.tipo) {
+    case 'todos': return rows.filter((e) => e.estado === 'ACTIVO' && (b.con_terminados || !e.es_final)).length
+    case 'etapas': return rows.filter((e) => enEtapas(b, e)).length
+    case 'mio': return rows.filter(extra.miTrabajo).length
+    case 'revisar': return rows.filter(extra.revisar).length
+    case 'bloqueados': return rows.filter((e) => vivo(e) && extra.bloqueado(e)).length
+    case 'terminados': return rows.filter((e) => e.estado === 'ACTIVO' && e.es_final).length
+    default: return null
+  }
+}

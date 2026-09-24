@@ -15,6 +15,10 @@ export interface Impresion { id: string; producto_id: string | null; fecha: stri
 export interface ContenidoImpresion {
   titulo: string; producto: string; tienda: string; fecha: string
   columnas: string[]; curva: string[]; filas: { celdas: string[]; valor: string }[]
+  /** Marca de la rejilla (● por defecto; X como en una orden de corte) */
+  marca?: string
+  /** Cabecera «PRODUCTO X» en grande con el nombre de la hoja debajo */
+  cabecera?: 'producto'
 }
 
 const ok = <T,>(r: { data: T | null; error: unknown }): T => { if (r.error) throw r.error; return r.data as T }
@@ -26,6 +30,12 @@ export function ajustesHoja(aj: Record<string, unknown> | null | undefined) {
     campoCol: (aj?.hoja_campo_col as string | null | undefined) ?? null,
     etiquetaCol: String(aj?.hoja_col_etiqueta ?? aj?.hoja_campo_col ?? ''),
     curva: (aj?.hoja_curva as string[] | undefined) ?? [],
+    /** Qué sale en la hoja impresa */
+    impCliente: aj?.hoja_imp_cliente !== false,
+    impCantidad: aj?.hoja_imp_cantidad !== false,
+    impNota: aj?.hoja_imp_nota !== false,
+    marca: String(aj?.hoja_imp_marca ?? '●'),
+    cabecera: aj?.hoja_imp_cabecera === 'producto' ? 'producto' as const : undefined,
   }
 }
 
@@ -51,13 +61,16 @@ export async function listarImpresiones(tiendaId: string, productoId: string | n
 export function imprimirHoja(c: ContenidoImpresion): boolean {
   const esc = (s: string) => s.replace(/[&<>"]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]!))
   const cab = c.columnas.map((x) => `<th>${esc(x)}</th>`).join('') + (c.curva.length ? c.curva.map((t) => `<th class="t">${esc(t)}</th>`).join('') : '')
-  const filas = c.filas.map((f) => `<tr>${f.celdas.map((x) => `<td>${esc(x)}</td>`).join('')}${c.curva.map((t) => `<td class="t">${f.valor === t ? '●' : ''}</td>`).join('')}</tr>`).join('')
+  const filas = c.filas.map((f) => `<tr>${f.celdas.map((x) => `<td>${esc(x)}</td>`).join('')}${c.curva.map((t) => `<td class="t">${f.valor === t ? esc(c.marca ?? '●') : ''}</td>`).join('')}</tr>`).join('')
+  const cabecera = c.cabecera === 'producto'
+    ? `<h1>${esc(c.producto.toUpperCase())}</h1><div class="sub"><b>${esc(c.titulo.toUpperCase())}</b> · Fecha de impresión: ${esc(c.fecha)} · ${c.filas.length} ${c.filas.length === 1 ? 'línea' : 'líneas'}</div>`
+    : `<h1>${esc(c.producto)}</h1><div class="sub">${esc(c.titulo)} · ${esc(c.tienda)} · ${esc(c.fecha)} · ${c.filas.length} ${c.filas.length === 1 ? 'línea' : 'líneas'}</div>`
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(c.titulo)} · ${esc(c.producto)}</title>
 <style>@page{size:A4 landscape;margin:10mm}body{font:11px/1.35 system-ui,sans-serif;color:#111;margin:0}
 h1{font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}
 th,td{border:1px solid #999;padding:4px 5px;text-align:left;vertical-align:top}th{background:#eee;font-weight:600}
-.t{text-align:center;width:22px}tr{page-break-inside:avoid}</style></head><body>
-<h1>${esc(c.producto)}</h1><div class="sub">${esc(c.titulo)} · ${esc(c.tienda)} · ${esc(c.fecha)} · ${c.filas.length} ${c.filas.length === 1 ? 'línea' : 'líneas'}</div>
+.t{text-align:center;width:22px;font-weight:700}tr{page-break-inside:avoid}tbody tr:nth-child(even){background:#f6f6f6}</style></head><body>
+${cabecera}
 <table><thead><tr>${cab}</tr></thead><tbody>${filas}</tbody></table>
 <script>window.onload=()=>{window.print()}</script></body></html>`
   const w = window.open('', '_blank')

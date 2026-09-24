@@ -11,6 +11,7 @@ import { min, textosFin } from '@/lib/vocab'
 import { filtrosAUrl } from '@/data/lista'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, miTrabajo, motivosRevision } from '@/lib/bandejas'
+import { bandejasLista, cuentaBandeja, tarjetasInicio } from '@/lib/listaBandejas'
 
 type Bloque = 'indicadores' | 'mio' | 'atencion' | 'listos' | 'etapas' | 'proveedores'
 const LS = 'hilo.para_hoy'
@@ -73,7 +74,23 @@ export function ParaHoy() {
   const hoy = new Date().toLocaleDateString(locale(), { timeZone: zona(), weekday: 'long', day: 'numeric', month: 'long' })
   const prov = min(vocab.proveedor)
 
-  const indicadores = [
+  // Tarjetas elegidas por la tienda (si las hay) en lugar de las de siempre
+  const conf = bandejasLista(aj)
+  const tarjetas = tarjetasInicio(aj)
+  const indicadoresTienda = tarjetas?.map((t, i) => {
+    if (t.que === 'incidencias') {
+      const n = rows.filter((e) => activo(e) && e.en_revision).length
+      return { k: `t${i}`, label: t.nombre, n, to: aLista({ b: 'revisar', desde: t.nombre }), title: 'Con una incidencia abierta', tono: t.tono }
+    }
+    if (t.que === 'etapas') {
+      const et = t.etapas ?? []
+      return { k: `t${i}`, label: t.nombre, n: enCurso.filter((e) => et.includes(e.etapa_actual_nombre ?? '')).length, to: aLista({ f: { etapa: et }, desde: t.nombre }), title: et.join(' · '), tono: t.tono }
+    }
+    const b = conf?.find((x) => x.key === t.bandeja)
+    const n = b ? cuentaBandeja(b, rows, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) ?? 0 : 0
+    return { k: `t${i}`, label: t.nombre, n, to: aLista({ b: t.bandeja, desde: t.nombre }), title: b?.ayuda ?? b?.nombre, tono: t.tono }
+  })
+  const indicadores = indicadoresTienda ?? [
     { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar (lo abierto de cualquier periodo)' },
     { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
     { k: 'listos', label: fin.listos, n: listos.length, to: aLista({ b: 'listos', desde: fin.listos }), title: fin.listosTitulo, tono: 'ok' },

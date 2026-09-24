@@ -1,13 +1,14 @@
 import * as React from 'react'
 import { IconArrowDown, IconArrowUp, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
-import { borrarPuerta, claveDe, claveUnica, guardarCampos, listarPuertas, listarTipos, type PuertaDef, type TipoEncargo } from '@/data/ajustes'
+import { borrarPuerta, claveDe, claveUnica, guardarCampos, guardarTienda, listarPuertas, listarTipos, type PuertaDef, type TipoEncargo } from '@/data/ajustes'
 import { listarEtapas, mensajeError } from '@/data/encargos'
 import { listarPlantillas, MARCADORES } from '@/data/mensajes'
 import { MARCADORES_FICHA, obtenerPlantillaFicha } from '@/data/ficha'
 import { guiaDe } from '@/data/guia'
 import { ajustesHoja } from '@/data/produccion'
-import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
+import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
+import { ajustesFicha } from '@/data/catalogos'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
 import { Avanzado, BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
@@ -220,6 +221,7 @@ export function AjustesCampos() {
           </div>
         )}
       </Dialog>
+      <CopiarAlRepetir ps={ps} tipos={tipos} />
       <Dialog open={!!avisoTipo} onOpenChange={(o) => !o && setAvisoTipo(null)} title="Has cambiado el tipo de campos que se usan"
         description="Puede que dejen de funcionar donde se usan. ¿Guardar igualmente?"
         actions={[{ label: 'Guardar igualmente', onClick: () => guardar(true) }]}>
@@ -245,5 +247,47 @@ function Opciones({ value, onChange }: { value: string[]; onChange: (v: string[]
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} onBlur={add}
         className="h-6 w-[180px] rounded-sm border border-border bg-bg px-2 text-sm" />
     </div>
+  )
+}
+
+/**
+ * Qué se copia al crear otro encargo para el mismo cliente desde un encargo («+ … para este cliente»):
+ * p. ej. un dato del evento y los complementos, que suelen repetirse.
+ */
+function CopiarAlRepetir({ ps, tipos }: { ps: PlantillaCampos[]; tipos: TipoEncargo[] }) {
+  const { tienda, recargar, vocab, gr } = useAuth()
+  const aj = React.useMemo(() => (tienda?.ajustes ?? {}) as Record<string, unknown>, [tienda?.ajustes])
+  const inicial = React.useMemo(() => (Array.isArray(aj.repetir_copia) ? (aj.repetir_copia as string[]) : []), [aj])
+  const [sel, setSel] = React.useState(inicial)
+  const [ok, setOk] = React.useState<string | null>(null)
+  const [err, setErr] = React.useState<string | null>(null)
+  React.useEffect(() => setSel(inicial), [inicial])
+  const vistos = new Set<string>()
+  const campos = tipos.flatMap((t) => camposDe(ps, 'ENCARGO', t.id)).filter((c) => c.tipo !== 'fecha' && !vistos.has(c.clave) && (vistos.add(c.clave), true))
+  const fic = ajustesFicha(aj)
+  const opciones = [...(fic.usaComplementos ? [{ clave: '__complementos', etiqueta: fic.etiqueta }] : []), ...campos.map((c) => ({ clave: c.clave, etiqueta: c.etiqueta }))]
+  const sucio = JSON.stringify(sel) !== JSON.stringify(inicial)
+  if (!opciones.length) return null
+  return (
+    <Bloque titulo={`Otro ${vocab.encargo.toLowerCase()} para ${gr.con('cliente', 'el')}`}
+      ayuda={`Al pulsar «+ ${vocab.encargo} para ${gr.con('cliente', 'este')}» desde ${gr.con('encargo', 'un')}, se copian estos datos. Lo demás empieza vacío.`}>
+      <div className="flex flex-wrap gap-1">
+        {opciones.map((o) => {
+          const on = sel.includes(o.clave)
+          return <button key={o.clave} type="button" aria-pressed={on} onClick={() => setSel(on ? sel.filter((x) => x !== o.clave) : [...sel, o.clave])}
+            className={cn('h-7 rounded-sm border px-2 text-sm', on ? 'border-gray-12 bg-bg-4 font-medium' : 'border-border text-fg-2')}>{o.etiqueta}</button>
+        })}
+      </div>
+      {(sucio || ok || err) && (
+        <div className="flex items-center justify-end gap-2 text-sm">
+          {ok && <span className="text-ok-fg">{ok}</span>}{err && <span className="text-danger-fg">{err}</span>}
+          {sucio && <Button variant="primary" onClick={async () => {
+            if (!tienda) return
+            setErr(null); setOk(null)
+            try { await guardarTienda(tienda.id, tienda.nombre, { ...aj, repetir_copia: sel.length ? sel : null }); await recargar(); setOk('Guardado') } catch (x) { setErr(mensajeError(x)) }
+          }}>Guardar</Button>}
+        </div>
+      )}
+    </Bloque>
   )
 }

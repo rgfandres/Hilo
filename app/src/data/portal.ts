@@ -9,6 +9,8 @@ export interface EncargoPortal {
   /** Lo que impide marcar el siguiente paso (condiciones obligatorias pendientes) */
   bloqueo?: string | null
   hitos: { nombre: string; fecha: string }[]; actualizado_en: string
+  /** Complementos del encargo (si la tienda no los oculta al proveedor) */
+  complementos?: string | null
 }
 
 /** Encargos del portal. proveedorId solo para «ver como» (administración). */

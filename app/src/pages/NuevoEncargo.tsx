@@ -69,6 +69,26 @@ export function NuevoEncargo() {
   const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(dEnc[destinoGuia] ?? ''), inicialTocado: false,
     setValor: (v) => { if (destinoGuia) setDEnc((d) => ({ ...d, [destinoGuia]: v })) } })
   React.useEffect(() => { setDEnc({}) }, [tipo])
+  // «+ Encargo para este cliente» desde otro encargo (?desde=): se copian los datos que la tienda elige (Ajustes → Datos que guardáis)
+  const [copia, setCopia] = React.useState<{ tipo: string; datos: Record<string, string>; comp: string | null } | null>(null)
+  React.useEffect(() => {
+    const desde = params.get('desde')
+    const qu = (tienda?.ajustes as Record<string, unknown> | undefined)?.repetir_copia
+    if (!desde || !Array.isArray(qu) || !qu.length) return
+    supabase.from('encargo').select('tipo_encargo_id,datos,complementos').eq('id', desde).maybeSingle().then(({ data }) => {
+      if (!data) return
+      const d = (data.datos ?? {}) as Record<string, unknown>
+      setCopia({ tipo: data.tipo_encargo_id as string, comp: qu.includes('__complementos') ? (data.complementos as string | null) : null,
+        datos: Object.fromEntries((qu as string[]).filter((k) => k !== '__complementos' && d[k] != null && d[k] !== '').map((k) => [k, String(d[k])])) })
+    })
+  }, [params, tienda?.ajustes])
+  React.useEffect(() => {
+    if (!copia || !tipo) return
+    if (copia.tipo !== tipo) { setTipo(copia.tipo); return }
+    setDEnc((x) => ({ ...copia.datos, ...x }))
+    if (copia.comp) setComp((c) => c || copia.comp!)
+    setCopia(null)
+  }, [copia, tipo])
 
   React.useEffect(() => {
     if (!tienda) return

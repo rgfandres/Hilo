@@ -144,13 +144,15 @@ export function Produccion() {
   }, [sp, lineas, gestion])
 
   function contenido(ls: LineaHoja[]): ContenidoImpresion {
-    const cols = ['Nº', vocab.cliente, ...(mat.activo ? [vocab.material] : []), fic.etiqueta, ...(hoja.campoCol && !hoja.curva.length ? [etiquetaCol] : []), 'Nota']
+    // Lo que sale en la hoja impresa se elige en Ajustes (p. ej. sin el cliente y con X, como una orden de corte)
+    const cols = ['Nº', ...(hoja.impCliente ? [vocab.cliente] : []), ...(mat.activo ? [vocab.material] : []), fic.etiqueta, ...(hoja.campoCol && !hoja.curva.length ? [etiquetaCol] : []), ...(hoja.impNota ? ['Nota'] : [])]
+    const matImp = (id: string) => hoja.impCantidad ? txtMat(id) : [...new Set((mats[id] ?? []).map((m) => m.nombre))].join(' · ')
     return {
       titulo: hoja.nombre, producto: nombreProd, tienda: tienda?.nombre ?? '', fecha: new Date().toLocaleString(locale(), { timeZone: zona(), dateStyle: 'medium', timeStyle: 'short' }),
-      columnas: cols, curva: hoja.campoCol ? hoja.curva : [],
+      columnas: cols, curva: hoja.campoCol ? hoja.curva : [], marca: hoja.marca, cabecera: hoja.cabecera,
       filas: ls.map((l) => ({
         valor: valor(l),
-        celdas: [num3(l), l.cliente_nombre ?? '', ...(mat.activo ? [txtMat(l.encargo_id)] : []), l.complementos ?? '', ...(hoja.campoCol && !hoja.curva.length ? [valor(l)] : []), notas[l.encargo_id]?.texto ?? ''],
+        celdas: [num3(l), ...(hoja.impCliente ? [l.cliente_nombre ?? ''] : []), ...(mat.activo ? [matImp(l.encargo_id)] : []), l.complementos ?? '', ...(hoja.campoCol && !hoja.curva.length ? [valor(l)] : []), ...(hoja.impNota ? [notas[l.encargo_id]?.texto ?? ''] : [])],
       })),
     }
   }

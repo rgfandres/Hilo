@@ -67,6 +67,11 @@ function useFormTienda() {
     hojaNombre: String(aj.hoja_nombre ?? 'Hoja de producción'),
     hojaCol: String(aj.hoja_campo_col ?? ''),
     hojaCurva: (aj.hoja_curva as string[] | undefined) ?? [],
+    impCliente: aj.hoja_imp_cliente !== false,
+    impCantidad: aj.hoja_imp_cantidad !== false,
+    impNota: aj.hoja_imp_nota !== false,
+    impMarca: String(aj.hoja_imp_marca ?? '●'),
+    impCabecera: aj.hoja_imp_cabecera === 'producto',
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -143,6 +148,11 @@ function useFormTienda() {
         hoja_campo_col: f.hojaCol || null,
         hoja_col_etiqueta: camposEnc.find((c) => c.clave === f.hojaCol)?.etiqueta ?? null,
         hoja_curva: f.hojaCol ? limpia(f.hojaCurva) : [],
+        hoja_imp_cliente: f.impCliente ? null : false,
+        hoja_imp_cantidad: f.impCantidad ? null : false,
+        hoja_imp_nota: f.impNota ? null : false,
+        hoja_imp_marca: f.impMarca === '●' ? null : f.impMarca,
+        hoja_imp_cabecera: f.impCabecera ? 'producto' : null,
         material_unidad: f.unidadMat.trim() || 'uds',
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
         material_menu_pedidos: f.menuPedidos,
@@ -428,6 +438,21 @@ export function AjustesHoja() {
                     </FilaForm>)}
               </>
             })()}
+            <FilaForm label="Hoja impresa" ayuda="Lo que sale al imprimir. En pantalla se ve todo.">
+              <div className="flex flex-col gap-1.5">
+                <Interruptor checked={f.impCliente} onChange={(v) => setF({ ...f, impCliente: v })} label={`Con el nombre ${gramatica(f.vocab, f.generos).con('cliente', 'del')}`} />
+                {f.materiales && <Interruptor checked={f.impCantidad} onChange={(v) => setF({ ...f, impCantidad: v })} label={`${f.vocab.material} con cantidad y estado (si no, solo el nombre)`} />}
+                <Interruptor checked={f.impNota} onChange={(v) => setF({ ...f, impNota: v })} label="Con la columna Nota" />
+                <Interruptor checked={f.impCabecera} onChange={(v) => setF({ ...f, impCabecera: v })} label={`Cabecera en grande: «${f.vocab.producto.toUpperCase()} X» y «${(f.hojaNombre || 'Hoja').toUpperCase()}» debajo`} />
+                {f.hojaCurva.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm">Marca en la rejilla
+                    <Select className="w-[90px]" value={f.impMarca} onChange={(e) => setF({ ...f, impMarca: e.target.value })}>
+                      <option value="●">●</option><option value="X">X</option><option value="✓">✓</option>
+                    </Select>
+                  </label>
+                )}
+              </div>
+            </FilaForm>
           </>}
         </div>
       <Pie t={t} />

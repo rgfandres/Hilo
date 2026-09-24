@@ -28,6 +28,7 @@ export function Portal() {
   const [q, setQ] = React.useState('')
   const [abierto, setAbierto] = React.useState<string | null>(null)
   const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
+  const etiqComp = String(ajT.etiqueta_complementos ?? 'Complementos')
   const toque = useDobleToque(Number(ajT.segundos_doble_toque ?? 3.5))
   const armado = toque.armado
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -82,6 +83,7 @@ export function Portal() {
     return [
       `${vocab.encargo} ${num3(e)}${e.cliente_nombre ? ` · ${e.cliente_nombre}` : ''}`,
       e.producto_nombre ? `${vocab.producto}: ${e.producto_nombre}` : null,
+      e.complementos ? `${etiqComp}: ${e.complementos}` : null,
       ...enc.map((c) => `${c.etiqueta}: ${formatearValor(c, e.datos[c.clave])}`),
       cli.length ? '' : null,
       ...cli.map((c) => `${c.etiqueta}: ${formatearValor(c, e.cliente_datos[c.clave])}`),
@@ -169,6 +171,7 @@ export function Portal() {
                     <div className="flex min-w-0 flex-col">
                       <span className="truncate font-medium"><span className="text-fg-3 tabular">{num3(e)}</span> · {e.cliente_nombre ?? `${vocab.encargo} ${num3(e)}`}</span>
                       <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? `Devuelt${gr.o('encargo')}` : null), relativo(e.actualizado_en)].filter(Boolean).join(' · ')}</span>
+                      {e.complementos && <span className="truncate text-sm text-fg-2">✨ {e.complementos}</span>}
                     </div>
                   </button>
                   {e.siguiente_clave && e.carpeta === 'EN_CURSO' && e.bloqueo && (
@@ -185,6 +188,7 @@ export function Portal() {
                     {e.producto_foto_url && <img src={e.producto_foto_url} alt="" className="h-40 w-40 rounded-md object-cover" />}
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                       {e.producto_nombre && <><dt className="text-fg-3">{vocab.producto}</dt><dd>{e.producto_nombre}</dd></>}
+                      {e.complementos && <><dt className="text-fg-3">{etiqComp}</dt><dd className="font-medium">{e.complementos}</dd></>}
                       {enc.map((c) => <React.Fragment key={c.clave}><dt className="text-fg-3">{c.etiqueta}</dt><dd>{formatearValor(c, e.datos[c.clave])}</dd></React.Fragment>)}
                     </dl>
                     {cli.length > 0 && (
