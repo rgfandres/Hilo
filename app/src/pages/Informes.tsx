@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { listarEncargos, listarEtapas, listarProductos, listarProveedores, mensajeError } from '@/data/encargos'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import {
-  alcanzanEtapa, hitosInforme, recibidosProveedor, informeCortado, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
+  alcanzanEtapa, anulacionesIntervalo, hitosInforme, recibidosProveedor, type AnulacionInforme, informeCortado, intervaloDe, mover, nuevos, plazos, porProveedor, rankingTerminados,
   terminados, ultimos, type HitoInforme, type Intervalo, type TipoIntervalo,
 } from '@/data/informes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
@@ -250,6 +250,8 @@ export function Informes() {
                 )}
               </div>
 
+              <Anulados iv={iv} entra={entra} />
+
               <PorDatoPeriodo encargos={actuales} importeDe={importeDe} campos={camposEncargo.map((c) => ({ clave: c.clave, etiqueta: c.etiqueta }))} usaImporte={dn.usa} moneda={dn.moneda} />
             </>
           )}
@@ -295,6 +297,32 @@ function PorDatoPeriodo({ encargos, importeDe, campos, usaImporte, moneda }: { e
             [<b key="t">Total</b>, <b key="n">{tot.n}</b>, <b key="f">{tot.fin}</b>, ...(usaImporte ? [<b key="e">{eur(tot)}</b>] : [])]]} />
       )}
       {usaImporte && sinPrecio > 0 && <p className="m-0 text-sm text-fg-3">{sinPrecio} {sinPrecio === 1 ? min(vocab.encargo) : min(vocab.encargos)} sin importe ni precio en el catálogo de {min(vocab.productos)}: no suman.</p>}
+    </section>
+  )
+}
+
+/** Anulados del intervalo: cuántos y por qué (no se borra nada: se anula y queda el motivo) */
+function Anulados({ iv, entra }: { iv: Intervalo; entra: (tipoId: string) => boolean }) {
+  const { tienda, vocab, gr } = useAuth()
+  const [as, setAs] = React.useState<AnulacionInforme[] | null>(null)
+  React.useEffect(() => {
+    if (!tienda) return
+    setAs(null)
+    anulacionesIntervalo(tienda.id, iv.ini, iv.fin).then((x) => setAs(x.filter((a) => entra(a.tipo_encargo_id)))).catch(() => setAs([]))
+  }, [tienda, iv.ini.getTime(), iv.fin.getTime(), entra]) // eslint-disable-line react-hooks/exhaustive-deps
+  const os = gr.o('encargo', true)
+  const motivos = new Map<string, number>()
+  for (const a of as ?? []) { const k = a.motivo?.trim() || ''; motivos.set(k, (motivos.get(k) ?? 0) + 1) }
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>Anulad{os} · {as ? as.length : '…'}</SectionLabel>
+      {as && as.length === 0 && <p className="m-0 text-fg-3">Ningún {min(vocab.encargo)} anulad{gr.o('encargo')} en este intervalo.</p>}
+      {as && as.length > 0 && <>
+        <TablaSimple cabecera={['Motivo', vocab.encargos]} alinear={[false, true]}
+          filas={[...motivos].sort((a, b) => b[1] - a[1]).map(([k, n]) => [k || <span key="s" className="text-fg-3">Sin motivo</span>, n])} />
+        <TablaSimple cabecera={['Nº', vocab.cliente, 'Fecha', 'Motivo']}
+          filas={as.map((a) => [<Link key="n" to={`/encargos/${a.encargo_id}`} className="font-medium tabular hover:underline">{`${a.serie ?? ''}${String(a.numero).padStart(3, '0')}`}</Link>, a.cliente ?? '—', new Date(a.fecha).toLocaleDateString(locale(), { timeZone: zona() }), a.motivo ?? '—'])} />
+      </>}
     </section>
   )
 }

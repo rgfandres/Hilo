@@ -220,3 +220,15 @@ export async function movimientosIntervalo(tiendaId: string, ini: Date, fin: Dat
   if (error) throw error
   return (data ?? []) as { material_id: string; tipo: string; cantidad: number; revertido: boolean; fecha: string }[]
 }
+
+/** Anulaciones (sin recuperar) dentro del intervalo, con su motivo */
+export interface AnulacionInforme { encargo_id: string; fecha: string; motivo: string | null; numero: number; serie: string | null; tipo_encargo_id: string; cliente: string | null }
+export async function anulacionesIntervalo(tiendaId: string, ini: Date, fin: Date): Promise<AnulacionInforme[]> {
+  const { data, error } = await supabase.from('anulacion')
+    .select('encargo_id,fecha,motivo,encargo!inner(tienda_id,numero,serie,tipo_encargo_id,cliente(nombre))')
+    .eq('encargo.tienda_id', tiendaId).is('recuperado_en', null)
+    .gte('fecha', ini.toISOString()).lt('fecha', fin.toISOString()).order('fecha', { ascending: false }).limit(1000)
+  if (error) throw error
+  return ((data ?? []) as unknown as { encargo_id: string; fecha: string; motivo: string | null; encargo: { numero: number; serie: string | null; tipo_encargo_id: string; cliente: { nombre: string } | null } }[])
+    .map((a) => ({ encargo_id: a.encargo_id, fecha: a.fecha, motivo: a.motivo, numero: a.encargo.numero, serie: a.encargo.serie, tipo_encargo_id: a.encargo.tipo_encargo_id, cliente: a.encargo.cliente?.nombre ?? null }))
+}
