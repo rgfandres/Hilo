@@ -282,13 +282,13 @@ export function AjustesTienda() {
           <FormRow label="Módulo"><Interruptor checked={f.produccion} onChange={(v) => setF({ ...f, produccion: v })} label="Usar la hoja de producción" /></FormRow>
           {f.produccion && <>
             <FormRow label="Nombre"><Input className="h-7 w-[260px]" value={f.hojaNombre} onChange={(e) => setF({ ...f, hojaNombre: e.target.value })} /></FormRow>
-            <FormRow label="Campo de valor" ayuda="Si lo eliges, la hoja marca la valor de cada línea en columnas.">
+            <FormRow label="Campo en columnas" ayuda="Si lo eliges, la hoja marca el valor de cada línea en columnas (una por valor).">
               <Select className="w-[260px]" value={f.hojaCol} onChange={(e) => setF({ ...f, hojaCol: e.target.value })}>
                 <option value="">— ninguno —</option>
                 {camposEnc.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
               </Select>
             </FormRow>
-            {f.hojaCol && <FormRow label="Curva de tallas" ayuda="Separadas por comas, en orden. Vacío = se escribe la valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>}
+            {f.hojaCol && <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>}
           </>}
         </div>
       </Bloque>

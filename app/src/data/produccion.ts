@@ -52,7 +52,7 @@ export function imprimirHoja(c: ContenidoImpresion): boolean {
 h1{font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}
 th,td{border:1px solid #999;padding:4px 5px;text-align:left;vertical-align:top}th{background:#eee;font-weight:600}
 .t{text-align:center;width:22px}tr{page-break-inside:avoid}</style></head><body>
-<h1>${esc(c.producto)}</h1><div class="sub">${esc(c.titulo)} · ${esc(c.tienda)} · ${esc(c.fecha)} · ${c.filas.length} líneas</div>
+<h1>${esc(c.producto)}</h1><div class="sub">${esc(c.titulo)} · ${esc(c.tienda)} · ${esc(c.fecha)} · ${c.filas.length} ${c.filas.length === 1 ? 'línea' : 'líneas'}</div>
 <table><thead><tr>${cab}</tr></thead><tbody>${filas}</tbody></table>
 <script>window.onload=()=>{window.print()}</script></body></html>`
   const w = window.open('', '_blank')

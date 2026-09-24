@@ -12,6 +12,7 @@ import { ajustesMaterial, cant } from '@/data/materiales'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { NotaCampo } from '@/components/NotaCampo'
+import { ArregloPuerta } from '@/components/ArregloPuerta'
 import { Button, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Th, Tr, useAvisos, type TagColor } from '@/ui'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { cn, fechaCorta, num3 } from '@/lib/utils'
@@ -149,7 +150,7 @@ export function Produccion() {
   const tabs = orden.map(([k, v]) => ({ key: k, label: v.nombre, count: v.pend || undefined, aviso: listosTodos.some((e) => (e.producto_id ?? SIN) === k), title: `${v.n} líneas · ${v.pend} sin imprimir` }))
   return (
     <>
-      <PageHeader title={hoja.nombre} subtitle={lineas ? `${todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length} líneas sin imprimir` : undefined} />
+      <PageHeader title={hoja.nombre} subtitle={lineas ? (() => { const n = todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length; return n ? `${n} ${n === 1 ? 'línea' : 'líneas'} sin imprimir` : 'Todo impreso' })() : undefined} />
       {etProd.size === 0 && lineas && (
         <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a la {min(hoja.nombre)}. Márcalo en Ajustes → Flujos → la etapa → «Envía a la {min(hoja.nombre)}».</p>
       )}
@@ -187,6 +188,7 @@ export function Produccion() {
                       <span>{e.cliente_nombre}</span>
                       <span className="text-fg-3">→ {e.etapa_siguiente_nombre}</span>
                       {duras.length > 0 && <span className="text-danger-fg">bloqueado: {duras.map((p) => p.mensaje).join(' · ')}</span>}
+                      {duras.map((p) => <ArregloPuerta key={p.mensaje} e={e} p={p} compacto onHecho={() => cargar().catch(() => {})} />)}
                     </label>
                   )
                 })}
@@ -241,7 +243,7 @@ export function Produccion() {
                 {imps.map((i) => (
                   <div key={i.id} className="flex items-center gap-3 text-sm">
                     <span className="text-fg-2">{new Date(i.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                    <span>{i.n_lineas} líneas</span>
+                    <span>{i.n_lineas} {i.n_lineas === 1 ? 'línea' : 'líneas'}</span>
                     <button className="text-fg-2 underline hover:text-fg" onClick={() => { if (!imprimirHoja(i.contenido)) avisar({ tipo: 'aviso', texto: 'Permite las ventanas emergentes para reimprimir' }) }}>Reimprimir</button>
                   </div>
                 ))}
