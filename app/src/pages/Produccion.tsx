@@ -13,7 +13,7 @@ import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { NotaCampo } from '@/components/NotaCampo'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
-import { Button, CapaCarga, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Th, Tr, useAvisos, type TagColor } from '@/ui'
+import { Button, CapaCarga, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Textarea, Th, Tr, useAvisos, type TagColor } from '@/ui'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
 import { generoAuto, min } from '@/lib/vocab'
@@ -143,6 +143,10 @@ export function Produccion() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp, lineas, gestion])
 
+  async function guardarComp() {
+    if (!comp) return
+    try { await actualizarEncargo(comp.l.encargo_id, { complementos: comp.v.trim() || null }); setComp(null); await cargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+  }
   function contenido(ls: LineaHoja[]): ContenidoImpresion {
     // Lo que sale en la hoja impresa se elige en Ajustes (p. ej. sin el cliente y con X, como una orden de corte)
     const cols = ['Nº', ...(hoja.impCliente ? [vocab.cliente] : []), ...(mat.activo ? [vocab.material] : []), fic.etiqueta, ...(hoja.campoCol && !hoja.curva.length ? [etiquetaCol] : []), ...(hoja.impNota ? ['Nota'] : [])]
@@ -311,13 +315,11 @@ export function Produccion() {
           ...(nImprimibles ? [{ label: `Imprimir solo las correctas (${nImprimibles})`, onClick: async () => { setBloqueo(null); await imprimir(true) } }] : [])]}>
         <ul className="m-0 pl-4 text-sm">{(bloqueo ?? []).map((t) => <li key={t}>{t}</li>)}</ul>
       </Dialog>
-      <Dialog open={!!comp} onOpenChange={(o) => !o && setComp(null)} title={`${fic.etiqueta} · ${comp ? num3(comp.l) : ''}`}
-        description={`Se guarda en ${gr.con('encargo', 'el')}: es el mismo dato que se ve en su ficha.`}
-        actions={[{ label: 'Guardar', onClick: async () => {
-          if (!comp) return
-          try { await actualizarEncargo(comp.l.encargo_id, { complementos: comp.v.trim() || null }); setComp(null); await cargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
-        } }]}>
-        <Input autoFocus value={comp?.v ?? ''} onChange={(e) => comp && setComp({ ...comp, v: e.target.value })} />
+      <Dialog open={!!comp} onOpenChange={(o) => !o && setComp(null)} title={`${fic.etiqueta} · ${comp ? num3(comp.l) : ''}${comp?.l.cliente_nombre ? ` · ${comp.l.cliente_nombre}` : ''}`}
+        description={`Se guarda en ${gr.con('encargo', 'el')}: es el mismo dato que se ve en su ficha. Ctrl + Intro para guardar.`}
+        actions={[{ label: 'Guardar', onClick: guardarComp }]}>
+        <Textarea autoFocus className="min-h-[96px]" value={comp?.v ?? ''} onChange={(e) => comp && setComp({ ...comp, v: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); guardarComp() } }} />
       </Dialog>
     </>
   )
