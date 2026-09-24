@@ -44,6 +44,8 @@ export function AjustesTienda() {
     umbralMat: String(aj.umbral_material_defecto ?? 10),
     porEncargo: String(aj.unidad_por_encargo_max ?? 10),
     umbralResto: String(aj.umbral_resto ?? 5),
+    etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
+    construcciones: ((aj.tipos_construccion as string[] | undefined) ?? []).join(', '),
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -96,6 +98,8 @@ export function AjustesTienda() {
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
         unidad_por_encargo_max: Number(f.porEncargo.replace(',', '.')) || 0,
         umbral_resto: Number(f.umbralResto.replace(',', '.')) || 0,
+        etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
+        tipos_construccion: [...new Set(f.construcciones.split(',').map((x) => x.trim()).filter(Boolean))],
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
         proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: f.verCliente },
@@ -245,6 +249,13 @@ export function AjustesTienda() {
             <FormRow label={`Pedido por ${f.vocab.encargo.toLowerCase()}`} ayuda={`Si la unidad de pedido es esta o menos, se pide una unidad por ${f.vocab.encargo.toLowerCase()} y se consume entera al recibirla.`}><Input className="h-7 w-20" inputMode="decimal" value={f.porEncargo} onChange={(e) => setF({ ...f, porEncargo: e.target.value })} /></FormRow>
             <FormRow label="Restos hasta" ayuda="Si lo que queda no llega a una unidad de pedido y es esto o menos, se ofrece guardarlo como resto."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralResto} onChange={(e) => setF({ ...f, umbralResto: e.target.value })} /></FormRow>
           </>}
+        </div>
+      </Bloque>
+
+      <Bloque titulo="Ficha técnica" ayuda={`Lo que cada ${f.vocab.producto.toLowerCase()} lleva: se rellena en su ficha del catálogo y se ve como resumen en cada ${f.vocab.encargo.toLowerCase()}.`}>
+        <div className="flex flex-col gap-1">
+          <FormRow label="Tipos de construcción" ayuda="Separados por comas. Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
+          <FormRow label="Nombre de los complementos" ayuda={`Cómo llamáis a lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…).`}><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>
         </div>
       </Bloque>
 

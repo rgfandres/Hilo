@@ -7,6 +7,7 @@ import {
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Sheet, useAvisos } from '@/ui'
 import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
+import { ajustesFicha, fichaProducto } from '@/data/catalogos'
 import { CamposForm, NumeroInput, aTexto, limpiar } from './CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -38,6 +39,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     dEnc: aTexto(encargo.datos),
     importe: encargo.importe == null ? '' : String(encargo.importe),
     aCuenta: encargo.a_cuenta ? String(encargo.a_cuenta) : '',
+    comp: encargo.complementos ?? '',
     nombre: cliente?.nombre ?? '',
     tel: cliente?.telefono ?? '',
     email: cliente?.email ?? '',
@@ -58,6 +60,9 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   }, [open, tienda])
 
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
+  const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
+  const [receta, setReceta] = React.useState<string | null>(null)
+  React.useEffect(() => { setReceta(null); if (open && f.producto) fichaProducto(f.producto).then((p) => setReceta(p?.receta ?? null)).catch(() => {}) }, [open, f.producto])
   const cerrar = (o: boolean) => { if (!o && sucio) setDescartar(true); else onOpenChange(o) }
 
   async function guardar(confirmadoQuitar = false) {
@@ -69,9 +74,9 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     setBusy(true); setErr(null)
     try {
       if (!soloProveedor) {
-        if (f.producto !== inicial.producto || JSON.stringify(f.dEnc) !== JSON.stringify(inicial.dEnc) || f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta) {
+        if (f.producto !== inicial.producto || JSON.stringify(f.dEnc) !== JSON.stringify(inicial.dEnc) || f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta || f.comp !== inicial.comp) {
           await actualizarEncargo(encargo.id, {
-            producto_id: f.producto || null, datos: limpiar(f.dEnc, encargo.datos),
+            producto_id: f.producto || null, datos: limpiar(f.dEnc, encargo.datos), complementos: f.comp.trim() || null,
             ...(f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta ? { importe: f.importe === '' ? null : Number(f.importe), a_cuenta: f.aCuenta === '' ? 0 : Number(f.aCuenta) } : {}),
           })
         }
@@ -121,6 +126,11 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
               } : undefined} />
           </FormRow>
           {!soloProveedor && <CamposForm campos={camposEnc} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
+          {!soloProveedor && (
+            <FormRow label={fic.etiqueta} ayuda={receta ? `Receta de ${gr.con('producto', 'este')}: ${receta}. Aquí solo la variante.` : undefined}>
+              <Input className="h-7" value={f.comp} onChange={(e) => setF((s) => ({ ...s, comp: e.target.value }))} placeholder={receta ? 'Color, acabado…' : 'Opcional'} />
+            </FormRow>
+          )}
           {!soloProveedor && din.usa && <>
             <FormRow label={`Importe (${din.moneda})`}><NumeroInput value={f.importe} onChange={set('importe')} /></FormRow>
             <FormRow label="A cuenta"><NumeroInput value={f.aCuenta} onChange={set('aCuenta')} /></FormRow>

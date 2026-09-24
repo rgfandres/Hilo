@@ -62,8 +62,10 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
 }
 
 /** Sección «Material» en la ficha del encargo: qué lleva, en qué punto está y recibirlo (consume del stock). */
-export function MaterialesEncargo({ encargo, editable, onCambio, refresco }: {
+export function MaterialesEncargo({ encargo, editable, onCambio, refresco, sugerido }: {
   refresco?: Date
+  /** De la ficha técnica del producto: tipo de material y consumo que se proponen al añadir */
+  sugerido?: { tipo: string | null; consumo: number | null } | null
   encargo: { id: string; tienda_id: string; numero: number; serie?: string | null; estado: string }
   editable: boolean
   onCambio: () => void
@@ -135,7 +137,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco }: {
           </div>
         )
       })}
-      {puedeEditar && !nuevo && <Button size="sm" variant="ghost" className="self-start" onClick={() => setNuevo({ tipo: '', material_id: '', cantidad: '' })}>+ Añadir {min(vocab.material)}</Button>}
+      {puedeEditar && !nuevo && <Button size="sm" variant="ghost" className="self-start" onClick={() => setNuevo({ tipo: sugerido?.tipo && mats.some((m) => m.tipo === sugerido.tipo) ? sugerido.tipo : '', material_id: '', cantidad: sugerido?.consumo != null ? String(sugerido.consumo) : '' })}>+ Añadir {min(vocab.material)}</Button>}
       {nuevo && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-2">
           <SelectorMaterial materiales={mats} valor={nuevo} onCambio={setNuevo} puedeCrear={rol === 'ADMIN' || rol === 'OPERATIVO'} onCreado={(m) => setMats((x) => [...x, m])} />

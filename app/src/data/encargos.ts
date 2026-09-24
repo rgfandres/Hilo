@@ -129,7 +129,7 @@ export async function asignarProveedor(encargoId: string, proveedorId: string | 
   if (error) throw error
 }
 
-export async function actualizarEncargo(id: string, patch: { producto_id?: string | null; datos?: Record<string, unknown>; importe?: number | null; a_cuenta?: number }) {
+export async function actualizarEncargo(id: string, patch: { producto_id?: string | null; datos?: Record<string, unknown>; importe?: number | null; a_cuenta?: number; complementos?: string | null }) {
   const { error } = await supabase.from('encargo').update(patch).eq('id', id)
   if (error) throw error
 }

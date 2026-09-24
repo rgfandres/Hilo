@@ -20,6 +20,8 @@ import { FichaImprimible } from '@/components/FichaImprimible'
 import { fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
 import { listarEquipo } from '@/data/ajustes'
 import { MaterialesEncargo } from '@/components/Material'
+import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
+import { resumenFicha } from '@/pages/Productos'
 import { ajustesMaterial, liberarMaterial } from '@/data/materiales'
 import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente } from '@/lib/utils'
@@ -54,7 +56,12 @@ export function Encargo() {
   const ajMat = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const conMaterial = ajMat.activo
   const recibidoMat = impacto?.material_recibido ?? []
+
   const [e, setE] = React.useState<EncargoEstado | null>(null)
+  const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
+  const [fichaT, setFichaT] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
+  const productoId = e?.producto_id
+  React.useEffect(() => { setFichaT(null); if (productoId) fichaProducto(productoId).then(setFichaT).catch(() => {}) }, [productoId])
   const [cli, setCli] = React.useState<Cliente | null>(null)
   const [hitos, setHitos] = React.useState<Hito[]>([])
   const [coms, setComs] = React.useState<Comentario[]>([])
@@ -306,6 +313,10 @@ export function Encargo() {
 
           <div className="flex flex-col">
             <Field label={vocab.producto}>{e.producto_nombre ?? '—'}</Field>
+            {e.producto_id && fichaT && (tieneFicha(fichaT)
+              ? <div className="mb-1 ml-[128px] rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 max-md:ml-0" title="Ficha técnica">{resumenFicha(fichaT, tienda?.ajustes as Record<string, unknown>)}</div>
+              : <Link to={`/productos?q=${encodeURIComponent(fichaT.nombre)}`} className="mb-1 ml-[128px] self-start rounded-sm bg-warn-bg px-2 py-0.5 text-sm text-warn-fg hover:underline max-md:ml-0">{gr.Con('producto', 'este')} no tiene ficha técnica: créala</Link>)}
+            <Field label={fic.etiqueta}>{e.complementos || '—'}</Field>
             <CamposVista campos={camposEnc} datos={datos} extra={(c) => (
               <NotaCampo etiqueta={c.etiqueta} nota={notas[c.clave]} autor={notas[c.clave]?.usuario_id ? autores[notas[c.clave].usuario_id!] : undefined}
                 editable={!anulado} onGuardar={async (t) => { await ponerNotaCampo(e.id, c.clave, t); setNotas(await listarNotasCampo(e.id)) }} />
@@ -344,7 +355,7 @@ export function Encargo() {
               ))}
             </div>
           )}
-          {conMaterial && <MaterialesEncargo refresco={ultima} encargo={e} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
+          {conMaterial && <MaterialesEncargo sugerido={fichaT ? { tipo: fichaT.material_tipo, consumo: fichaT.consumo } : null} refresco={ultima} encargo={e} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
           <div className="flex-1" />
           {rol === 'ADMIN' && !anulado && <Button variant="danger" className="self-start" onClick={() => abrir('anular')}>Anular {min(vocab.encargo)}</Button>}
         </aside>

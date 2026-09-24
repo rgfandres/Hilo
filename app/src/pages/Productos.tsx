@@ -1,15 +1,23 @@
 import * as React from 'react'
 import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
-import { errorNombre, guardarProducto, listarProductosCat, subirFoto, type ProductoFila } from '@/data/catalogos'
+import { ajustesFicha, errorNombre, guardarProducto, listarProductosCat, subirFoto, tieneFicha, type ProductoFila } from '@/data/catalogos'
+import { ajustesMaterial, cant, listarMateriales } from '@/data/materiales'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { PageHeader } from '@/layout/AppShell'
 import { CamposForm, aTexto, limpiar } from '@/components/CampoInput'
-import { Button, Dialog, FormRow, Input, SectionLabel, Sheet, Tag } from '@/ui'
+import { Button, Dialog, FormRow, Input, SectionLabel, Select, Sheet, Tag, Textarea } from '@/ui'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
 import { cn, locale } from '@/lib/utils'
 import { min } from '@/lib/vocab'
+
+/** «A medida · 8,7 m · Complementos: …» */
+export function resumenFicha(p: { material_tipo?: string | null; consumo?: number | null; construccion?: string | null; receta?: string | null }, aj: Record<string, unknown> | null | undefined) {
+  const mat = ajustesMaterial(aj)
+  return [p.construccion, p.consumo != null ? `${p.material_tipo ? `${p.material_tipo} ` : ''}${mat.activo ? cant(p.consumo, mat.unidad) : Number(p.consumo).toLocaleString('es-ES')}` : p.material_tipo,
+    p.receta ? `${ajustesFicha(aj).etiqueta}: ${p.receta}` : null].filter(Boolean).join(' · ')
+}
 
 export function formatoPrecio(n: number | null | undefined, moneda = 'EUR') {
   if (n == null) return null
@@ -72,6 +80,8 @@ export function Productos() {
                     <span className="flex-1 truncate font-medium">{p.nombre}</span>
                     {!p.activo && <Tag color="gray">inactiv{gr.o('producto')}</Tag>}
                   </div>
+                  {tieneFicha(p) ? <span className="truncate text-xs text-fg-2">{resumenFicha(p, tienda?.ajustes as Record<string, unknown>)}</span>
+                    : <span className="text-xs text-warn-fg">Sin ficha técnica</span>}
                   <span className="text-sm text-fg-3">
                     {[formatoPrecio(p.precio_base, moneda), p.encargos ? `${p.encargos} ${p.encargos === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : null].filter(Boolean).join(' · ') || '—'}
                   </span>
@@ -94,7 +104,13 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
   const { tienda, vocab, gr } = useAuth()
   const nuevo = p === 'nuevo'
   const campos = camposDe(ps, 'PRODUCTO')
-  const [f, setF] = React.useState({ nombre: '', precio: '', foto: '', activo: true, datos: {} as Record<string, string> })
+  const vacio = { nombre: '', precio: '', foto: '', activo: true, datos: {} as Record<string, string>, mtipo: '', consumo: '', construccion: '', receta: '' }
+  const [f, setF] = React.useState(vacio)
+  const ajs = tienda?.ajustes as Record<string, unknown>
+  const fic = ajustesFicha(ajs)
+  const mat = ajustesMaterial(ajs)
+  const [tiposMat, setTiposMat] = React.useState<string[]>([])
+  React.useEffect(() => { if (p && tienda && mat.activo) listarMateriales(tienda.id).then((ms) => setTiposMat([...new Set(ms.map((m) => m.tipo))])).catch(() => {}) }, [p, tienda, mat.activo])
   const [inicial, setInicial] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -106,8 +122,9 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
   React.useEffect(() => {
     if (!p) return
     const v = p === 'nuevo'
-      ? { nombre: '', precio: '', foto: '', activo: true, datos: {} }
-      : { nombre: p.nombre, precio: p.precio_base == null ? '' : String(p.precio_base), foto: p.foto_url ?? '', activo: p.activo, datos: aTexto(p.datos) }
+      ? vacio
+      : { nombre: p.nombre, precio: p.precio_base == null ? '' : String(p.precio_base), foto: p.foto_url ?? '', activo: p.activo, datos: aTexto(p.datos),
+          mtipo: p.material_tipo ?? '', consumo: p.consumo == null ? '' : String(p.consumo), construccion: p.construccion ?? '', receta: p.receta ?? '' }
     setF(v); setInicial(JSON.stringify(v)); setErr(null); setFotoMal(false)
   }, [p])
 
@@ -126,6 +143,8 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
     if (otro) { setErr(`Ya existe ${gr.con('producto', 'un')} con ese nombre${otro.activo ? '' : ` (inactiv${gr.o('producto')})`}`); return }
     const precio = f.precio.trim() ? Number(f.precio.replace(',', '.')) : null
     if (precio != null && !(precio >= 0)) { setErr('El precio no es válido'); return }
+    const consumo = f.consumo.trim() ? Number(f.consumo.replace(',', '.')) : null
+    if (consumo != null && !(consumo >= 0)) { setErr('El consumo no es válido'); return }
     const falta = campos.filter((c) => c.obligatorio && !f.datos[c.clave])
     if (falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
     if (!nuevo && !f.activo && (p as ProductoFila).activo && !confirmado) { setConfirmarBaja(true); return }
@@ -134,6 +153,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
       await guardarProducto(tienda.id, nuevo ? null : (p as ProductoFila).id, {
         nombre, precio_base: precio, foto_url: f.foto.trim() || null, activo: f.activo,
         datos: limpiar(f.datos, nuevo ? {} : (p as ProductoFila).datos),
+        material_tipo: f.mtipo.trim() || null, consumo, construccion: f.construccion.trim() || null, receta: f.receta.trim() || null,
       })
       await onSaved(); onClose()
     } catch (x) { setErr(errorNombre(mensajeError(x), gr.con('producto', 'un'))) } finally { setBusy(false) }
@@ -170,6 +190,29 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
               <Interruptor checked={f.activo} disabled={soloLectura} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('producto')}: se puede elegir` : `Inactiv${gr.o('producto')}: no sale al crear`} />
             </FormRow>
           )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <SectionLabel>Ficha técnica</SectionLabel>
+          {mat.activo && <>
+            <datalist id="tipos-mat-prod">{tiposMat.map((x) => <option key={x} value={x} />)}</datalist>
+            <FormRow label={`${vocab.material} principal`} ayuda="El tipo que lleva; la variante (color, acabado…) se elige en cada encargo.">
+              <Input className="h-7" list="tipos-mat-prod" disabled={soloLectura} value={f.mtipo} onChange={(e) => setF({ ...f, mtipo: e.target.value })} />
+            </FormRow>
+          </>}
+          <FormRow label={`Consumo${mat.activo ? ` (${mat.unidad})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
+            <Input className="h-7 w-[120px]" inputMode="decimal" disabled={soloLectura} value={f.consumo} onChange={(e) => setF({ ...f, consumo: e.target.value })} />
+          </FormRow>
+          {(fic.construcciones.length > 0 || f.construccion) && (
+            <FormRow label="Construcción">
+              <Select disabled={soloLectura} value={f.construccion} onChange={(e) => setF({ ...f, construccion: e.target.value })}>
+                <option value="">—</option>
+                {[...new Set([...fic.construcciones, ...(f.construccion ? [f.construccion] : [])])].map((x) => <option key={x} value={x}>{x}</option>)}
+              </Select>
+            </FormRow>
+          )}
+          <FormRow label={fic.etiqueta} ayuda={`Receta: se muestra como pista al crear ${min(vocab.encargos)}; allí solo se anota la variante.`}>
+            <Textarea disabled={soloLectura} value={f.receta} onChange={(e) => setF({ ...f, receta: e.target.value })} placeholder="Qué lleva y cuánto" />
+          </FormRow>
         </div>
         {campos.length === 0 && !soloLectura && (
           <p className="text-sm text-fg-3">¿Necesitas más datos de cada {min(vocab.producto)}? Añádelos en Ajustes → Campos → {vocab.producto}.</p>

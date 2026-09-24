@@ -40,6 +40,7 @@ export interface EncargoEstado {
   estado: 'ACTIVO' | 'ANULADO'
   datos: Record<string, unknown>
   importe: number | null
+  complementos?: string | null
   a_cuenta: number
   creado_en: string
   actualizado_en: string

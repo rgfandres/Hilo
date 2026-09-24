@@ -6,7 +6,8 @@ import { buscarClientes, comentar, crearHito, mensajeError, siguienteNumero } fr
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Combobox, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
-import { altaRapidaProducto } from '@/data/catalogos'
+import { ajustesFicha, altaRapidaProducto, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
+import { resumenFicha } from '@/pages/Productos'
 import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -76,6 +77,20 @@ export function NuevoEncargo() {
     setImporte(p?.precio_base != null ? String(p.precio_base) : '')
   }, [producto, productos, importeAuto])
 
+  // Ficha técnica del producto: pista de complementos y material propuesto (nunca autocompleta la variante)
+  const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
+  const [comp, setComp] = React.useState('')
+  const [ficha, setFicha] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
+  React.useEffect(() => {
+    setFicha(null)
+    if (!producto) return
+    fichaProducto(producto).then((f) => {
+      setFicha(f)
+      if (f && conMaterial && f.material_tipo)
+        setMLineas((xs) => xs.length === 0 || (xs.length === 1 && !xs[0].material_id) ? [{ tipo: f.material_tipo!, material_id: '', cantidad: f.consumo != null ? String(f.consumo) : '' }] : xs)
+    }).catch(() => {})
+  }, [producto, conMaterial])
+
   // Nº que se asignará (orientativo: se fija al guardar)
   React.useEffect(() => {
     if (!tienda || !tipo) return
@@ -110,7 +125,7 @@ export function NuevoEncargo() {
         clienteId = cli.id
       }
       const { data: enc, error: e2 } = await supabase.from('encargo')
-        .insert({ tienda_id: tienda.id, periodo_id: periodo?.id ?? null, tipo_encargo_id: tipo, cliente_id: clienteId, producto_id: producto || null, datos: limpiar(dEnc),
+        .insert({ tienda_id: tienda.id, periodo_id: periodo?.id ?? null, tipo_encargo_id: tipo, cliente_id: clienteId, producto_id: producto || null, datos: limpiar(dEnc), complementos: comp.trim() || null,
           ...(din.usa ? { importe: importe === '' ? null : Number(importe), a_cuenta: aCuenta === '' ? 0 : Number(aCuenta) } : {}) })
         .select('id').single()
       if (e2) throw e2
@@ -186,6 +201,11 @@ export function NuevoEncargo() {
           </FormRow>
           {productos.length === 0 && <p className="pb-1 pl-[118px] text-sm text-fg-3">No hay {min(vocab.productos)} en el catálogo. <Link to="/productos" className="underline">Añadir</Link></p>}
           <CamposForm campos={camposEnc} valores={dEnc} onCambio={(k, v) => setDEnc((d) => ({ ...d, [k]: v }))} />
+          {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
+          {ficha && !tieneFicha(ficha) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
+          <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Receta: ${ficha.receta}. Aquí solo la variante.` : undefined}>
+            <Input className="h-7" value={comp} onChange={(e) => setComp(e.target.value)} placeholder={ficha?.receta ? 'Color, acabado…' : 'Opcional'} />
+          </FormRow>
           {din.usa && <>
             <FormRow label={`Importe (${din.moneda})`} ayuda={`Precio pactado. Si eliges ${gr.con('producto', 'un')} con precio, se rellena solo.`}>
               <NumeroInput value={importe} onChange={(v) => { setImporte(v); setImporteAuto(false) }} />
