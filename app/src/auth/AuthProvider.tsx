@@ -5,6 +5,7 @@ import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
 import { contextoErrores, mensajeError } from '@/data/encargos'
 import { setSegundosDeshacer } from '@/ui/Avisos'
+import { setModoPedido } from '@/data/materiales'
 
 /** Dirección de vuelta sin «#»: el proveedor añade «#access_token…» y con otra «#» delante la sesión no se lee */
 const sinAlmohadilla = () => window.location.origin + window.location.pathname + window.location.search
@@ -167,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLocale((tienda?.ajustes?.locale as string | undefined) ?? 'es-ES')
     setZona(tienda?.ajustes?.zona_horaria as string | undefined)
     setSegundosDeshacer(tienda?.ajustes?.segundos_deshacer)
+    setModoPedido(tienda?.ajustes?.material_pedir)
     const c = (tienda?.ajustes?.color_primario as string | undefined) ?? '#333333'
     document.documentElement.style.setProperty('--accent', c)
   }, [tienda])

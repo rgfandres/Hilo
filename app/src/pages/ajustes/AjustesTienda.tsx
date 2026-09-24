@@ -58,6 +58,7 @@ function useFormTienda() {
     umbralMat: String(aj.umbral_material_defecto ?? 0),
     menuPedidos: aj.material_menu_pedidos === true,
     contadorMat: String(aj.material_contador ?? 'pedir'),
+    pedirMat: aj.material_pedir === 'falta' ? 'falta' : 'umbral',
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
     usaComp: ajustesFicha(aj).usaComplementos,
     construcciones: (aj.tipos_construccion as string[] | undefined) ?? [],
@@ -159,6 +160,7 @@ function useFormTienda() {
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
         material_menu_pedidos: f.menuPedidos,
         material_contador: f.contadorMat === 'pedir' ? null : f.contadorMat,
+        material_pedir: f.pedirMat === 'falta' ? 'falta' : null,
         etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
         usar_complementos: f.usaComp,
         tipos_construccion: limpia(f.construcciones),
@@ -382,6 +384,12 @@ export function AjustesMateriales() {
             <FormRow label="Unidad habitual" ayuda="La que más usáis. Cada uno puede tener la suya."><Input className="h-7 w-24" list="unidades-habituales" value={f.unidadMat} maxLength={12} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
             <datalist id="unidades-habituales">{['uds', 'm', 'cm', 'g', 'kg', 'ml', 'l', 'ct'].map((x) => <option key={x} value={x} />)}</datalist>
             <FormRow label="Aviso de pedir" ayuda="Para los que no tengan uno propio: avisa cuando quede esto o menos."><Input className="h-7 w-24" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
+            <FormRow label="Qué se propone pedir" ayuda="Siempre redondeado a lo que vende de una vez el proveedor (su pedido mínimo).">
+              <Select className="w-[260px]" value={f.pedirMat} onChange={(e) => setF({ ...f, pedirMat: e.target.value })}>
+                <option value="umbral">Lo que falta y además el aviso de pedir</option>
+                <option value="falta">Solo lo que falta (si solo está al límite, una unidad)</option>
+              </Select>
+            </FormRow>
             <FormRow label="Número del menú" ayuda={`Lo que cuenta el número rojo junto a ${f.vocab.materiales} en el menú.`}>
               <Select className="w-[260px]" value={f.contadorMat} onChange={(e) => setF({ ...f, contadorMat: e.target.value })}>
                 <option value="pedir">Los que hay que pedir</option>

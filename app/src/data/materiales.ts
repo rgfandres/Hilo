@@ -192,16 +192,29 @@ export async function guardarUnidadProveedor(id: string, unidad: number | null) 
   ok(await supabase.from('proveedor').update({ unidad_pedido: unidad }).eq('id', id))
 }
 
-/** Cuánto habría que pedir: lo que falta para cubrir lo pedido por los encargos y dejar el umbral, redondeado a la unidad de pedido. */
+/**
+ * Qué se propone pedir (Ajustes → Materiales):
+ * - «umbral» (por defecto): lo que falta para cubrir lo pedido por los encargos y además dejar el umbral;
+ * - «falta»: solo lo que falta para los encargos; si solo queda por debajo del umbral, una unidad de pedido.
+ * En los dos casos se redondea a la unidad de pedido del proveedor.
+ */
+let MODO_PEDIDO: 'umbral' | 'falta' = 'umbral'
+export const setModoPedido = (v: unknown) => { MODO_PEDIDO = v === 'falta' ? 'falta' : 'umbral' }
 export function propuestaPedido(m: MaterialEstado): { falta: number; pedir: number } {
-  const falta = Number(m.demanda) + Number(m.umbral_efectivo) - Number(m.stock) - Number(m.en_camino)
-  if (falta <= 0.001) return { falta: 0, pedir: 0 }
   const u = Number(m.unidad_efectiva || 0)
-  const pedir = u > 0 ? Math.ceil(falta / u - 1e-9) * u : Math.ceil(falta * 100) / 100
-  return { falta: Math.round(falta * 100) / 100, pedir }
+  const redondeo = (x: number) => (u > 0 ? Math.ceil(x / u - 1e-9) * u : Math.ceil(x * 100) / 100)
+  const queda = Number(m.stock) + Number(m.en_camino) - Number(m.demanda)
+  if (MODO_PEDIDO === 'falta') {
+    if (queda < -0.001) return { falta: Math.round(-queda * 100) / 100, pedir: redondeo(-queda) }
+    if (queda < Number(m.umbral_efectivo) - 0.001) return { falta: 0, pedir: u > 0 ? u : Math.ceil((Number(m.umbral_efectivo) - queda) * 100) / 100 }
+    return { falta: 0, pedir: 0 }
+  }
+  const falta = Number(m.umbral_efectivo) - queda
+  if (falta <= 0.001) return { falta: 0, pedir: 0 }
+  return { falta: Math.round(falta * 100) / 100, pedir: redondeo(falta) }
 }
 export const numEncargo = (e: { numero: number; serie?: string | null } | null | undefined) =>
   !e ? '—' : `${e.serie ?? ''}${String(e.numero).padStart(3, '0')}`
 
 /** Una sola regla de «bajo umbral» para todas las pantallas: stock por debajo del umbral o no alcanza para lo pedido */
-export const bajoUmbral = (m: MaterialEstado) => Number(m.stock) < Number(m.umbral_efectivo) || avisoStock(m).nivel !== null
+export const bajoUmbral = (m: MaterialEstado) => (Number(m.umbral_efectivo) > 0 && Number(m.stock) <= Number(m.umbral_efectivo)) || avisoStock(m).nivel !== null
