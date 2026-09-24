@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, lineasDeTienda, listarMateriales,
+  ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, avanzarPorMaterial, lineasDeTienda, listarMateriales,
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
   avisoStock, bajoUmbral, cerrarLineaPedido, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
 } from '@/data/materiales'
@@ -424,7 +424,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
 export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: LineaPedido | null; unidad: string; onClose: () => void; onHecho: (stock: number) => Promise<void> }) {
   const { vocab } = useAuth()
   const avisar = useAvisos()
-  const [v, setV] = React.useState(''); const [asignar, setAsignar] = React.useState(true); const [err, setErr] = React.useState<string | null>(null)
+  const [v, setV] = React.useState(''); const [asignar, setAsignar] = React.useState(true); const [avanzar, setAvanzar] = React.useState(true); const [err, setErr] = React.useState<string | null>(null)
   const vivos = (linea?.encargos ?? []).filter((e) => e.activo !== false)
   React.useEffect(() => { if (linea) { setV(String(linea.pendiente)); setAsignar(linea.encargos.some((e) => e.activo !== false)); setErr(null) } }, [linea])
   return (
@@ -436,7 +436,8 @@ export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: Lin
         if (!(x > 0)) { setErr('Indica cuánto ha llegado'); return }
         try {
           const r = await recibirLinea(linea.id, x, asignar)
-          avisar({ tipo: 'ok', texto: `Recibido ${cant(x, unidad)}${r.asignados ? ` · asignado a ${r.asignados} ${r.asignados === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : ''} · stock ${cant(r.stock, unidad)}` })
+          const pasan = asignar && avanzar ? await avanzarPorMaterial(vivos.map((e) => e.id)).catch(() => 0) : 0
+          avisar({ tipo: 'ok', texto: `Recibido ${cant(x, unidad)}${r.asignados ? ` · asignado a ${r.asignados} ${r.asignados === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : ''}${pasan ? ` · ${pasan} pasan al paso siguiente` : ''} · stock ${cant(r.stock, unidad)}` })
           onClose(); await onHecho(Number(r.stock))
         } catch (e) { setErr(mensajeError(e)) }
       } }]}>
@@ -445,6 +446,12 @@ export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: Lin
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-0.5" checked={asignar} onChange={(e) => setAsignar(e.target.checked)} />
           <span>Asignarlo ya a sus {min(vocab.encargos)} ({vivos.map((e) => num3(e)).join(', ')}): cuenta como recibido y se descuenta del stock.</span>
+        </label>
+      )}
+      {linea && vivos.length > 0 && asignar && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-0.5" checked={avanzar} onChange={(e) => setAvanzar(e.target.checked)} />
+          <span>Y pasar al paso siguiente los que solo esperaban esto (el que pide «tener el {min(vocab.material)} recibido»).</span>
         </label>
       )}
     </Dialog>

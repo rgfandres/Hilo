@@ -32,6 +32,12 @@ export interface BandejaLista {
   grupo?: string
   /** Texto de ayuda al pasar el ratón */
   ayuda?: string
+  /** Desplegable de proveedor en cada fila (se guarda al momento) */
+  elegir_proveedor?: boolean
+  /** Arriba, el material pedido que está en camino, con «He recibido…» */
+  llegadas?: boolean
+  /** Arriba, un botón por producto para mandarlos a la hoja de producción e imprimirla */
+  lote_hoja?: boolean
 }
 
 export const TIPOS_BANDEJA: { v: TipoBandeja; l: string; key?: string }[] = [

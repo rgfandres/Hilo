@@ -472,7 +472,7 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
 }
 
 /** Material en camino: Logística registra lo que llega (sin entrar en Materiales). */
-function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
+export function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
   const { tienda, vocab } = useAuth()
   const am = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [lineas, setLineas] = React.useState<LineaPedido[]>([])

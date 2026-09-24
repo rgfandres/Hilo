@@ -2,7 +2,9 @@ import * as React from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
-import { crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
+import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
+import { listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
+import { LlegadasMaterial } from '@/pages/Logistica'
 import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
 import type { EncargoEstado, Etapa } from '@/lib/types'
@@ -212,6 +214,32 @@ export function Encargos() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [bandeja, rows, anulados, rol, matPedir, matEspera, filtroMat, lineasMat, defActual, matsEst])
 
+  // «Hoja de producción por producto»: los de esta bandeja cuyo siguiente paso los manda a la hoja
+  const etProd = React.useMemo(() => new Set(etapas.filter((x) => x.es_produccion).map((x) => x.id)), [etapas])
+  const porProductoHoja = React.useMemo((): [string, string, number][] => {
+    if (!defActual?.lote_hoja) return []
+    const m = new Map<string, [string, number]>()
+    for (const e of base) if (activo(e) && e.etapa_siguiente_id && etProd.has(e.etapa_siguiente_id)) {
+      const k = e.producto_id ?? '_'
+      m.set(k, [e.producto_nombre ?? `Sin ${min(vocab.producto)}`, (m.get(k)?.[1] ?? 0) + 1])
+    }
+    return [...m.entries()].map(([k, [n, c]]) => [k, n, c] as [string, string, number]).sort((a, b) => a[1].localeCompare(b[1], 'es'))
+  }, [defActual, base, etProd, vocab.producto])
+  // Proveedores para elegirlo en la fila (bandejas tipo «asignar»)
+  const [provsCat, setProvsCat] = React.useState<ProveedorFila[]>([])
+  React.useEffect(() => { if (tienda && defActual?.elegir_proveedor) listarProveedoresCat(tienda.id).then(setProvsCat).catch(() => {}) }, [tienda, defActual?.elegir_proveedor])
+  async function elegirProv(e: EncargoEstado, v: string) {
+    if (!v) return
+    const antes = e.proveedor_id
+    try {
+      await asignarProveedor(e.id, v)
+      avisar({ tipo: 'ok', texto: `${num3(e)} → ${provsCat.find((p) => p.id === v)?.nombre ?? ''}`, accion: { label: 'Deshacer', onClick: async () => {
+        try { await asignarProveedor(e.id, antes); await recargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+      } } })
+      await recargar()
+    } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+  }
+
   const tiposEnPantalla = React.useMemo(() => [...new Set(base.map((v) => v.tipo_encargo_id))], [base])
   // Todos los campos del encargo de los tipos en pantalla (para filtrar y agrupar)
   const camposTodos = React.useMemo(() => {
@@ -401,6 +429,21 @@ export function Encargos() {
           <Link to="/materiales?v=pedidos" className="ml-auto text-fg-2 underline">Ir a pedidos</Link>
         </div>
       )}
+      {defActual?.tipo === 'pedir' && (rol === 'ADMIN' || rol === 'OPERATIVO') && base.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-light bg-warn-bg/40 px-4 py-1.5 text-sm">
+          <span>Hay {min(vocab.material)} que pedir para {base.length} {min(base.length === 1 ? vocab.encargo : vocab.encargos)}.</span>
+          <Button size="sm" asChild><Link to="/materiales?v=pedidos">Generar pedido {gr.con('proveedor', 'al')}</Link></Button>
+        </div>
+      )}
+      {defActual?.llegadas && <div className="border-b border-border-light px-4 py-2"><LlegadasMaterial refresco={ultima} /></div>}
+      {defActual?.lote_hoja && (rol === 'ADMIN' || rol === 'OPERATIVO') && porProductoHoja.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-light px-4 py-1.5 text-sm">
+          <span className="text-fg-2">{String(aj.hoja_nombre ?? 'Hoja de producción')} por {min(vocab.producto)}:</span>
+          {porProductoHoja.map(([id, nombre, n]) => (
+            <Button key={id} size="sm" onClick={() => nav(`/produccion?p=${encodeURIComponent(id)}&enviar=1`)}>🖨️ {nombre} ({n})</Button>
+          ))}
+        </div>
+      )}
       <div className="flex min-h-9 flex-wrap items-center gap-2 border-b border-border-light px-4 py-1 text-sm text-fg-3">
         <span className="tabular">{visibles.length} de {base.length}</span>
         <span className="text-fg-3">· actualizado {haceCuanto(ultima)}</span>
@@ -495,10 +538,18 @@ export function Encargos() {
                           <Td>
                             {etapaTag(e)}
                             {e.estado === 'ANULADO' && motivos[e.id]?.motivo && <span className="ml-1.5 text-sm text-fg-3">{motivos[e.id].motivo}</span>}
-                            {e.estancado && <span className="ml-1.5 text-sm text-fg-3">{relativo(e.actualizado_en)}</span>}
+                            {e.estancado && <span className="ml-1.5 text-sm text-fg-3">{aj.estancado_por === 'pasos' ? `${e.dias_en_etapa ?? 0} d` : relativo(e.actualizado_en)}</span>}
                           </Td>
                         )}
-                        {ver('proveedor') && <Td className="max-w-[160px] truncate" title={e.proveedor_nombre ?? undefined}>{e.proveedor_nombre ?? <span className="text-fg-3">—</span>}</Td>}
+                        {ver('proveedor') && (defActual?.elegir_proveedor && (rol === 'ADMIN' || rol === 'OPERATIVO') && activo(e)
+                          ? <Td onClick={(ev) => ev.stopPropagation()}>
+                              <select className="h-7 max-w-[170px] rounded-sm border border-border bg-bg px-1.5 text-sm" value={e.proveedor_id ?? ''} aria-label={vocab.proveedor}
+                                onChange={(ev) => elegirProv(e, ev.target.value)}>
+                                <option value="">— elegir —</option>
+                                {provsCat.filter((p) => p.activo || p.id === e.proveedor_id).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                              </select>
+                            </Td>
+                          : <Td className="max-w-[160px] truncate" title={e.proveedor_nombre ?? undefined}>{e.proveedor_nombre ?? <span className="text-fg-3">—</span>}</Td>)}
                         {ver('actualizado') && <Td className="text-fg-3">{relativo(e.actualizado_en)}</Td>}
                         <Td className="accion" onClick={(ev) => ev.stopPropagation()}>{botonSiguiente(e)}</Td>
                       </Tr>

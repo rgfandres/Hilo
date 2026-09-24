@@ -113,6 +113,26 @@ export async function guardarResto(materialId: string, cantidad: number, origen?
 export async function cambiarResto(id: string, cantidad: number, notas?: string) {
   ok(await supabase.rpc('cambiar_resto', { p_resto: id, p_cantidad: cantidad, p_notas: notas ?? null }))
 }
+/**
+ * Tras recibir material ya asignado: los encargos cuyo paso siguiente solo esperaba el material
+ * (condición «tener el material recibido») y ya no tienen nada pendiente, pasan a ese paso.
+ * Devuelve cuántos han avanzado.
+ */
+export async function avanzarPorMaterial(encargoIds: string[]): Promise<number> {
+  if (!encargoIds.length) return 0
+  const { data } = await supabase.from('v_encargo_estado').select('id,etapa_siguiente_id,etapa_siguiente_clave,puertas_pendientes,estado,es_final').in('id', encargoIds)
+  const es = ((data ?? []) as { id: string; etapa_siguiente_id: string | null; etapa_siguiente_clave: string | null; puertas_pendientes: { dura: boolean }[]; estado: string; es_final: boolean | null }[])
+    .filter((e) => e.estado === 'ACTIVO' && !e.es_final && e.etapa_siguiente_id && !(e.puertas_pendientes ?? []).some((p) => p.dura))
+  if (!es.length) return 0
+  const { data: pu } = await supabase.from('puerta').select('etapa_destino_id').eq('tipo', 'MATERIAL').in('etapa_destino_id', [...new Set(es.map((e) => e.etapa_siguiente_id!))])
+  const conMat = new Set(((pu ?? []) as { etapa_destino_id: string }[]).map((p) => p.etapa_destino_id))
+  let n = 0
+  for (const e of es.filter((x) => conMat.has(x.etapa_siguiente_id!))) {
+    const { error } = await supabase.rpc('crear_hito', { p_encargo: e.id, p_etapa_clave: e.etapa_siguiente_clave, p_tipo: 'NORMAL', p_nota: null, p_origen: 'APP', p_forzar_blandas: true })
+    if (!error) n++
+  }
+  return n
+}
 export async function liberarMaterial(encargoId: string, devolver: boolean) {
   return Number(ok(await supabase.rpc('liberar_material_encargo', { p_encargo: encargoId, p_devolver: devolver })))
 }

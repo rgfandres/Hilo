@@ -114,6 +114,35 @@ export function Produccion() {
     if (bien) avisar({ tipo: 'ok', texto: `${bien} enviad${bien === 1 ? 'o' : 'os'} a producción` })
     if (mal.length) avisar({ tipo: 'error', persistente: true, texto: `No se enviaron ${mal.length}: ${mal.join(' · ')}` })
   }
+  // Llegado desde la lista («hoja por producto»): se envían todos los listos de este producto y se dejan
+  // marcados para imprimir solo ellos (se desmarca lo que quedara marcado de antes)
+  const [recienEnviados, setRecienEnviados] = React.useState<number | null>(null)
+  const yaEnviado = React.useRef(false)
+  React.useEffect(() => {
+    if (sp.get('enviar') !== '1' || yaEnviado.current || !lineas || !gestion) return
+    yaEnviado.current = true
+    const xs = listos
+    ;(async () => {
+      setBusy('enviar')
+      const mal: string[] = []
+      const ids: string[] = []
+      for (const e of xs) {
+        try { await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: true }); ids.push(e.id) } catch (x) { mal.push(`${num3(e)}: ${mensajeError(x)}`) }
+      }
+      const nuevas = await listarLineas(tienda!.id)
+      const deProd = nuevas.filter((l) => (l.producto_id ?? SIN) === prod)
+      const antes = deProd.filter((l) => l.imprimir && !ids.includes(l.encargo_id)).map((l) => l.id)
+      if (antes.length) await marcarImprimir(antes, false)
+      const estas = deProd.filter((l) => ids.includes(l.encargo_id)).map((l) => l.id)
+      if (estas.length) await marcarImprimir(estas, true)
+      setBusy(null); setRecienEnviados(estas.length)
+      setSp((p) => { const n = new URLSearchParams(p); n.delete('enviar'); return n }, { replace: true })
+      await cargar()
+      if (mal.length) avisar({ tipo: 'error', persistente: true, texto: `No se enviaron ${mal.length}: ${mal.join(' · ')}` })
+    })().catch((x) => { setBusy(null); avisar({ tipo: 'error', texto: mensajeError(x) }) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sp, lineas, gestion])
+
   function contenido(ls: LineaHoja[]): ContenidoImpresion {
     const cols = ['Nº', vocab.cliente, ...(mat.activo ? [vocab.material] : []), fic.etiqueta, ...(hoja.campoCol && !hoja.curva.length ? [etiquetaCol] : []), 'Nota']
     return {
@@ -173,7 +202,8 @@ export function Produccion() {
               <span><b className="tabular">{listos.length}</b> listos para enviar</span>
               <div className="flex-1" />
               <Segmented value={ver} onChange={(k) => setVer(k as typeof ver)} items={[{ key: 'todas', label: 'Todas' }, { key: 'pendientes', label: 'Sin imprimir' }]} />
-              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={() => imprimir()}><IconPrinter size={14} /> Imprimir marcadas ({nImprimibles})</Button>}
+              {recienEnviados != null && <span className="rounded-sm bg-ok-bg px-2 py-0.5 text-sm text-ok-fg">{recienEnviados} enviad{gr.o('encargo', recienEnviados !== 1)} y marcad{gr.o('encargo', recienEnviados !== 1)} para imprimir</span>}
+              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={() => { setRecienEnviados(null); imprimir() }}><IconPrinter size={14} /> Imprimir marcadas ({nImprimibles})</Button>}
             </div>
 
             {anuladosImpresos.length > 0 && (

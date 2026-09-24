@@ -96,6 +96,11 @@ export function AjustesBandejas() {
               )}
               {b.tipo === 'todos' && <FormRow label="Terminados"><Interruptor checked={!!b.con_terminados} onChange={(v) => cambiar(i, { con_terminados: v })} label={b.con_terminados ? 'También los terminados' : 'Solo los que están en curso'} /></FormRow>}
               {b.tipo === 'pedir' && <FormRow label="Cuáles"><Interruptor checked={!!b.solo_falta} onChange={(v) => cambiar(i, { solo_falta: v })} label={b.solo_falta ? 'Solo si falta o queda por debajo del aviso' : `Todo ${min(vocab.material)} sin pedir`} /></FormRow>}
+              {b.tipo === 'etapas' && <>
+                <FormRow label={`Elegir ${min(vocab.proveedor)}`} ayuda="Un desplegable en cada fila; se guarda al momento."><Interruptor checked={!!b.elegir_proveedor} onChange={(v) => cambiar(i, { elegir_proveedor: v })} label={b.elegir_proveedor ? 'Sí' : 'No'} /></FormRow>
+                <FormRow label={`${vocab.material} en camino`} ayuda="Arriba, lo pedido que aún no ha llegado, con «He recibido…»."><Interruptor checked={!!b.llegadas} onChange={(v) => cambiar(i, { llegadas: v })} label={b.llegadas ? 'Se enseña' : 'No'} /></FormRow>
+                <FormRow label="Hoja por producto" ayuda={`Arriba, un botón por ${min(vocab.producto)} que manda a la hoja de producción los que están listos y los deja marcados para imprimir.`}><Interruptor checked={!!b.lote_hoja} onChange={(v) => cambiar(i, { lote_hoja: v })} label={b.lote_hoja ? 'Sí' : 'No'} /></FormRow>
+              </>}
               <FormRow label="En rojo" ayuda="Se marca si tiene algo: es trabajo que hay que hacer."><Interruptor checked={!!b.accionable} onChange={(v) => cambiar(i, { accionable: v })} label={b.accionable ? 'Sí' : 'No'} /></FormRow>
               <FormRow label="Grupo" ayuda="Rótulo que junta pestañas seguidas (por ejemplo, las de una misma fase)."><Input className="h-7 w-[200px]" value={b.grupo ?? ''} onChange={(e) => cambiar(i, { grupo: e.target.value })} /></FormRow>
               <FormRow label="Ayuda"><Input className="h-7" placeholder="Se ve al pasar el ratón" value={b.ayuda ?? ''} onChange={(e) => cambiar(i, { ayuda: e.target.value })} /></FormRow>
