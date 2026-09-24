@@ -455,7 +455,7 @@ function Modulo({ nombre, linea, info, on, onChange, config, aviso }: {
       <div className="mt-auto pt-1 text-sm">
         {config && (siempre || on)
           ? <Link to={config} className="text-fg-2 underline underline-offset-2 hover:text-fg">Configurar</Link>
-          : !siempre && <span className="text-fg-3">Apagado</span>}
+          : !siempre && <span className="text-fg-3">{on ? 'Activo' : 'Apagado'}</span>}
       </div>
     </div>
   )
