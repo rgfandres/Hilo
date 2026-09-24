@@ -48,6 +48,7 @@ export function Informes() {
   const entra = React.useCallback((tipoId: string) => (deTipo === '*' ? true : deTipo ? tipoId === deTipo : !aparte.includes(tipoId)), [deTipo, aparte])
   const [provs, setProvs] = React.useState<Map<string, string>>(new Map())
   const [prods, setProds] = React.useState<Map<string, string>>(new Map())
+  const [precios, setPrecios] = React.useState<Map<string, number>>(new Map())
   const [campo, setCampo] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
   const [tabla, setTabla] = React.useState(false)
@@ -60,8 +61,9 @@ export function Informes() {
         hitosInforme(tienda.id, null, null), listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }),
         listarEtapas(tienda.id), plantillas(tienda.id), listarProveedores(tienda.id), listarProductos(tienda.id),
       ])
-      setHs(h.filter((x) => entra(x.tipo_encargo_id))); setActuales(a.filter((x) => entra(x.tipo_encargo_id))); setEtapas(e); setPs(p)
+      setHs(h.filter((x) => entra(x.tipo_encargo_id))); setActuales(a.filter((x) => entra(x.tipo_encargo_id))); setEtapas(e.filter((x) => entra(x.tipo_encargo_id))); setPs(p)
       setProvs(new Map(pv.map((x) => [x.id, x.nombre]))); setProds(new Map(pr.map((x) => [x.id, x.nombre])))
+      setPrecios(new Map(pr.filter((x) => x.precio_base != null).map((x) => [x.id, Number(x.precio_base)])))
     } catch (x) { setErr(mensajeError(x)) }
   }, [tienda, periodo, entra])
   // Se recalcula siempre al entrar
@@ -103,7 +105,8 @@ export function Informes() {
     }))
   }, [hsVista, iv, tipo])
   const dn = ajustesDinero(tienda?.ajustes as Record<string, unknown> | undefined)
-  const importeDe = React.useMemo(() => new Map(actuales.map((e) => [e.id, e.importe == null ? null : Number(e.importe)])), [actuales])
+  // Importe de cada encargo; sin importe, el precio actual del producto (estimado, como la facturación de la tienda de origen)
+  const importeDe = React.useMemo(() => new Map(actuales.map((e) => [e.id, e.importe != null ? Number(e.importe) : e.producto_id ? precios.get(e.producto_id) ?? null : null])), [actuales, precios])
 
   const pz = React.useMemo(() => plazos(hsVista, iv), [hsVista, iv])
   const descartados = pz.reduce((n, p) => n + p.descartados, 0)
@@ -246,7 +249,7 @@ export function Informes() {
                 )}
               </div>
 
-              <PorDatoPeriodo encargos={actuales} campos={camposEncargo.map((c) => ({ clave: c.clave, etiqueta: c.etiqueta }))} usaImporte={dn.usa} moneda={dn.moneda} />
+              <PorDatoPeriodo encargos={actuales} importeDe={importeDe} campos={camposEncargo.map((c) => ({ clave: c.clave, etiqueta: c.etiqueta }))} usaImporte={dn.usa} moneda={dn.moneda} />
             </>
           )}
         </div>
@@ -259,13 +262,13 @@ export function Informes() {
  * Todo el periodo por un dato (el producto o cualquier campo del encargo): cuántos hay, cuántos terminados
  * y el importe. Es el ranking de la temporada y los recuentos por campo de la tienda de origen.
  */
-function PorDatoPeriodo({ encargos, campos, usaImporte, moneda }: { encargos: EncargoEstado[]; campos: { clave: string; etiqueta: string }[]; usaImporte: boolean; moneda: string }) {
+function PorDatoPeriodo({ encargos, importeDe, campos, usaImporte, moneda }: { encargos: EncargoEstado[]; importeDe: Map<string, number | null>; campos: { clave: string; etiqueta: string }[]; usaImporte: boolean; moneda: string }) {
   const { vocab, gr } = useAuth()
   const os = gr.o('encargo', true)
   const [dato, setDato] = React.useState('producto')
   const valor = (e: EncargoEstado) => { const v = dato === 'producto' ? e.producto_nombre : e.datos?.[dato]; return v == null || v === '' ? '' : String(v) }
   const m = new Map<string, { n: number; fin: number; eur: number }>()
-  for (const e of encargos) { const k = valor(e); const r = m.get(k) ?? { n: 0, fin: 0, eur: 0 }; r.n++; if (e.es_final) r.fin++; r.eur += Number(e.importe ?? 0); m.set(k, r) }
+  for (const e of encargos) { const k = valor(e); const r = m.get(k) ?? { n: 0, fin: 0, eur: 0 }; r.n++; if (e.es_final) r.fin++; r.eur += importeDe.get(e.id) ?? 0; m.set(k, r) }
   const filas = [...m].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
   const tot = filas.reduce((s, [, r]) => ({ n: s.n + r.n, fin: s.fin + r.fin, eur: s.eur + r.eur }), { n: 0, fin: 0, eur: 0 })
   const etiqueta = dato === 'producto' ? vocab.producto : campos.find((c) => c.clave === dato)?.etiqueta ?? ''
