@@ -44,11 +44,11 @@ export function useCerrarConAtras(open: boolean, cerrar: () => void) {
 }
 
 /**
- * Doble toque contra toques accidentales (solo en pantallas táctiles): el primer toque
+ * Doble toque contra toques accidentales (en pantallas táctiles, o siempre si se pide): el primer toque
  * «arma» la acción y se desarma sola a los N segundos; el segundo la ejecuta.
  */
-export function useDobleToque(segundos = 3.5) {
-  const tactil = useTactil()
+export function useDobleToque(segundos = 3.5, siempre = false) {
+  const tactil = useTactil() || siempre
   const [armado, setArmado] = React.useState<string | null>(null)
   React.useEffect(() => {
     if (!armado) return

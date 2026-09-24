@@ -2,7 +2,10 @@ import { plantillas } from '@/data/config'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, subirFoto } from '@/data/catalogos'
-import { guardarTienda } from '@/data/ajustes'
+import { guardarTienda, listarPuertas, type PuertaDef } from '@/data/ajustes'
+import { ajustesLogistica, bandejasLogistica, type ConfigBandeja, type ConfigLogistica } from '@/data/logistica'
+import { listarEtapas } from '@/data/encargos'
+import type { Etapa } from '@/lib/types'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
@@ -56,6 +59,7 @@ function useFormTienda() {
     produccion: ((aj.modulos as Record<string, boolean> | undefined)?.produccion) === true,
     logistica: ((aj.modulos as Record<string, boolean> | undefined)?.logistica) === true,
     diasHist: String(aj.logistica_dias_historico ?? 30),
+    logis: ajustesLogistica(aj).cfg,
     hojaNombre: String(aj.hoja_nombre ?? 'Hoja de producción'),
     hojaCol: String(aj.hoja_campo_col ?? ''),
     hojaCurva: (aj.hoja_curva as string[] | undefined) ?? [],
@@ -128,6 +132,7 @@ function useFormTienda() {
         normalizar_nombres: f.normalizar,
         modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion, logistica: f.logistica },
         logistica_dias_historico: Math.max(1, parseInt(f.diasHist, 10) || 30),
+        logistica: limpiaLogis(f.logis),
         hoja_nombre: f.hojaNombre.trim() || 'Hoja de producción',
         hoja_campo_col: f.hojaCol || null,
         hoja_col_etiqueta: camposEnc.find((c) => c.clave === f.hojaCol)?.etiqueta ?? null,
@@ -406,21 +411,110 @@ export function AjustesHoja() {
   )
 }
 
-/** Ajustes → Módulos → Logística */
+/** Quita lo vacío para no guardar textos en blanco */
+function limpiaLogis(c: ConfigLogistica): ConfigLogistica {
+  const bandejas: Record<string, ConfigBandeja> = {}
+  for (const [k, b] of Object.entries(c.bandejas ?? {})) {
+    const x = Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined && v !== '' && v !== 'auto').map(([kk, v]) => [kk, typeof v === 'string' ? v.trim() : v])) as ConfigBandeja
+    if (Object.keys(x).length) bandejas[k] = x
+  }
+  return { ...c, bandejas }
+}
+
+/** Ajustes → Módulos → Logística: bandejas (nombre, botón, textos) y cómo se ve la pantalla */
 export function AjustesLogistica() {
   const t = useFormTienda()
-  const { f, setF } = t
+  const { f, setF, tienda, camposEnc } = t
+  const [etapas, setEtapas] = React.useState<Etapa[]>([])
+  const [puertas, setPuertas] = React.useState<PuertaDef[]>([])
+  React.useEffect(() => {
+    if (!tienda) return
+    listarEtapas(tienda.id).then(async (et) => {
+      setEtapas(et)
+      setPuertas(await listarPuertas(et.filter((x) => x.rol_ejecuta === 'LOGISTICA').map((x) => x.id)))
+    }).catch(() => {})
+  }, [tienda])
+  const L = f.logis
+  const setL = (p: Partial<ConfigLogistica>) => setF({ ...f, logis: { ...L, ...p } })
+  const setB = (k: string, p: Partial<ConfigBandeja>) => setL({ bandejas: { ...L.bandejas, [k]: { ...(L.bandejas[k] ?? {}), ...p } } })
+  const bandejas = bandejasLogistica(etapas, puertas, parseInt(f.diasHist, 10) || 30, !!L.historico_periodo)
+  const quien = f.roles.LOGISTICA
   return (
     <>
-      <Pagina titulo={`Pantalla de ${f.roles.LOGISTICA}`} ayuda={`Sus tareas son las etapas que marca «${f.roles.LOGISTICA}» en Tipos y etapas.`} />
+      <Pagina titulo={`Pantalla de ${quien}`} ayuda={`Sus bandejas salen de las etapas que marca «${quien}» en Tipos y etapas (y de las comprobaciones obligatorias antes de ellas). Aquí cambias cómo se llaman y qué dicen.`} />
       {!f.logistica && <Apagado />}
+      {f.logistica && <>
         <div className="flex flex-col gap-1">
-          {f.logistica && <FormRow label="Histórico (días)" ayuda="Cuántos días atrás se ve lo ya hecho."><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /></FormRow>}
+          <FormRow label="Histórico">
+            <div className="flex flex-wrap items-center gap-3">
+              <Interruptor checked={!!L.historico_periodo} onChange={(v) => setL({ historico_periodo: v })} label="Todo el periodo" />
+              {!L.historico_periodo && <span className="inline-flex items-center gap-1.5"><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /> días atrás</span>}
+            </div>
+          </FormRow>
+          <FormRow label="Al entrar"><Interruptor checked={!!L.abrir_primera} onChange={(v) => setL({ abrir_primera: v })} label="Abrir siempre la primera bandeja" /></FormRow>
+          <FormRow label="Doble toque" ayuda="Para no marcar nada sin querer: el primer toque prepara y el segundo confirma."><Interruptor checked={!!L.doble_siempre} onChange={(v) => setL({ doble_siempre: v })} label="También en el ordenador" /></FormRow>
+          <FormRow label="Línea de pasos"><Interruptor checked={!!L.ocultar_futuros} onChange={(v) => setL({ ocultar_futuros: v })} label="Solo los pasos ya dados" /></FormRow>
+          <FormRow label={`${f.vocab.materiales} en camino`}><Interruptor checked={!L.ocultar_llegadas} onChange={(v) => setL({ ocultar_llegadas: !v })} label={L.ocultar_llegadas ? 'No se enseña' : 'Se enseña arriba'} /></FormRow>
+          <FormRow label="En cada tarjeta" ayuda={`Datos ${gr0(f)} que se ven bajo ${f.vocab.producto.toLowerCase()}. Sin marcar ninguno: el de la hoja de producción y la primera fecha.`}>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {camposEnc.map((c) => (
+                <label key={c.clave} className="inline-flex items-center gap-1.5 text-sm">
+                  <input type="checkbox" className="accent-gray-12" checked={(L.campos_tarjeta ?? []).includes(c.clave)}
+                    onChange={(e) => setL({ campos_tarjeta: e.target.checked ? [...(L.campos_tarjeta ?? []), c.clave] : (L.campos_tarjeta ?? []).filter((x) => x !== c.clave) })} />
+                  {c.etiqueta}
+                </label>
+              ))}
+            </div>
+          </FormRow>
         </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Bandejas</span>
+          {bandejas.length <= 1 && <p className="m-0 text-sm text-fg-3">Ninguna etapa la marca «{quien}» todavía.</p>}
+          {bandejas.map((b, i) => {
+            const c = L.bandejas[b.key] ?? {}
+            return (
+              <Avanzado key={b.key} titulo={`${i + 1}. ${c.nombre?.trim() || b.nombreDefecto}`}
+                resumen={b.tipo === 'check' ? 'comprobación' : b.tipo === 'historico' ? 'solo lectura' : `marca «${b.etapas.map((x) => x.nombre).join(' / ')}»`}>
+                <div className="flex flex-col gap-1">
+                  <FormRow label="Nombre"><Input className="h-7" placeholder={b.nombreDefecto} value={c.nombre ?? ''} onChange={(e) => setB(b.key, { nombre: e.target.value })} /></FormRow>
+                  <FormRow label="Qué hay aquí"><Input className="h-7" placeholder={b.subtituloDefecto} value={c.subtitulo ?? ''} onChange={(e) => setB(b.key, { subtitulo: e.target.value })} /></FormRow>
+                  {b.tipo !== 'historico' && <FormRow label="Botón"><Input className="h-7" placeholder={b.botonDefecto} value={c.boton ?? ''} onChange={(e) => setB(b.key, { boton: e.target.value })} /></FormRow>}
+                  <FormRow label="Días" ayuda="{n} es el número de días. Ejemplo: «{n} días en el coche»."><Input className="h-7" placeholder="{n} días en «etapa»" value={c.dias ?? ''} onChange={(e) => setB(b.key, { dias: e.target.value })} /></FormRow>
+                  <FormRow label="Si está vacía"><Input className="h-7" placeholder="Nada pendiente en esta bandeja." value={c.vacio ?? ''} onChange={(e) => setB(b.key, { vacio: e.target.value })} /></FormRow>
+                  {b.tipo === 'etapa' && <>
+                    <FormRow label={`Elegir ${f.vocab.proveedor.toLowerCase()}`} ayuda="Un desplegable en cada tarjeta; se guarda al momento.">
+                      <Select className="w-[220px]" value={c.proveedor === true ? 'si' : c.proveedor === false ? 'no' : ''} onChange={(e) => setB(b.key, { proveedor: e.target.value === 'si' ? true : e.target.value === 'no' ? false : undefined })}>
+                        <option value="">Solo si hace falta</option><option value="si">Siempre</option><option value="no">Nunca</option>
+                      </Select>
+                    </FormRow>
+                    <FormRow label="Marcar todos">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Interruptor checked={!!c.todos} onChange={(v) => setB(b.key, { todos: v || undefined })} label={c.todos ? 'Sí' : 'No'} />
+                        {c.todos && <Input className="h-7 w-[260px]" placeholder="Marcar todos" value={c.todos_texto ?? ''} onChange={(e) => setB(b.key, { todos_texto: e.target.value })} />}
+                      </div>
+                    </FormRow>
+                  </>}
+                  <FormRow label={`Carpetas por ${f.vocab.proveedor.toLowerCase()}`}>
+                    <Select className="w-[220px]" value={c.carpetas ?? 'auto'} onChange={(e) => setB(b.key, { carpetas: e.target.value as ConfigBandeja['carpetas'] })}>
+                      <option value="auto">Automático</option><option value="siempre">Siempre</option><option value="nunca">Nunca</option>
+                    </Select>
+                  </FormRow>
+                  <FormRow label={`Filtro por ${f.vocab.producto.toLowerCase()}`}>
+                    <Select className="w-[220px]" value={c.filtro ?? 'auto'} onChange={(e) => setB(b.key, { filtro: e.target.value as ConfigBandeja['filtro'] })}>
+                      <option value="auto">Si hay más de uno</option><option value="siempre">Siempre</option><option value="nunca">Nunca</option>
+                    </Select>
+                  </FormRow>
+                </div>
+              </Avanzado>
+            )
+          })}
+        </div>
+      </>}
       <Pie t={t} />
     </>
   )
 }
+const gr0 = (f: { vocab: Vocab; generos: Record<ClaveVocab, Genero> }) => gramatica(f.vocab, f.generos).con('encargo', 'del')
 
 /** Ajustes → Módulos → Ficha técnica y complementos */
 export function AjustesFichaTecnica() {
