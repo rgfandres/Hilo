@@ -8,6 +8,7 @@ import {
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { ajustesMaterial } from '@/data/materiales'
+import { ajustesHoja } from '@/data/produccion'
 import type { Etapa, Rol } from '@/lib/types'
 import { ROLES, min } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag, tagColorFromHex } from '@/ui'
@@ -30,6 +31,7 @@ const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
 export function AjustesFlujos() {
   const { tienda, vocab, nombresRol, recargar, gr } = useAuth()
   const conMaterial = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo
+  const nombreHoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>).nombre
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [tipoId, setTipoId] = React.useState<string>('')
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
@@ -150,6 +152,8 @@ export function AjustesFlujos() {
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { marca_proveedor: v }))} />
                         <Interruptor checked={e.es_espera} label="Es una espera (no cuenta como estancado)"
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_espera: v }))} />
+                        <Interruptor checked={!!e.es_produccion} label={`Envía a la ${min(nombreHoja)}`}
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />
                         <Interruptor checked={e.es_final} label={`Es el final (${min(vocab.encargo)} terminad${gr.o('encargo')})`}
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_final: v }))} />
                       </div>

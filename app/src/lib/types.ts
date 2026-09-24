@@ -21,6 +21,8 @@ export interface Etapa {
   marca_proveedor?: boolean
   es_final: boolean
   es_espera: boolean
+  /** Al marcarla, el encargo entra en la hoja de producción */
+  es_produccion?: boolean
   color: string | null
   grupo?: string | null
 }

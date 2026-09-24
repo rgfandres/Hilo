@@ -1,3 +1,4 @@
+import { plantillas } from '@/data/config'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { subirFoto } from '@/data/catalogos'
@@ -46,6 +47,10 @@ export function AjustesTienda() {
     umbralResto: String(aj.umbral_resto ?? 5),
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
     construcciones: ((aj.tipos_construccion as string[] | undefined) ?? []).join(', '),
+    produccion: ((aj.modulos as Record<string, boolean> | undefined)?.produccion) === true,
+    hojaNombre: String(aj.hoja_nombre ?? 'Hoja de producción'),
+    hojaCol: String(aj.hoja_campo_col ?? ''),
+    hojaCurva: ((aj.hoja_curva as string[] | undefined) ?? []).join(', '),
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -59,6 +64,15 @@ export function AjustesTienda() {
   React.useEffect(() => setF(inicial), [inicial])
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
   const AYUDA = ayudaRoles(f.vocab)
+  const [camposEnc, setCamposEnc] = React.useState<{ clave: string; etiqueta: string }[]>([])
+  React.useEffect(() => {
+    if (!tienda) return
+    plantillas(tienda.id).then((ps) => {
+      const m = new Map<string, string>()
+      for (const p of ps) if (p.entidad === 'ENCARGO') for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, c.etiqueta)
+      setCamposEnc([...m.entries()].map(([clave, etiqueta]) => ({ clave, etiqueta })))
+    }).catch(() => {})
+  }, [tienda])
 
   async function guardar() {
     if (!tienda) return
@@ -93,7 +107,11 @@ export function AjustesTienda() {
         locale: f.locale,
         moneda: f.moneda.trim().toUpperCase() || 'EUR',
         usar_importe: f.importe,
-        modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales },
+        modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion },
+        hoja_nombre: f.hojaNombre.trim() || 'Hoja de producción',
+        hoja_campo_col: f.hojaCol || null,
+        hoja_col_etiqueta: camposEnc.find((c) => c.clave === f.hojaCol)?.etiqueta ?? null,
+        hoja_curva: f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean),
         material_unidad: f.unidadMat.trim() || 'm',
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
         unidad_por_encargo_max: Number(f.porEncargo.replace(',', '.')) || 0,
@@ -256,6 +274,22 @@ export function AjustesTienda() {
         <div className="flex flex-col gap-1">
           <FormRow label="Tipos de construcción" ayuda="Separados por comas. Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
           <FormRow label="Nombre de los complementos" ayuda={`Cómo llamáis a lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…).`}><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>
+        </div>
+      </Bloque>
+
+      <Bloque titulo={f.hojaNombre || 'Hoja de producción'} ayuda={`Una hoja por ${f.vocab.producto.toLowerCase()} con los ${f.vocab.encargos.toLowerCase()} enviados a producción, lista para imprimir. Qué etapa envía se marca en Ajustes → Flujos.`}>
+        <div className="flex flex-col gap-1">
+          <FormRow label="Módulo"><Interruptor checked={f.produccion} onChange={(v) => setF({ ...f, produccion: v })} label="Usar la hoja de producción" /></FormRow>
+          {f.produccion && <>
+            <FormRow label="Nombre"><Input className="h-7 w-[260px]" value={f.hojaNombre} onChange={(e) => setF({ ...f, hojaNombre: e.target.value })} /></FormRow>
+            <FormRow label="Campo de valor" ayuda="Si lo eliges, la hoja marca la valor de cada línea en columnas.">
+              <Select className="w-[260px]" value={f.hojaCol} onChange={(e) => setF({ ...f, hojaCol: e.target.value })}>
+                <option value="">— ninguno —</option>
+                {camposEnc.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
+              </Select>
+            </FormRow>
+            {f.hojaCol && <FormRow label="Curva de tallas" ayuda="Separadas por comas, en orden. Vacío = se escribe la valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>}
+          </>}
         </div>
       </Bloque>
 

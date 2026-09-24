@@ -97,7 +97,7 @@ export async function crearEtapa(tiendaId: string, tipoId: string, nombre: strin
     clave: claveUnica(claveDe(nombre), existentes.map((e) => e.clave)),
   }))
 }
-export async function actualizarEtapa(id: string, patch: Partial<Pick<Etapa, 'nombre' | 'color' | 'rol_ejecuta' | 'visible_para_proveedor' | 'marca_proveedor' | 'es_final' | 'es_espera' | 'grupo'>>) {
+export async function actualizarEtapa(id: string, patch: Partial<Pick<Etapa, 'nombre' | 'color' | 'rol_ejecuta' | 'visible_para_proveedor' | 'marca_proveedor' | 'es_final' | 'es_espera' | 'grupo' | 'es_produccion'>>) {
   ok(await supabase.from('etapa').update(patch).eq('id', id))
 }
 export async function reordenarEtapas(tipoId: string, ids: string[]) {
