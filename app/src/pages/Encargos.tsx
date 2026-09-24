@@ -19,7 +19,8 @@ import { AccionLote } from '@/components/AccionLote'
 import { haceCuanto, useTiempoReal } from '@/lib/tiempoReal'
 import { min, textosFin } from '@/lib/vocab'
 import { useDobleToque } from '@/lib/movil'
-import { bandejasLista, enEtapas, type BandejaLista } from '@/lib/listaBandejas'
+import { bandejasLista, enEtapas, tiposAparte, type BandejaLista } from '@/lib/listaBandejas'
+import { listarTipos } from '@/data/ajustes'
 
 type Vista = 'lista' | 'tablero'
 const LS_COLS = 'hilo.columnas_ocultas'
@@ -57,7 +58,13 @@ export function Encargos() {
   const toque = useDobleToque(Number(aj.segundos_doble_toque ?? 3.5))
 
   // Bandejas configuradas por la tienda (si no, las automáticas)
-  const conf = React.useMemo(() => bandejasLista(tienda?.ajustes as Record<string, unknown> | undefined), [tienda?.ajustes])
+  // Un tipo con menú propio (?t=) se ve solo; la lista principal no enseña esos tipos
+  const tipoVista = params.get('t')
+  const aparte = React.useMemo(() => tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined), [tienda?.ajustes])
+  const delaVista = React.useCallback((r: EncargoEstado) => (tipoVista ? r.tipo_encargo_id === tipoVista : !aparte.includes(r.tipo_encargo_id)), [tipoVista, aparte])
+  const [nombreTipo, setNombreTipo] = React.useState<string | null>(null)
+  React.useEffect(() => { if (tienda && tipoVista) listarTipos(tienda.id).then((ts) => setNombreTipo(ts.find((t) => t.id === tipoVista)?.nombre ?? null)).catch(() => {}); else setNombreTipo(null) }, [tienda, tipoVista])
+  const conf = React.useMemo(() => bandejasLista(tienda?.ajustes as Record<string, unknown> | undefined, tipoVista), [tienda?.ajustes, tipoVista])
   const primera = conf?.[0]?.key ?? 'todos'
   // Estado de la vista en la URL: se puede recargar, compartir y volver atrás sin perderlo
   const bandeja = params.get('b') ?? primera
@@ -101,13 +108,13 @@ export function Encargos() {
       listarEtapas(tienda.id), plantillas(tienda.id),
     ])
     if (n !== nLectura.current) return
-    setRows(r); setAnulados(a); setEtapas(e); setPs(p); setCargado(true)
+    setRows(r.filter(delaVista)); setAnulados(a.filter(delaVista)); setEtapas(tipoVista ? e.filter((x) => x.tipo_encargo_id === tipoVista) : e.filter((x) => !aparte.includes(x.tipo_encargo_id))); setPs(p); setCargado(true)
     if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) {
       const [l, m] = await Promise.all([lineasDeTienda(tienda.id).catch(() => []), listarMateriales(tienda.id).catch(() => [])])
       setLineasMat(l); setMatsEst(m)
     }
     setMotivos(await listarAnulaciones(a.map((x) => x.id)))
-  }, [tienda, periodo])
+  }, [tienda, periodo, delaVista, tipoVista, aparte])
 
   React.useEffect(() => { recargar().catch((e) => setErr(mensajeError(e))) }, [recargar])
 
@@ -382,7 +389,7 @@ export function Encargos() {
 
   return (
     <>
-      <PageHeader title={vocab.encargos} subtitle={dimAgr ? `Por ${min(dimAgr.etiqueta)}` : undefined}>
+      <PageHeader title={nombreTipo ?? vocab.encargos} subtitle={dimAgr ? `Por ${min(dimAgr.etiqueta)}` : undefined}>
         <div className="relative">
           <IconSearch size={14} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-fg-3" />
           <Input ref={buscar} value={q} onChange={(e) => setP({ q: e.target.value })} placeholder="Buscar nombre, Nº, teléfono…"
@@ -419,7 +426,7 @@ export function Encargos() {
             <IconSquareCheck size={14} /><span className="hidden xl:inline">{sel ? 'Seleccionando' : 'Seleccionar'}</span>
           </Button>
         )}
-        {rol !== 'LOGISTICA' && <Button variant="primary" asChild><Link to="/encargos/nuevo">+ {vocab.encargo}</Link></Button>}
+        {rol !== 'LOGISTICA' && <Button variant="primary" asChild><Link to={`/encargos/nuevo${tipoVista ? `?tipo=${tipoVista}` : ''}`}>+ {vocab.encargo}</Link></Button>}
       </PageHeader>
       <Tabs items={tabs} value={bandeja} onChange={setBandeja} />
       {filtroMat && (bandeja === 'mat-pedir' || bandeja === 'mat-espera') && (

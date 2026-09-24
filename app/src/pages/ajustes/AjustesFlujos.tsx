@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { guardarTienda } from '@/data/ajustes'
+import { tiposAparte } from '@/lib/listaBandejas'
 import { plano } from '@/lib/texto'
 import { IconArrowDown, IconArrowUp, IconLock, IconAlertTriangle, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -112,6 +114,15 @@ export function AjustesFlujos() {
                 if (v && !etapas.some((x) => x.es_final)) { setErr('Antes de poder elegirlo, marca una etapa como final'); return }
                 try { await actualizarTipo(tipo.id, { activo: v }); await cargarTipos() } catch (x) { setErr(mensajeError(x)) }
               }} />
+            {tipos.length > 1 && <Interruptor checked={tiposAparte(tienda?.ajustes as Record<string, unknown>).includes(tipo.id)} label="Menú propio"
+              onChange={async (v) => {
+                if (!tienda) return
+                const aj = (tienda.ajustes ?? {}) as Record<string, unknown>
+                const act = tiposAparte(aj)
+                const nuevos = v ? [...new Set([...act, tipo.id])] : act.filter((x) => x !== tipo.id)
+                if (v && tipos.every((t) => nuevos.includes(t.id))) { setErr(`Al menos un tipo tiene que quedarse en la lista de ${min(vocab.encargos)}`); return }
+                try { await guardarTienda(tienda.id, tienda.nombre, { ...aj, tipos_aparte: nuevos.length ? nuevos : null }); await recargar() } catch (x) { setErr(mensajeError(x)) }
+              }} />}
             <label className="flex items-center gap-1.5" title="Letras delante del número y contador propio: «S» → S001, S002…">
               Serie
               <input key={tipo.id} defaultValue={tipo.serie ?? ''} maxLength={4} placeholder="—"

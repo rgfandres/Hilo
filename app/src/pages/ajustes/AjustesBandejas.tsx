@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
-import { guardarTienda } from '@/data/ajustes'
+import { guardarTienda, listarTipos } from '@/data/ajustes'
 import { listarEtapas, mensajeError } from '@/data/encargos'
 import type { Etapa } from '@/lib/types'
-import { bandejasLista, bandejasPorDefecto, claveBandeja, TIPOS_BANDEJA, type BandejaLista, type EtapaEnBandeja, type TipoBandeja } from '@/lib/listaBandejas'
+import { tiposAparte, bandejasLista, bandejasPorDefecto, claveBandeja, TIPOS_BANDEJA, type BandejaLista, type EtapaEnBandeja, type TipoBandeja } from '@/lib/listaBandejas'
 import { textosFin, min } from '@/lib/vocab'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { Avanzado, BarraGuardar, Interruptor, Pagina } from './Ajustes'
@@ -15,14 +15,19 @@ import { Avanzado, BarraGuardar, Interruptor, Pagina } from './Ajustes'
 export function AjustesBandejas() {
   const { tienda, recargar, vocab, gr } = useAuth()
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
-  const inicial = React.useMemo(() => bandejasLista(tienda?.ajustes as Record<string, unknown> | undefined) ?? [], [tienda?.ajustes])
+  // Qué lista se configura: la principal o la de un tipo con menú propio
+  const aparte = tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined)
+  const [lista, setLista] = React.useState('')
+  const [tipos, setTipos] = React.useState<{ id: string; nombre: string }[]>([])
+  React.useEffect(() => { if (tienda) listarTipos(tienda.id).then((ts) => setTipos(ts.map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {}) }, [tienda])
+  const inicial = React.useMemo(() => bandejasLista(tienda?.ajustes as Record<string, unknown> | undefined, lista || null) ?? [], [tienda?.ajustes, lista])
   const [bs, setBs] = React.useState<BandejaLista[]>(inicial)
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [busy, setBusy] = React.useState(false)
   const [ok, setOk] = React.useState<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   React.useEffect(() => setBs(inicial), [inicial])
-  React.useEffect(() => { if (tienda) listarEtapas(tienda.id).then(setEtapas).catch(() => {}) }, [tienda])
+  React.useEffect(() => { if (tienda) listarEtapas(tienda.id).then((e) => setEtapas(e.filter((x) => (lista ? x.tipo_encargo_id === lista : !aparte.includes(x.tipo_encargo_id))))).catch(() => {}) }, [tienda, lista, aparte.join()]) // eslint-disable-line react-hooks/exhaustive-deps
   const nombresEtapa = [...new Set([...etapas].sort((a, b) => a.orden - b.orden).filter((e) => !e.es_final).map((e) => e.nombre))]
   const sucio = JSON.stringify(bs) !== JSON.stringify(inicial)
 
@@ -49,7 +54,10 @@ export function AjustesBandejas() {
         return Object.fromEntries(Object.entries({ ...b, key, nombre: b.nombre.trim(), grupo: b.grupo?.trim() || undefined, ayuda: b.ayuda?.trim() || undefined })
           .filter(([, v]) => v !== undefined && v !== false && !(Array.isArray(v) && !v.length))) as unknown as BandejaLista
       })
-      await guardarTienda(tienda.id, tienda.nombre, { ...aj, lista_bandejas: limpias.length ? limpias : null })
+      const val = limpias.length ? limpias : null
+      await guardarTienda(tienda.id, tienda.nombre, lista
+        ? { ...aj, lista_bandejas_tipo: { ...((aj.lista_bandejas_tipo ?? {}) as Record<string, unknown>), [lista]: val } }
+        : { ...aj, lista_bandejas: val })
       await recargar(); setOk('Guardado')
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
@@ -62,6 +70,14 @@ export function AjustesBandejas() {
           {bs.length === 0 && <Button size="sm" onClick={proponer}>Empezar con las de ahora</Button>}
           {bs.length > 0 && <Button size="sm" variant="ghost" onClick={() => setBs([])}>Volver a las automáticas</Button>}
         </div>} />
+      {aparte.length > 0 && (
+        <FormRow label="Lista">
+          <Select className="w-[280px]" value={lista} onChange={(e) => { if (sucio && !window.confirm('Hay cambios sin guardar. ¿Cambiar de lista y perderlos?')) return; setLista(e.target.value) }}>
+            <option value="">{vocab.encargos} (la principal)</option>
+            {tipos.filter((t) => aparte.includes(t.id)).map((t) => <option key={t.id} value={t.id}>{t.nombre} (menú propio)</option>)}
+          </Select>
+        </FormRow>
+      )}
       {bs.length === 0 && <p className="m-0 text-fg-3">Ahora mismo la lista usa las bandejas automáticas.</p>}
       <div className="flex flex-col gap-2">
         {bs.map((b, i) => (

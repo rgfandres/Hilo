@@ -52,10 +52,19 @@ export const TIPOS_BANDEJA: { v: TipoBandeja; l: string; key?: string }[] = [
   { v: 'anulados', l: 'Anulados', key: 'anulados' },
 ]
 
-/** Bandejas configuradas (o null si la tienda usa las automáticas) */
-export function bandejasLista(aj: Record<string, unknown> | null | undefined): BandejaLista[] | null {
-  const b = aj?.lista_bandejas
+/**
+ * Bandejas configuradas (o null si se usan las automáticas). Sin tipo: las de la lista principal;
+ * con tipo: las de ese tipo de encargo cuando tiene menú propio.
+ */
+export function bandejasLista(aj: Record<string, unknown> | null | undefined, tipoId?: string | null): BandejaLista[] | null {
+  const b = tipoId ? ((aj?.lista_bandejas_tipo ?? {}) as Record<string, unknown>)[tipoId] : aj?.lista_bandejas
   return Array.isArray(b) && b.length ? (b as BandejaLista[]) : null
+}
+
+/** Tipos de encargo con menú propio: salen aparte y no se mezclan con la lista principal */
+export function tiposAparte(aj: Record<string, unknown> | null | undefined): string[] {
+  const t = aj?.tipos_aparte
+  return Array.isArray(t) ? (t as string[]) : []
 }
 
 /** Clave para la URL: los tipos fijos usan la de siempre; las de etapas, una propia */

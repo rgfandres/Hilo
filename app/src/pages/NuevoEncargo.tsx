@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { tiposAparte } from '@/lib/listaBandejas'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
@@ -79,7 +80,11 @@ export function NuevoEncargo() {
       ])
       setTipos(t.data ?? []); setProductos(p.data ?? []); setPs(c)
       // Solo se elige el tipo si aún no hay uno (una recarga no cambia lo que ya se ha elegido)
-      setTipo((actual) => (actual && (t.data ?? []).some((x) => x.id === actual) ? actual : t.data?.[0]?.id ?? ''))
+      // ?tipo= (desde el menú propio de un tipo) manda; si no, el primero que no va aparte
+      const pt = params.get('tipo')
+      const aparte = tiposAparte(tienda.ajustes as Record<string, unknown>)
+      const porDefecto = (t.data ?? []).find((x) => !aparte.includes(x.id))?.id ?? t.data?.[0]?.id ?? ''
+      setTipo((actual) => (pt && (t.data ?? []).some((x) => x.id === pt) ? pt : actual && (t.data ?? []).some((x) => x.id === actual) ? actual : porDefecto))
       const cid = params.get('cliente')
       if (cid) {
         const { data } = await supabase.from('cliente').select('id,nombre,telefono,email').eq('id', cid).maybeSingle()

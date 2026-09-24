@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { tiposAparte } from '@/lib/listaBandejas'
+import { listarTipos } from '@/data/ajustes'
 import { Link } from 'react-router-dom'
 import { IconChevronLeft, IconChevronRight, IconPrinter } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -38,6 +40,12 @@ export function Informes() {
   const [actuales, setActuales] = React.useState<EncargoEstado[]>([])
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
+  // Qué entra: la lista principal (sin los tipos con menú propio), un tipo concreto o todo
+  const aparte = React.useMemo(() => tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined), [tienda?.ajustes])
+  const [tiposInf, setTiposInf] = React.useState<{ id: string; nombre: string }[]>([])
+  const [deTipo, setDeTipo] = React.useState('')
+  React.useEffect(() => { if (tienda) listarTipos(tienda.id).then((ts) => setTiposInf(ts.map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {}) }, [tienda])
+  const entra = React.useCallback((tipoId: string) => (deTipo === '*' ? true : deTipo ? tipoId === deTipo : !aparte.includes(tipoId)), [deTipo, aparte])
   const [provs, setProvs] = React.useState<Map<string, string>>(new Map())
   const [prods, setProds] = React.useState<Map<string, string>>(new Map())
   const [campo, setCampo] = React.useState('')
@@ -52,10 +60,10 @@ export function Informes() {
         hitosInforme(tienda.id, null, null), listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }),
         listarEtapas(tienda.id), plantillas(tienda.id), listarProveedores(tienda.id), listarProductos(tienda.id),
       ])
-      setHs(h); setActuales(a); setEtapas(e); setPs(p)
+      setHs(h.filter((x) => entra(x.tipo_encargo_id))); setActuales(a.filter((x) => entra(x.tipo_encargo_id))); setEtapas(e); setPs(p)
       setProvs(new Map(pv.map((x) => [x.id, x.nombre]))); setProds(new Map(pr.map((x) => [x.id, x.nombre])))
     } catch (x) { setErr(mensajeError(x)) }
-  }, [tienda, periodo])
+  }, [tienda, periodo, entra])
   // Se recalcula siempre al entrar
   React.useEffect(() => { cargar() }, [cargar])
 
@@ -123,6 +131,13 @@ export function Informes() {
     <>
       <PageHeader title="Informes" subtitle={iv.titulo}>
         <div className="no-imprimir flex items-center gap-1">
+          {tiposInf.length > 1 && (
+            <Select className="h-7 w-[170px]" value={deTipo} onChange={(e) => setDeTipo(e.target.value)} aria-label="Qué entra">
+              <option value="">{aparte.length ? `${vocab.encargos} (lista principal)` : `Tod${os}`}</option>
+              {tiposInf.map((t) => <option key={t.id} value={t.id}>Solo {t.nombre}</option>)}
+              {aparte.length > 0 && <option value="*">Tod{os}, de todos los tipos</option>}
+            </Select>
+          )}
           <Select className="h-7 w-[130px]" value={tipo} onChange={(e) => { setTipo(e.target.value as TipoIntervalo); setRef(new Date()) }} aria-label="Intervalo">
             {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
           </Select>

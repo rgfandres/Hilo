@@ -12,29 +12,35 @@ import { ajustesMaterial, listarMateriales, propuestaPedido } from '@/data/mater
 import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica } from '@/data/logistica'
 import { activo, bloqueado, enRevisar, miTrabajo, pendientesDe, tope99 } from '@/lib/bandejas'
-import { bandejasLista, pendientesConf } from '@/lib/listaBandejas'
+import { bandejasLista, pendientesConf, tiposAparte } from '@/lib/listaBandejas'
+import { listarTipos } from '@/data/ajustes'
 import { inicioDe, pantallaDeRuta, pantallasDe, type Pantalla } from '@/lib/pantallas'
 import { cn } from '@/lib/utils'
 import { useCerrarConAtras } from '@/lib/movil'
 import { useConexion } from '@/lib/conexion'
 
 function Item({ to, icon, children, count, title }: { to: string; icon: React.ReactNode; children: React.ReactNode; count?: number; title?: string }) {
+  // La lista de encargos y la de un tipo con menú propio comparten ruta: se distinguen por ?t=
+  const loc = useLocation()
+  const tDest = to.startsWith('/encargos') ? new URLSearchParams(to.split('?')[1] ?? '').get('t') : undefined
+  const tAqui = new URLSearchParams(loc.search).get('t')
+  const ajusta = (a: boolean) => (tDest === undefined || !a ? a : (tDest ?? null) === (tAqui ?? null))
   return (
     <NavLink
       to={to}
       title={title}
       className={({ isActive }) =>
-        cn('flex h-7 items-center gap-2 rounded-sm px-2 text-base font-medium text-fg hover:bg-bg-4 max-md:h-10 max-md:text-md', isActive && 'bg-gray-5')
+        cn('flex h-7 items-center gap-2 rounded-sm px-2 text-base font-medium text-fg hover:bg-bg-4 max-md:h-10 max-md:text-md', ajusta(isActive) && 'bg-gray-5')
       }
     >
-      {({ isActive }) => (
+      {({ isActive: a }) => { const isActive = ajusta(a); return (
         <>
           <span className="text-fg-2">{icon}</span>
           <span className="flex-1 truncate">{children}</span>
           {/* El contador se oculta cuando ya estás en la sección */}
           {!!count && !isActive && <span className="rounded-full bg-danger px-1.5 text-xxs font-semibold leading-4 text-white tabular">{tope99(count)}</span>}
         </>
-      )}
+      ) }}
     </NavLink>
   )
 }
@@ -43,7 +49,15 @@ export function AppShell() {
   const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, rol, verComo, setVerComo, nombresRol } = useAuth()
   const loc = useLocation()
   const logo = ((tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url as string | undefined) ?? null
-  const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number; logistica: number }>({ encargos: 0, atascados: 0, logistica: 0 })
+  const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number; logistica: number; porTipo: Record<string, number> }>({ encargos: 0, atascados: 0, logistica: 0, porTipo: {} })
+  // Tipos de encargo con menú propio
+  const aparte = tiposAparte(tienda?.ajustes as Record<string, unknown>)
+  const [tiposMenu, setTiposMenu] = React.useState<{ id: string; nombre: string }[]>([])
+  const aparteKey = aparte.join(',')
+  React.useEffect(() => {
+    if (!tienda || !aparteKey) { setTiposMenu([]); return }
+    listarTipos(tienda.id).then((ts) => setTiposMenu(ts.filter((t) => aparteKey.split(',').includes(t.id)).map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {})
+  }, [tienda, aparteKey])
   const conMateriales = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && rol !== 'LOGISTICA'
   const [porPedir, setPorPedir] = React.useState(0)
   const conexion = useConexion()
@@ -66,11 +80,18 @@ export function AppShell() {
     let vivo = true
     const leer = () => {
       if (document.hidden) return
-      listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((rows) => {
+      listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((todos) => {
         // «Atascados» = demasiados días en manos de un proveedor (lo mismo que se ve en su pantalla)
-        const conf = bandejasLista(tienda.ajustes as Record<string, unknown>)
-        if (vivo) setCuenta({ encargos: conf ? pendientesConf(conf, rows, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) : pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,
-          logistica: rows.filter((r) => activo(r) && r.etapa_siguiente_rol === 'LOGISTICA').length })
+        const aj = tienda.ajustes as Record<string, unknown>
+        const ap = tiposAparte(aj)
+        const cuentaDe = (rs: typeof todos, tipo?: string) => {
+          const conf = bandejasLista(aj, tipo)
+          return conf ? pendientesConf(conf, rs, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) : pendientesDe(rs, rol)
+        }
+        const rows = todos.filter((r) => !ap.includes(r.tipo_encargo_id))
+        if (vivo) setCuenta({ encargos: cuentaDe(rows), atascados: todos.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,
+          logistica: todos.filter((r) => activo(r) && r.etapa_siguiente_rol === 'LOGISTICA').length,
+          porTipo: Object.fromEntries(ap.map((t) => [t, cuentaDe(todos.filter((r) => r.tipo_encargo_id === t), t)])) })
       }).catch(() => {})
       if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')) listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})
     }
@@ -184,6 +205,9 @@ export function AppShell() {
 
         {ve('parahoy') && <Item to={rol === 'LOGISTICA' ? '/para-hoy' : '/'} icon={<IconClock size={14} />}>Para hoy</Item>}
         {ve('encargos') && <Item to="/encargos" icon={<IconLayoutList size={14} />} count={cuenta.encargos} title="Pendientes para ti: tu trabajo y lo que hay que revisar">{vocab.encargos}</Item>}
+        {ve('encargos') && tiposMenu.map((t) => (
+          <Item key={t.id} to={`/encargos?t=${t.id}`} icon={<IconLayoutList size={14} />} count={cuenta.porTipo[t.id] ?? 0}>{t.nombre}</Item>
+        ))}
         {pant?.has('nuevo') && !pant.has('encargos') && <Item to="/encargos/nuevo" icon={<IconPlus size={14} />}>{`${vocab.encargo} nuevo`}</Item>}
         {ve('clientes') && <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>}
         {ve('productos') && <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>}
