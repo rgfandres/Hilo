@@ -17,6 +17,13 @@ export function Combobox({ opciones, value, onChange, crear, vacio = '—', plac
   vacio?: string; placeholder?: string; etiquetaCrear?: string; className?: string; ariaLabel?: string
 }) {
   const [open, setOpen] = React.useState(false)
+  // Esc con la lista abierta cierra solo la lista, no el diálogo en el que está (Radix escucha antes)
+  React.useEffect(() => {
+    if (!open) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
+  }, [open])
   const [q, setQ] = React.useState('')
   const [sel, setSel] = React.useState(0)
   const [creando, setCreando] = React.useState<string | null>(null)

@@ -19,7 +19,7 @@ type CampoV = Campo & { visible_proveedor?: boolean }
  * Con ?proveedor=<id> lo usa administración para «ver como» ese proveedor (sin poder marcar).
  */
 export function Portal() {
-  const { tienda, vocab, session, signOut, rol, gr } = useAuth()
+  const { tienda, tiendas, setTienda, vocab, session, signOut, rol, gr } = useAuth()
   const [params] = useSearchParams()
   const verComo = rol === 'ADMIN' ? params.get('proveedor') : null
   const [lista, setLista] = React.useState<EncargoPortal[] | null>(null)
@@ -41,6 +41,13 @@ export function Portal() {
     setLista(l); setPs(p)
   }, [tienda, verComo])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
+  // Encargos nuevos sin recargar: cada minuto y al volver a la pestaña
+  React.useEffect(() => {
+    const leer = () => { if (!document.hidden) cargar().catch(() => {}) }
+    const t = setInterval(leer, 60_000)
+    document.addEventListener('visibilitychange', leer)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', leer) }
+  }, [cargar])
 
   const nombreProv = lista?.[0]?.proveedor_nombre
   const filtro = q.trim().toLowerCase()
@@ -112,7 +119,12 @@ export function Portal() {
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <span className="h-4 w-4 shrink-0 rounded-sm" style={{ background: 'var(--accent)' }} />
         <div className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="truncate font-semibold">{tienda?.nombre}</span>
+          {!verComo && tiendas.length > 1 ? (
+            <select className="max-w-full truncate bg-transparent font-semibold outline-none" value={tienda?.id} aria-label="Tienda"
+              onChange={(x) => { const t = tiendas.find((y) => y.id === x.target.value); if (t) setTienda(t) }}>
+              {tiendas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          ) : <span className="truncate font-semibold">{tienda?.nombre}</span>}
           {nombreProv && <span className="truncate text-sm text-fg-3">{nombreProv}</span>}
         </div>
         {!verComo && <Button variant="ghost" size="sm" onClick={signOut} title={correo}>Salir</Button>}
@@ -120,7 +132,7 @@ export function Portal() {
 
       <div className="flex shrink-0 gap-1 border-b border-border px-4 pt-2">
         {(['EN_CURSO', 'ENTREGADOS'] as const).map((c) => (
-          <button key={c} onClick={() => { setCarpeta(c); setAbierto(null) }}
+          <button key={c} role="tab" aria-selected={carpeta === c} onClick={() => { setCarpeta(c); setAbierto(null) }}
             className={cn('-mb-px flex h-9 items-center gap-1.5 border-b px-2 font-medium', carpeta === c ? 'border-gray-12 text-fg' : 'border-transparent text-fg-3')}>
             {c === 'EN_CURSO' ? 'En curso' : `Terminad${gr.o('encargo', true)} por mí`} <span className="text-fg-3">{n(c)}</span>
           </button>

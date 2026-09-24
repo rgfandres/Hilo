@@ -161,7 +161,7 @@ export async function activarPeriodo(id: string) {
 
 // ---------- Invitación (pantalla pública)
 export async function verInvitacion(token: string) {
-  const d = ok(await supabase.rpc('ver_invitacion', { p_token: token })) as { tienda: string; rol: Rol; email: string | null; valida: boolean }[]
+  const d = ok(await supabase.rpc('ver_invitacion', { p_token: token })) as { tienda: string; rol: Rol; email: string | null; valida: boolean; tienda_id?: string; roles?: Record<string, string> }[]
   return d?.[0] ?? null
 }
 export async function aceptarInvitacion(token: string) {

@@ -8,9 +8,8 @@ import { supabase } from '@/lib/supabase'
  */
 export function useTiempoReal(tiendaId: string | undefined, recargar: () => Promise<unknown> | void, filtro?: (fila: Record<string, unknown>) => boolean) {
   const filtroRef = React.useRef(filtro)
-  filtroRef.current = filtro
   const ref = React.useRef(recargar)
-  ref.current = recargar
+  React.useEffect(() => { ref.current = recargar; filtroRef.current = filtro })
   const [ultima, setUltima] = React.useState<Date>(new Date())
   const pendiente = React.useRef(false)
 
@@ -27,8 +26,9 @@ export function useTiempoReal(tiendaId: string | undefined, recargar: () => Prom
     }
     const canal = supabase.channel(`tienda-${tiendaId}-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'encargo', filter: `tienda_id=eq.${tiendaId}` }, leer)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hito' }, leer)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario' }, leer)
+      // Un paso nuevo ya toca el encargo (y ese cambio sí va filtrado por tienda); los comentarios
+      // no llevan tienda: solo se escuchan en pantallas que filtran por su encargo (la ficha)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario' }, (p) => { if (filtroRef.current) leer(p) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'nota_campo', filter: `tienda_id=eq.${tiendaId}` }, leer)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'encargo_material', filter: `tienda_id=eq.${tiendaId}` }, leer)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'linea_produccion', filter: `tienda_id=eq.${tiendaId}` }, leer)

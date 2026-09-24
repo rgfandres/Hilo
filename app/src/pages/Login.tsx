@@ -19,7 +19,9 @@ export const METODOS_INSTANCIA = ((import.meta.env.VITE_ACCESO as string | undef
 /** aviso: texto encima del formulario (p. ej. «Te han invitado a…»). */
 export function Login({ aviso, modoInicial = 'entrar' }: { aviso?: React.ReactNode; modoInicial?: 'entrar' | 'crear' } = {}) {
   const { signIn, signUp, signInEnlace, signInProveedor, recuperarPassword, caducada } = useAuth()
-  const [modo, setModo] = React.useState<'entrar' | 'crear' | 'enlace' | 'olvido'>(modoInicial)
+  // Sin contraseña en esta instalación se empieza por el enlace por correo
+  const [modo, setModo] = React.useState<'entrar' | 'crear' | 'enlace' | 'olvido'>(
+    METODOS_INSTANCIA.includes('password') ? modoInicial : METODOS_INSTANCIA.includes('enlace') ? 'enlace' : 'entrar')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [msg, setMsg] = React.useState<{ tipo: 'error' | 'ok'; texto: string } | null>(null)
@@ -120,11 +122,18 @@ export function NuevaContrasena() {
 }
 
 export function SinAcceso() {
-  const { session, signOut } = useAuth()
+  const { session, signOut, tiendas, tienda, setTienda } = useAuth()
+  const otras = tiendas.filter((t) => t.id !== tienda?.id)
   return (
-    <div className="flex h-full items-center justify-center bg-bg-3">
-      <div className="flex w-[360px] flex-col gap-4 rounded-md border border-border bg-bg p-6">
-        <span className="font-medium">Esta cuenta no tiene acceso a ninguna tienda</span>
+    <div className="flex h-full items-center justify-center bg-bg-3 p-4">
+      <div className="flex w-[360px] max-w-full flex-col gap-4 rounded-md border border-border bg-bg p-6">
+        <span className="font-medium">{tienda ? `No tienes acceso a ${tienda.nombre}` : 'Esta cuenta no tiene acceso a ninguna tienda'}</span>
+        {otras.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm text-fg-2">Entrar en otra de tus tiendas:</span>
+            {otras.map((t) => <Button key={t.id} onClick={() => setTienda(t)}>{t.nombre}</Button>)}
+          </div>
+        )}
         <p className="text-fg-2">Has entrado como <span className="text-fg">{session?.user.email}</span>. Pide a quien administra la tienda que te añada en Ajustes → Equipo.</p>
         <p className="text-fg-2">¿Es tu negocio? Puedes crear tu propia tienda y configurarla a tu manera.</p>
         <div className="flex gap-2">

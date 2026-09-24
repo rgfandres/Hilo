@@ -18,6 +18,7 @@ export function NuevaTienda() {
   const tieneEjemplos = !!(sel.productos?.length || sel.proveedores?.length)
 
   async function crear() {
+    if (creando) return
     if (!nombre.trim()) { setError('Ponle un nombre a la tienda'); return }
     setCreando(true); setError(null)
     const datos = datosPlantilla(sel)

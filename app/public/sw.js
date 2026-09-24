@@ -15,7 +15,10 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return
   // Navegación: red primero y, sin conexión, la última página guardada
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then((r) => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then((ca) => ca.put('/', c)) } return r })
+    e.respondWith(fetch(req).then((r) => {
+      if (r.ok) { const c = r.clone(); const t = r.clone(); caches.open(CACHE).then((ca) => ca.put('/', c)); t.text().then(limpiar).catch(() => {}) }
+      return r
+    })
       .catch(() => caches.match('/').then((r) => r || Response.error())))
     return
   }
@@ -30,3 +33,14 @@ self.addEventListener('fetch', (e) => {
     })))
   }
 })
+
+/* Borra de la caché los recursos de versiones anteriores (los que ya no cita la página actual).
+   Si más tarde hace falta alguno que no esté, se vuelve a pedir a la red. */
+function limpiar(html) {
+  const vivos = new Set((html.match(/\/assets\/[^"'\s)]+/g) || []))
+  if (!vivos.size) return
+  caches.open(CACHE).then((ca) => ca.keys().then((ks) => Promise.all(ks.map((k) => {
+    const p = new URL(k.url).pathname
+    return p.startsWith('/assets/') && !vivos.has(p) ? ca.delete(k) : null
+  }))))
+}

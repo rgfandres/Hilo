@@ -56,7 +56,7 @@ export function Logistica() {
     setHitos(await hitosDe(ids))
   }, [tienda, periodo])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
-  useTiempoReal(tienda?.id, () => cargar().catch(() => {}))
+  const { ultima: ultimaLectura } = useTiempoReal(tienda?.id, () => cargar().catch(() => {}))
 
   const logis = React.useMemo(() => etapas.filter((x) => x.rol_ejecuta === 'LOGISTICA'), [etapas])
   const logisIds = React.useMemo(() => new Set(logis.map((x) => x.id)), [logis])
@@ -178,7 +178,7 @@ export function Logistica() {
         {encs === null ? <p className="text-fg-3">Cargando…</p> : (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-sm text-fg-2 lg:hidden">{actual?.subtitulo}</p>
-            <LlegadasMaterial />
+            <LlegadasMaterial refresco={ultimaLectura} />
             {porProd.size > 1 && (
               <div className="flex items-center gap-2">
                 <Select className="w-auto max-w-full" value={prod} onChange={(x) => setProd(x.target.value)} aria-label={vocab.producto}>
@@ -354,7 +354,7 @@ function FichaLogistica({ id, provs, ps, onClose, onCambio }: {
 }
 
 /** Material en camino: Logística registra lo que llega (sin entrar en Materiales). */
-function LlegadasMaterial() {
+function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
   const { tienda, vocab } = useAuth()
   const am = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [lineas, setLineas] = React.useState<LineaPedido[]>([])
@@ -364,8 +364,7 @@ function LlegadasMaterial() {
     if (!tienda || !am.activo) return
     setLineas((await listarPedidos(tienda.id)).filter((l) => l.estado === 'PENDIENTE' || l.estado === 'PARCIAL'))
   }, [tienda, am.activo])
-  React.useEffect(() => { cargar().catch(() => setLineas([])) }, [cargar])
-  useTiempoReal(tienda?.id, () => cargar().catch(() => {}))
+  React.useEffect(() => { cargar().catch(() => setLineas([])) }, [cargar, refresco])
   if (!am.activo || lineas.length === 0) return null
   return (
     <section className="rounded-md border border-border">

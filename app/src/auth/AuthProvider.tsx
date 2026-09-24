@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { setSoloLectura, supabase } from '@/lib/supabase'
 import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
-import { contextoErrores } from '@/data/encargos'
+import { contextoErrores, mensajeError } from '@/data/encargos'
 import { setSegundosDeshacer } from '@/ui/Avisos'
 import { gramatica, generosDe, rolesDe, vocabDe, type Gramatica, type Vocab } from '@/lib/vocab'
 
@@ -16,6 +16,8 @@ interface AuthState {
   /** Periodo activo de la tienda (listas e indicadores dependen de él) */
   periodo: Periodo | null
   esProveedor: boolean
+  /** Tiendas en las que la persona es proveedor (portal) y no miembro */
+  tiendasProveedor: Set<string>
   vocab: Vocab
   /** Artículos y concordancia según el vocabulario de la tienda */
   gr: Gramatica
@@ -54,6 +56,8 @@ const Ctx = React.createContext<AuthState | null>(null)
 const LS_TIENDA = 'hilo_tienda_id'
 /** Token de invitación pendiente (se guarda al abrir /invitacion/:token sin sesión) */
 export const LS_INVITACION = 'hilo_invitacion'
+/** Marca de «Salir» pulsado (para que las demás pestañas no digan «sesión caducada») */
+const LS_SALIDA = 'hilo_salida'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true)
@@ -61,8 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tiendas, setTiendas] = React.useState<Tienda[]>([])
   const [miembros, setMiembros] = React.useState<Miembro[]>([])
   const [tienda, setTiendaState] = React.useState<Tienda | null>(null)
-  const [esProveedor, setEsProveedor] = React.useState(false)
-  const [periodo, setPeriodo] = React.useState<Periodo | null>(null)
+  // Tiendas en las que soy proveedor (portal), aparte de en las que soy miembro
+  const [tiendasProveedor, setTiendasProveedor] = React.useState<Set<string>>(new Set())
+  // El periodo va atado a su tienda: nunca se usa el de la tienda anterior tras cambiar
+  const [periodoDe, setPeriodoDe] = React.useState<{ tiendaId: string; p: Periodo | null } | null>(null)
   const [version, setVersion] = React.useState(0)
   const [avisoInvitacion, setAvisoInvitacion] = React.useState<string | null>(null)
   const [fase, setFase] = React.useState('Comprobando tu sesión…')
@@ -71,12 +77,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [verComo, setVerComoState] = React.useState<Rol | null>(null)
   const salidaManual = React.useRef(false)
   const habiaSesion = React.useRef(false)
+  const userId = session?.user.id ?? null
+  const tiendaRef = React.useRef<Tienda | null>(null)
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { habiaSesion.current = !!data.session; setSession(data.session) })
     const { data: sub } = supabase.auth.onAuthStateChange((ev, s) => {
       // Cerrada sin pulsar «Salir»: caducó (o se revocó). Al volver a entrar se sigue en la misma pantalla.
-      if (ev === 'SIGNED_OUT' && habiaSesion.current && !salidaManual.current) setCaducada(true)
+      let salidaReciente = false
+      try { salidaReciente = Date.now() - Number(localStorage.getItem(LS_SALIDA) ?? 0) < 60_000 } catch { /* nada */ }
+      if (ev === 'SIGNED_OUT' && habiaSesion.current && !salidaManual.current && !salidaReciente) setCaducada(true)
       if (ev === 'PASSWORD_RECOVERY') setRecuperando(true)
       if (ev === 'SIGNED_IN') { salidaManual.current = false; setCaducada(false) }
       habiaSesion.current = !!s
@@ -86,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   React.useEffect(() => {
-    if (!session) { setTiendas([]); setMiembros([]); setTiendaState(null); setLoading(false); return }
+    if (!userId) { setTiendas([]); setMiembros([]); setTiendaState(null); setPeriodoDe(null); setLoading(false); return }
     let alive = true
     ;(async () => {
       if (version === 0) setLoading(true) // al recargar no se desmonta la pantalla
@@ -97,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         const { data, error } = await supabase.rpc('aceptar_invitacion', { p_token: token })
         localStorage.removeItem(LS_INVITACION)
-        if (error) setAvisoInvitacion(error.message); else tiendaInvitada = data as string
+        if (error) setAvisoInvitacion(mensajeError(error)); else tiendaInvitada = data as string
       }
       await supabase.rpc('aceptar_invitaciones_pendientes')
       await supabase.rpc('unirse_por_dominio').then(() => {}, () => {}) // dominio aprobado por alguna tienda
@@ -105,29 +115,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Las RLS ya limitan a las tiendas del usuario (miembro o proveedor)
       const [{ data: ts }, { data: ms }, { data: pu }] = await Promise.all([
         supabase.from('tienda').select('id,nombre,ajustes').order('nombre'),
-        supabase.from('miembro').select('*').eq('user_id', session.user.id).eq('activo', true),
-        supabase.from('proveedor').select('id,tienda_id').limit(1),
+        supabase.from('miembro').select('*').eq('user_id', userId).eq('activo', true),
+        supabase.from('proveedor').select('tienda_id').limit(1000),
       ])
       if (!alive) return
       const list = (ts ?? []) as Tienda[]
-      setTiendas(list)
-      setMiembros((ms ?? []) as Miembro[])
-      setEsProveedor(!!pu && pu.length > 0 && (!ms || ms.length === 0))
+      const mis = (ms ?? []) as Miembro[]
+      // Se conservan los objetos que no han cambiado (así las pantallas no recargan sin motivo)
+      setTiendas((prev) => (JSON.stringify(prev) === JSON.stringify(list) ? prev : list))
+      setMiembros((prev) => (JSON.stringify(prev) === JSON.stringify(mis) ? prev : mis))
+      const deMiembro = new Set(mis.map((m) => m.tienda_id))
+      setTiendasProveedor(new Set(((pu ?? []) as { tienda_id: string }[]).map((x) => x.tienda_id).filter((id) => !deMiembro.has(id))))
       const saved = tiendaInvitada ?? localStorage.getItem(LS_TIENDA)
-      setTiendaState((prev) => list.find((t) => t.id === (prev?.id ?? saved)) ?? list.find((t) => t.id === saved) ?? list[0] ?? null)
+      const prev = tiendaRef.current
+      const nueva = list.find((t) => t.id === (prev?.id ?? saved)) ?? list.find((t) => t.id === saved) ?? list[0] ?? null
+      const elegida = prev && nueva && prev.id === nueva.id && JSON.stringify(prev) === JSON.stringify(nueva) ? prev : nueva
+      await cargarPeriodo(elegida?.id ?? null)
+      if (!alive) return
+      setTiendaState(elegida)
+      if (!alive) return
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [session, version])
+  }, [userId, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Periodo activo (uno por tienda; si no hay, se trabaja sin filtro)
+  const cargarPeriodo = React.useCallback(async (tiendaId: string | null) => {
+    if (!tiendaId) { setPeriodoDe(null); return }
+    const { data } = await supabase.from('periodo').select('id,nombre,ajustes').eq('tienda_id', tiendaId).eq('activo', true).maybeSingle()
+    setPeriodoDe((prev) => {
+      const p = (data as Periodo) ?? null
+      return prev && prev.tiendaId === tiendaId && JSON.stringify(prev.p) === JSON.stringify(p) ? prev : { tiendaId, p }
+    })
+  }, [])
+  // Al cambiar de tienda y al volver a la pestaña (otro dispositivo puede haber activado otro periodo)
+  React.useEffect(() => { if (tienda && periodoDe?.tiendaId !== tienda.id) cargarPeriodo(tienda.id).catch(() => {}) }, [tienda]) // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
-    if (!tienda) { setPeriodo(null); return }
-    let alive = true
-    supabase.from('periodo').select('id,nombre,ajustes').eq('tienda_id', tienda.id).eq('activo', true).maybeSingle()
-      .then(({ data }) => { if (alive) setPeriodo((data as Periodo) ?? null) })
-    return () => { alive = false }
-  }, [tienda])
+    const volver = () => { if (document.visibilityState === 'visible' && tienda) cargarPeriodo(tienda.id).catch(() => {}) }
+    document.addEventListener('visibilitychange', volver)
+    return () => document.removeEventListener('visibilitychange', volver)
+  }, [tienda, cargarPeriodo])
+  const periodo = periodoDe && periodoDe.tiendaId === tienda?.id ? periodoDe.p : null
+  const periodoListo = !tienda || periodoDe?.tiendaId === tienda.id
 
   // Acento y formato local por tienda
   React.useEffect(() => {
@@ -138,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty('--accent', c)
   }, [tienda])
 
+  tiendaRef.current = tienda
   const rolReal = React.useMemo<Rol | null>(
     () => miembros.find((m) => m.tienda_id === tienda?.id)?.rol ?? null,
     [miembros, tienda],
@@ -150,8 +180,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [verComo, rolReal])
 
   contextoErrores(tienda?.ajustes as Record<string, unknown> | undefined)
+  const esProveedor = !rolReal && !!tienda && tiendasProveedor.has(tienda.id)
   const value: AuthState = {
-    loading, session, tiendas, tienda, rol, periodo, esProveedor,
+    loading: loading || !periodoListo, session, tiendas, tienda, rol, periodo, esProveedor, tiendasProveedor,
     vocab: vocabDe(tienda?.ajustes),
     gr: gramatica(vocabDe(tienda?.ajustes), generosDe(tienda?.ajustes, vocabDe(tienda?.ajustes))),
     nombresRol: rolesDe(tienda?.ajustes),
@@ -171,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       salidaManual.current = true
       setVerComoState(null); setCaducada(false)
       // Limpia lo recordado en este dispositivo que dependa de la persona
-      try { localStorage.removeItem(LS_TIENDA) } catch { /* nada */ }
+      try { localStorage.removeItem(LS_TIENDA); localStorage.setItem(LS_SALIDA, String(Date.now())) } catch { /* nada */ }
       await supabase.auth.signOut()
     },
     fase, caducada, cerrarCaducada: () => setCaducada(false),

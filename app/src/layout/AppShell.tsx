@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { GuardaSalida } from '@/lib/salir'
+import { GuardaSalida, confirmarSalida } from '@/lib/salir'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   IconClock, IconLayoutList, IconUser, IconBox, IconBuildingWarehouse,
@@ -65,11 +65,26 @@ export function AppShell() {
     return () => { vivo = false; clearInterval(t) }
   }, [tienda, periodo, rol, loc.pathname, conMateriales])
   const [pick, setPick] = React.useState(false)
+  const menuTienda = React.useRef<HTMLDivElement>(null)
+  // El menú de tiendas se cierra con Esc o al pulsar fuera
+  React.useEffect(() => {
+    if (!pick) return
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setPick(false) }
+    const fuera = (e: MouseEvent) => { if (menuTienda.current && !menuTienda.current.contains(e.target as Node)) setPick(false) }
+    document.addEventListener('keydown', tecla); document.addEventListener('mousedown', fuera)
+    return () => { document.removeEventListener('keydown', tecla); document.removeEventListener('mousedown', fuera) }
+  }, [pick])
   const [buscar, setBuscar] = React.useState(false)
   const [menu, setMenu] = React.useState(false)
   // El cajón se cierra al navegar y con el botón «Atrás» del móvil
   React.useEffect(() => { setMenu(false); setPick(false) }, [loc.pathname, loc.search])
   useCerrarConAtras(menu, () => setMenu(false))
+  React.useEffect(() => {
+    if (!menu) return
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }
+    document.addEventListener('keydown', tecla)
+    return () => document.removeEventListener('keydown', tecla)
+  }, [menu])
   // Móvil: si se entra directamente a una pantalla interior (enlace, notificación…),
   // el primer «Atrás» lleva al inicio del rol en lugar de salir de la app.
   const nav = useNavigate()
@@ -113,8 +128,9 @@ export function AppShell() {
 
   const navContenido = (
     <>
-        <div className="relative mb-2">
+        <div className="relative mb-2" ref={menuTienda}>
           <button
+            aria-haspopup="menu" aria-expanded={pick}
             onClick={() => setPick((p) => !p)}
             className="flex h-7 w-full items-center gap-2 rounded-sm px-2 hover:bg-bg-4"
           >
@@ -125,7 +141,7 @@ export function AppShell() {
           {pick && (
             <div className="absolute left-0 right-0 top-8 z-10 rounded-md border border-border bg-bg p-1 shadow-light">
               {tiendas.map((t) => (
-                <button key={t.id} onClick={() => { setTienda(t); setPick(false) }} className="flex h-7 w-full items-center rounded-sm px-2 text-left hover:bg-bg-4">
+                <button key={t.id} onClick={() => { setPick(false); confirmarSalida(() => setTienda(t)) }} className="flex h-7 w-full items-center rounded-sm px-2 text-left hover:bg-bg-4">
                   {t.nombre}
                 </button>
               ))}
@@ -156,7 +172,7 @@ export function AppShell() {
           <span className={cn('h-1.5 w-1.5 rounded-full', conexion === 'conectado' ? 'bg-ok' : 'bg-danger')} />{conexion === 'conectado' ? 'Conectado' : 'Sin conexión'}
         </span>
         <Item to="/ajustes" icon={<IconSettings size={14} />}>Ajustes</Item>
-        <button onClick={signOut} title="Cerrar sesión" className="flex h-7 items-center gap-2 rounded-sm px-2 text-fg-2 hover:bg-bg-4">
+        <button onClick={() => confirmarSalida(() => { signOut() })} title="Cerrar sesión" className="flex h-7 items-center gap-2 rounded-sm px-2 text-fg-2 hover:bg-bg-4">
           <span className="flex h-4 w-4 items-center justify-center rounded-sm bg-gray-5 text-[10px] font-semibold text-fg">{inicial}</span>
           <span className="truncate">{nombre}</span>
         </button>
@@ -170,7 +186,7 @@ export function AppShell() {
 
       {/* Móvil: barra superior fija */}
       <div className="fixed inset-x-0 top-0 z-30 flex h-[calc(48px+env(safe-area-inset-top))] items-end gap-1 border-b border-border bg-bg px-2 pb-1.5 md:hidden">
-        <button onClick={() => setMenu(true)} aria-label="Abrir menú" className="flex h-9 w-9 items-center justify-center rounded-sm hover:bg-bg-4"><IconMenu2 size={20} /></button>
+        <button onClick={() => setMenu(true)} aria-label="Abrir menú" aria-expanded={menu} className="flex h-9 w-9 items-center justify-center rounded-sm hover:bg-bg-4"><IconMenu2 size={20} /></button>
         {logo ? <img src={logo} alt="" className="h-6 w-6 shrink-0 rounded-sm object-contain" /> : <span className="h-4 w-4 shrink-0 rounded-sm" style={{ background: 'var(--accent)' }} />}
         <span className="min-w-0 flex-1 truncate text-md font-semibold">{tienda?.nombre ?? 'Hilo'}</span>
         {periodo && <span className="text-sm text-fg-3">{periodo.nombre}</span>}

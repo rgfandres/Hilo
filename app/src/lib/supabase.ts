@@ -23,7 +23,7 @@ export const setSoloLectura = (motivo: string | null) => { soloLectura = motivo 
 export const enSoloLectura = () => soloLectura
 
 /** RPC que solo leen (se permiten en modo solo lectura). */
-const RPC_LECTURA = new Set(['portal_encargos', 'ver_invitacion', 'siguiente_numero'])
+const RPC_LECTURA = new Set(['portal_encargos', 'ver_invitacion', 'siguiente_numero', 'siguiente_numero_tipo', 'impacto_anular'])
 
 /** Sustituto de una consulta de escritura: encadenable y, al esperarla, devuelve el error. */
 function bloqueada(): unknown {

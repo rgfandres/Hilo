@@ -14,6 +14,7 @@ export function Segmented({ items, value, onChange, className }: {
         return (
           <button
             key={s.key}
+            aria-pressed={on}
             onClick={() => onChange(s.key)}
             className={cn(
               'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-3 text-md font-medium transition-colors',

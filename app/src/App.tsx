@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
 import { AvisosProvider } from '@/ui/Avisos'
 import { AppShell } from '@/layout/AppShell'
@@ -34,16 +34,32 @@ import { AjustesMensajes } from '@/pages/ajustes/AjustesMensajes'
 import { AjustesFicha } from '@/pages/ajustes/AjustesFicha'
 
 function Gate() {
+  const { avisoInvitacion, cerrarAvisoInvitacion } = useAuth()
+  return (
+    <>
+      {avisoInvitacion && (
+        <div role="alert" className="fixed left-1/2 top-3 z-[70] flex w-[480px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-start gap-2 rounded-md border border-border bg-warn-bg px-3 py-2 text-sm text-warn-fg shadow-strong">
+          <span className="flex-1"><b>No se ha podido aceptar la invitación:</b> {avisoInvitacion}</span>
+          <button className="underline" onClick={cerrarAvisoInvitacion}>Cerrar</button>
+        </div>
+      )}
+      <Pantallas />
+    </>
+  )
+}
+
+function Pantallas() {
   const { loading, session, tienda, rol, esProveedor, fase, recuperando } = useAuth()
+  const { pathname } = useLocation()
   const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
-  if (window.location.pathname === '/demo') return <Demo />
-  if (window.location.pathname.startsWith('/invitacion/') && !loading) {
+  if (pathname === '/demo') return <Demo />
+  if (pathname.startsWith('/invitacion/') && !loading) {
     return <Routes><Route path="/invitacion/:token" element={<Invitacion />} /></Routes>
   }
   if (loading) return <div className="flex h-full items-center justify-center text-fg-3" role="status">{fase}</div>
   if (!session) return <Login />
   if (recuperando) return <NuevaContrasena />
-  if (window.location.pathname === '/nueva-tienda') return <NuevaTienda />
+  if (pathname === '/nueva-tienda') return <NuevaTienda />
   if (!tienda) return <SinAcceso />
   // Proveedor externo: solo su portal
   if (!rol && esProveedor) return <Portal />
