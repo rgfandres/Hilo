@@ -90,6 +90,7 @@ export function Produccion() {
   const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !(l.coherencia === 'ANULADO' && l.impreso_en && l.aviso_anulado_visto))
   const anuladosImpresos = delProd.filter((l) => l.coherencia === 'ANULADO' && l.impreso_en)
   const nImprimibles = delProd.filter((l) => l.imprimir && l.coherencia === 'ENVIADO').length
+  const nMarcadas = delProd.filter((l) => l.imprimir).length
   const vis = delProd.filter((l) => ver === 'todas' || !l.impreso_en)
   const listos = listosTodos.filter((e) => (e.producto_id ?? SIN) === prod)
   const nEnv = delProd.filter((l) => l.coherencia === 'ENVIADO').length
@@ -209,7 +210,7 @@ export function Produccion() {
               <div className="flex-1" />
               <Segmented value={ver} onChange={(k) => setVer(k as typeof ver)} items={[{ key: 'todas', label: 'Todas' }, { key: 'pendientes', label: 'Sin imprimir' }]} />
               {recienEnviados != null && <span className="rounded-sm bg-ok-bg px-2 py-0.5 text-sm text-ok-fg">{recienEnviados} enviad{gr.o('encargo', recienEnviados !== 1)} y marcad{gr.o('encargo', recienEnviados !== 1)} para imprimir</span>}
-              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={() => { setRecienEnviados(null); imprimir() }}><IconPrinter size={14} /> Imprimir marcadas ({nImprimibles})</Button>}
+              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={() => { setRecienEnviados(null); imprimir() }}><IconPrinter size={14} /> Imprimir marcadas ({nMarcadas}){nMarcadas > nImprimibles ? ` · ${nMarcadas - nImprimibles} con problema` : ''}</Button>}
             </div>
 
             {anuladosImpresos.length > 0 && (
@@ -311,7 +312,7 @@ export function Produccion() {
       <CapaCarga texto={busy === 'enviar' ? 'Enviando a producción…' : busy === 'imprimir' ? 'Registrando la impresión…' : null} />
       <Dialog open={!!bloqueo} onOpenChange={(o) => !o && setBloqueo(null)} title="No se puede imprimir todavía"
         description="Solo se imprime lo enviado a producción y coherente con su encargo. Revisa o desmarca estas líneas:"
-        actions={[{ label: 'Entendido', variant: 'default', onClick: () => setBloqueo(null) },
+        actions={[
           ...(nImprimibles ? [{ label: `Imprimir solo las correctas (${nImprimibles})`, onClick: async () => { setBloqueo(null); await imprimir(true) } }] : [])]}>
         <ul className="m-0 pl-4 text-sm">{(bloqueo ?? []).map((t) => <li key={t}>{t}</li>)}</ul>
       </Dialog>
