@@ -11,6 +11,7 @@ import { telefonoWhatsApp } from '@/data/mensajes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { CamposForm, CamposVista, aTexto, limpiar } from '@/components/CampoInput'
+import { HistorialCliente } from '@/components/HistorialMedidas'
 import { Button, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
 import { fechaCorta, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -133,6 +134,7 @@ export function Cliente() {
             <Field label="Correo">{c.email ?? '—'}</Field>
             <CamposVista campos={campos} datos={c.datos} />
           </div>
+          <HistorialCliente clienteId={c.id} campos={campos} encargos={encs} refresco={c} />
           {c.notas && (
             <div className="flex flex-col gap-1">
               <SectionLabel>Notas</SectionLabel>

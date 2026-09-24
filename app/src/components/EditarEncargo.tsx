@@ -2,12 +2,14 @@ import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import type { Campo } from '@/data/config'
 import {
-  actualizarCliente, actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, mensajeError,
+  actualizarCliente, actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, mensajeError, comentar,
 } from '@/data/encargos'
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Sheet, useAvisos } from '@/ui'
 import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
 import { ajustesFicha, fichaProducto } from '@/data/catalogos'
+import { AvisoGuia, useGuia } from './Guia'
+import { guiaDe } from '@/data/guia'
 import { CamposForm, NumeroInput, aTexto, limpiar } from './CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -60,6 +62,11 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   }, [open, tienda])
 
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
+  // Guía de medidas: aquí solo se propone (no se cambia lo ya elegido); «Usar» lo aplica
+  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>).destino ?? ''
+  const datosGuia = React.useMemo(() => ({ ...f.dCli, ...f.dEnc }), [f.dCli, f.dEnc])
+  const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [camposCli, camposEnc])
+  const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(f.dEnc[destinoGuia] ?? ''), inicialTocado: true, setValor: () => {} })
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
   const [receta, setReceta] = React.useState<string | null>(null)
   React.useEffect(() => { setReceta(null); if (open && f.producto) fichaProducto(f.producto).then((p) => setReceta(p?.receta ?? null)).catch(() => {}) }, [open, f.producto])
@@ -89,6 +96,9 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
         }
       }
       if (f.proveedor !== inicial.proveedor) await asignarProveedor(encargo.id, f.proveedor || null)
+      // Si con las medidas nuevas la guía pide revisar y se ha cambiado el valor, queda un comentario automático
+      const nuevoValor = String(f.dEnc[destinoGuia] ?? '')
+      if (!soloProveedor && guia.sug?.revisar && nuevoValor !== String(inicial.dEnc[destinoGuia] ?? '')) await comentar(encargo.id, `Guía de medidas: ${guia.sug.motivo}.`)
       onSaved()
       avisar({ tipo: 'ok', texto: 'Cambios guardados' })
       onOpenChange(false)
@@ -125,7 +135,8 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
                 return id
               } : undefined} />
           </FormRow>
-          {!soloProveedor && <CamposForm campos={camposEnc} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
+          {!soloProveedor && <CamposForm campos={guia.adaptar(camposEnc)} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
+          {!soloProveedor && camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(f.dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setF((s) => ({ ...s, dEnc: { ...s.dEnc, [destinoGuia]: guia.sug!.valor } })) }} />}
           {!soloProveedor && (
             <FormRow label={fic.etiqueta} ayuda={receta ? `Receta de ${gr.con('producto', 'este')}: ${receta}. Aquí solo la variante.` : undefined}>
               <Input className="h-7" value={f.comp} onChange={(e) => setF((s) => ({ ...s, comp: e.target.value }))} placeholder={receta ? 'Color, acabado…' : 'Opcional'} />

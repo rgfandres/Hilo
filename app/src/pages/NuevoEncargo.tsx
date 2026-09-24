@@ -12,6 +12,8 @@ import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { SelectorMaterial } from '@/components/Material'
+import { AvisoGuia, useGuia } from '@/components/Guia'
+import { guiaDe } from '@/data/guia'
 import { ajustesMaterial, anadirLinea, listarMateriales, type MaterialEstado } from '@/data/materiales'
 
 type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null }
@@ -50,6 +52,17 @@ export function NuevoEncargo() {
 
   const camposCli: Campo[] = camposDe(ps, 'CLIENTE')
   const camposEnc: Campo[] = camposDe(ps, 'ENCARGO', tipo)
+  // Guía de medidas: propuesta en vivo con las medidas del cliente (nuevo o existente) y del encargo
+  const [cliDatos, setCliDatos] = React.useState<Record<string, unknown>>({})
+  React.useEffect(() => {
+    setCliDatos({})
+    if (existente) supabase.from('cliente').select('datos').eq('id', existente.id).maybeSingle().then(({ data }) => setCliDatos((data?.datos as Record<string, unknown>) ?? {}))
+  }, [existente])
+  const datosGuia = React.useMemo(() => ({ ...(existente ? cliDatos : dCli), ...dEnc }), [existente, cliDatos, dCli, dEnc])
+  const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [ps, tipo]) // eslint-disable-line react-hooks/exhaustive-deps
+  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>).destino ?? ''
+  const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(dEnc[destinoGuia] ?? ''), inicialTocado: false,
+    setValor: (v) => { if (destinoGuia) setDEnc((d) => ({ ...d, [destinoGuia]: v })) } })
   React.useEffect(() => { setDEnc({}) }, [tipo])
 
   React.useEffect(() => {
@@ -134,6 +147,12 @@ export function NuevoEncargo() {
       if (primera?.clave) await crearHito(enc.id, primera.clave, { forzarBlandas: true })
       for (const l of mLineas) if (l.material_id) await anadirLinea(tienda.id, enc.id, l.material_id, Number(String(l.cantidad).replace(',', '.')) || 0)
       if (comentario.trim()) await comentar(enc.id, comentario.trim())
+      // Caso dudoso de la guía: incidencia y comentario automático (aparte del del usuario)
+      const elegido = String(dEnc[destinoGuia] ?? '')
+      if (guia.sug?.revisar && primera?.clave && (elegido === guia.sug.valor || elegido === guia.g.especial)) {
+        await crearHito(enc.id, primera.clave, { tipo: 'INCIDENCIA', nota: guia.sug.motivo })
+        await comentar(enc.id, `Guía de medidas: ${guia.sug.motivo}.`)
+      }
       avisar({ tipo: 'ok', texto: `${vocab.encargo} cread${gr.o("encargo")} para ${nombre.trim() || existente?.nombre}` })
       nav(`/encargos/${enc.id}`)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
@@ -200,7 +219,8 @@ export function NuevoEncargo() {
               } : undefined} />
           </FormRow>
           {productos.length === 0 && <p className="pb-1 pl-[118px] text-sm text-fg-3">No hay {min(vocab.productos)} en el catálogo. <Link to="/productos" className="underline">Añadir</Link></p>}
-          <CamposForm campos={camposEnc} valores={dEnc} onCambio={(k, v) => setDEnc((d) => ({ ...d, [k]: v }))} />
+          <CamposForm campos={guia.adaptar(camposEnc)} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
+          {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
           {ficha && !tieneFicha(ficha) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
           <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Receta: ${ficha.receta}. Aquí solo la variante.` : undefined}>

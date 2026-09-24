@@ -21,6 +21,7 @@ import { Proveedores, Proveedor } from '@/pages/Proveedores'
 import { Materiales } from '@/pages/Materiales'
 import { Produccion } from '@/pages/Produccion'
 import { Logistica } from '@/pages/Logistica'
+import { AjustesGuia } from '@/pages/ajustes/AjustesGuia'
 import { ajustesLogistica } from '@/data/logistica'
 import { Ajustes, AjustesInicio } from '@/pages/ajustes/Ajustes'
 import { AjustesTienda } from '@/pages/ajustes/AjustesTienda'
@@ -75,6 +76,7 @@ function Gate() {
           <Route path="flujos" element={<AjustesFlujos />} />
           <Route path="campos" element={<AjustesCampos />} />
           <Route path="periodos" element={<AjustesPeriodos />} />
+          <Route path="guia" element={<AjustesGuia />} />
           <Route path="mensajes" element={<AjustesMensajes />} />
           <Route path="ficha" element={<AjustesFicha />} />
           <Route path="seguridad" element={<AjustesSeguridad />} />

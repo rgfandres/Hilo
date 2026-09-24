@@ -20,6 +20,7 @@ import { FichaImprimible } from '@/components/FichaImprimible'
 import { fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
 import { listarEquipo } from '@/data/ajustes'
 import { MaterialesEncargo } from '@/components/Material'
+import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
 import { ajustesMaterial, liberarMaterial } from '@/data/materiales'
@@ -340,6 +341,7 @@ export function Encargo() {
               <Field label="Teléfono">{cli.telefono ?? '—'}</Field>
               <Field label="Correo">{cli.email ?? '—'}</Field>
               <CamposVista soloRellenos campos={camposCli} datos={medidas} />
+              <MedidasDelEncargo encargoId={e.id} campos={camposCli} actuales={cli.datos} />
             </div>
           )}
 

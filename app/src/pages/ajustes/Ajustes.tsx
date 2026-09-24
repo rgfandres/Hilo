@@ -16,6 +16,7 @@ const SECCIONES: { to: string; label: string; quien: Quien }[] = [
   { to: 'mensajes', label: 'Mensajes', quien: 'admin' },
   { to: 'ficha', label: 'Ficha', quien: 'admin' },
   { to: 'periodos', label: 'Periodos', quien: 'admin' },
+  { to: 'guia', label: 'Guía de medidas', quien: 'admin' },
 ]
 const puedeVer = (q: Quien, rol: string | null) => q === 'todos' || rol === 'ADMIN' || (q === 'gestion' && rol === 'OPERATIVO')
 
