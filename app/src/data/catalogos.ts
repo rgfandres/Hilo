@@ -131,9 +131,3 @@ async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nom
 }
 export const altaRapidaProducto = (tiendaId: string, nombre: string) => altaRapida('producto', tiendaId, nombre)
 export const altaRapidaProveedor = (tiendaId: string, nombre: string) => altaRapida('proveedor', tiendaId, nombre)
-
-/** Borra un cliente sin encargos */
-export async function borrarCliente(id: string) {
-  const { error } = await supabase.rpc('borrar_cliente', { p_cliente: id })
-  if (error) throw error
-}

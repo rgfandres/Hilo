@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconMail, IconPhone, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  actualizarClienteCat, borrarCliente, crearCliente, encargosDeCliente, listarClientesCat, obtenerCliente, type ClienteFila,
+  actualizarClienteCat, crearCliente, encargosDeCliente, listarClientesCat, obtenerCliente, type ClienteFila,
 } from '@/data/catalogos'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { listarEtapas, mensajeError } from '@/data/encargos'
@@ -12,7 +12,7 @@ import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { CamposForm, CamposVista, aTexto, limpiar } from '@/components/CampoInput'
 import { HistorialCliente } from '@/components/HistorialMedidas'
-import { Button, Dialog, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
+import { Button, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
 import { fechaCorta, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
@@ -97,9 +97,6 @@ export function Cliente() {
   const [editar, setEditar] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
   const nav = useNavigate()
-  // Borrar una ficha sin encargos (solo administración)
-  const [borrar, setBorrar] = React.useState(false)
-  const [errM, setErrM] = React.useState<string | null>(null)
 
   const cargar = React.useCallback(async () => {
     if (!id || !tienda) return
@@ -118,7 +115,6 @@ export function Cliente() {
   return (
     <>
       <PageHeader title={<span><Link to="/clientes" className="text-fg-3">{vocab.clientes}</Link><span className="mx-2 text-border-strong">/</span>{c.nombre}</span>}>
-        {rol === 'ADMIN' && encs.length === 0 && <Button variant="ghost" onClick={() => { setBorrar(true); setErrM(null) }}>Borrar</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {puedeEditar && <Button variant="primary" asChild><Link to={`/encargos/nuevo?cliente=${c.id}`}>+ {vocab.encargo}</Link></Button>}
       </PageHeader>
@@ -169,11 +165,6 @@ export function Cliente() {
         </section>
       </div>
       <EditarCliente open={editar} cliente={c} onClose={() => setEditar(false)} onSaved={() => { cargar() }} titulo={`Editar ${min(vocab.cliente)}`} />
-      <Dialog open={borrar} onOpenChange={setBorrar} error={errM} title={`Borrar a ${c.nombre}`}
-        description={`No tiene ningún ${min(vocab.encargo)}. Se borra con sus medidas y no se puede deshacer.`}
-        actions={[{ label: 'Borrar', variant: 'danger', onClick: async () => {
-          try { await borrarCliente(c.id); setBorrar(false); nav('/clientes', { replace: true }) } catch (x) { setErrM(mensajeError(x)) }
-        } }]} />
     </>
   )
 }
