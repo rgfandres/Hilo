@@ -32,7 +32,7 @@ const GRUPOS: { titulo: string; items: Sec[] }[] = [
     { to: 'modulos', label: () => 'Activar módulos', quien: 'admin' },
     { to: 'materiales', label: ({ vocab }) => vocab.materiales, quien: 'admin', si: mod('materiales') },
     { to: 'hoja', label: ({ aj }) => String(aj.hoja_nombre ?? 'Hoja de producción'), quien: 'admin', si: mod('produccion') },
-    { to: 'logistica', label: ({ roles }) => `Pantalla de ${roles.LOGISTICA ?? 'Logística'}`, quien: 'admin', si: mod('logistica') },
+    { to: 'logistica', label: () => 'Pantalla de logística', quien: 'admin', si: mod('logistica') },
     { to: 'guia', label: () => 'Guía de medidas', quien: 'admin' },
     { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin' },
   ] },

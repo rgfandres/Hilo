@@ -503,7 +503,7 @@ export function AjustesLogistica() {
   const quien = f.roles.LOGISTICA
   return (
     <>
-      <Pagina titulo={`Pantalla de ${quien}`} ayuda={`Sus bandejas salen de las etapas que marca «${quien}» en Tipos y etapas (y de las comprobaciones obligatorias antes de ellas). Aquí cambias cómo se llaman y qué dicen.`} />
+      <Pagina titulo="Pantalla de logística" ayuda={`La pantalla de quien lleva y trae (papel «${quien}»). Sus bandejas salen de las etapas que marca «${quien}» en Tipos y etapas (y de las comprobaciones obligatorias antes de ellas). Aquí cambias cómo se llaman y qué dicen.`} />
       {!f.logistica && <Apagado />}
       {f.logistica && <>
         <div className="flex flex-col gap-1">

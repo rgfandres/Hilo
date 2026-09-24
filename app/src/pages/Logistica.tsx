@@ -10,6 +10,7 @@ import { listarProveedoresCat, haceEncargos, fichaProducto, tieneFicha, ajustesF
 import { camposDe, formatearValor, plantillas, type PlantillaCampos } from '@/data/config'
 import { ajustesLogistica, bandejasLogistica, hitosDe, type BandejaLogistica, type ConfigBandeja, type HitoMini } from '@/data/logistica'
 import { ajustesHoja } from '@/data/produccion'
+import { nombreMenu } from '@/lib/pantallas'
 import { resumenFicha } from '@/pages/Productos'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -226,9 +227,9 @@ export function Logistica() {
   if (!lg.activo) {
     return (
       <>
-        <PageHeader title={nombresRol.LOGISTICA} />
+        <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', nombresRol.LOGISTICA)} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
-          <span>La pantalla de «{nombresRol.LOGISTICA}» está apagada.</span>
+          <span>La pantalla de logística está apagada.</span>
           {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/modulos">Activarla en Ajustes → Módulos</Link></Button>}
         </div>
       </>
@@ -241,7 +242,7 @@ export function Logistica() {
   const textoTodos = `${actual?.conf.todos_texto?.trim() || 'Marcar todos'} (${visibles.length})`
   return (
     <>
-      <PageHeader title={nombresRol.LOGISTICA} subtitle={actual?.subtitulo} />
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', nombresRol.LOGISTICA)} subtitle={actual?.subtitulo} />
       {logis.length === 0 && encs && <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa la marca «{nombresRol.LOGISTICA}». Asígnaselas en Ajustes → Tipos y etapas.</p>}
       {bandejas.length > 1 && <Tabs items={tabs} value={actual?.key ?? ''} onChange={(k) => { setBandeja(k); setCarpeta(null); setProd('') }} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}

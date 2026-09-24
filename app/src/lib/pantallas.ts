@@ -21,6 +21,12 @@ export const PANTALLAS: { k: Pantalla; ruta: string }[] = [
   { k: 'informes', ruta: '/informes' },
 ]
 
+/** Nombre propio de cada pantalla en el menú y la barra del móvil (Ajustes → Qué ve cada papel); si no hay, el de siempre */
+export function nombreMenu(aj: Record<string, unknown> | null | undefined, k: Pantalla, defecto: string): string {
+  const n = ((aj?.nombres_menu ?? {}) as Partial<Record<Pantalla, string>>)[k]
+  return typeof n === 'string' && n.trim() ? n.trim() : defecto
+}
+
 export const PAPELES_CONFIGURABLES: Rol[] = ['OPERATIVO', 'ATENCION', 'LOGISTICA']
 
 /** Pantallas visibles para este papel, o null si usa las de siempre */
