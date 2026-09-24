@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import {
-  MAX_FILAS, columnas, deshacerImportacion, importar, leerPlantilla, listarImportaciones, plantilla,
+  MAX_FILAS, columnas, conPalabras, deshacerImportacion, importar, leerPlantilla, listarImportaciones, plantilla,
   type Entidad, type FilaLeida, type Importacion, type Informe,
 } from '@/data/importar'
 import { descargar } from '@/lib/xlsx'
@@ -19,7 +19,8 @@ type Paso = { tipo: 'subir' } | { tipo: 'revisar'; nombre: string; filas: FilaLe
  * Nada se guarda hasta pulsar «Importar», y solo si no queda ninguna fila con error.
  */
 export function AjustesImportar() {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
+  const pal = (t: string) => conPalabras(t, gr)
   const avisar = useAvisos()
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const conMat = (aj.modulos as Record<string, boolean> | undefined)?.materiales === true
@@ -44,7 +45,7 @@ export function AjustesImportar() {
     campos: entidad === 'CLIENTE' || entidad === 'PRODUCTO' ? camposDe(ps, entidad) : [],
     materiales: conMat, construcciones: (aj.tipos_construccion as string[] | undefined) ?? [],
     vocab: vocab as unknown as Record<string, string>,
-  })
+  }).map((c) => (c.dato ? c : { ...c, ayuda: pal(c.ayuda) }))
   const elegir = (e: Entidad) => { setEntidad(e); setPaso({ tipo: 'subir' }); setErr(null) }
 
   async function subir(file: File) {
@@ -52,7 +53,7 @@ export function AjustesImportar() {
     setErr(null); setBusy('leer')
     try {
       const l = await leerPlantilla(file, entidad, cols)
-      if (!l.ok) { setErr(l.error); return }
+      if (!l.ok) { setErr(pal(l.error)); return }
       const informe = await importar(tienda.id, entidad, l.filas, false)
       setPaso({ tipo: 'revisar', nombre: file.name, filas: l.filas, informe, vacias: l.vacias }); setSoloErr(informe.errores > 0)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(null) }
@@ -127,9 +128,9 @@ export function AjustesImportar() {
                   <span className="w-[200px] shrink-0 truncate font-medium">{titular(porFila.get(f.fila) ?? { _fila: 0 }) || '—'}</span>
                   <span className="flex min-w-0 flex-1 flex-col text-sm">
                     {f.estado === 'error'
-                      ? f.errores.map((e, i) => <span key={i} className="text-danger-fg">{e}</span>)
+                      ? f.errores.map((e, i) => <span key={i} className="text-danger-fg">{pal(e)}</span>)
                       : <span className={f.estado === 'nuevo' ? 'text-ok-fg' : 'text-warn-fg'}>{f.estado === 'nuevo' ? 'Nueva' : 'Ya existe: se actualiza'}</span>}
-                    {f.avisos.map((a, i) => <span key={`a${i}`} className="text-warn-fg">{a}</span>)}
+                    {f.avisos.map((a, i) => <span key={`a${i}`} className="text-warn-fg">{pal(a)}</span>)}
                   </span>
                 </FilaLista>
               ))}

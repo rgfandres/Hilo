@@ -106,8 +106,9 @@ export async function recibirLinea(lineaId: string, cantidad: number, asignar: b
 export async function listarRestos(tiendaId: string): Promise<Resto[]> {
   return ok(await supabase.from('resto_material').select('*').eq('tienda_id', tiendaId).order('fecha', { ascending: false })) as Resto[]
 }
-export async function guardarResto(materialId: string, cantidad: number, origen?: string, encargoId?: string) {
-  ok(await supabase.rpc('guardar_resto', { p_material: materialId, p_cantidad: cantidad, p_origen: origen ?? null, p_encargo: encargoId ?? null }))
+/** deStock=false: un resto que ya estaba (al empezar con Hilo): se apunta sin descontarlo del stock */
+export async function guardarResto(materialId: string, cantidad: number, origen?: string, encargoId?: string, deStock = true) {
+  ok(await supabase.rpc('guardar_resto', { p_material: materialId, p_cantidad: cantidad, p_origen: origen ?? null, p_encargo: encargoId ?? null, p_de_stock: deStock }))
 }
 export async function cambiarResto(id: string, cantidad: number, notas?: string) {
   ok(await supabase.rpc('cambiar_resto', { p_resto: id, p_cantidad: cantidad, p_notas: notas ?? null }))

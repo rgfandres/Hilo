@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  actualizarEtapa, crearEtapa, crearInvitacion, enlaceInvitacion, guardarTienda, listarEtapasDe, listarTipos, marcarFinal,
+  actualizarEtapa, borrarEtapa, crearEtapa, crearInvitacion, enlaceInvitacion, guardarTienda, listarEtapasDe, listarTipos, marcarFinal, reordenarEtapas,
 } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
 import { copiarTexto } from '@/lib/copiar'
@@ -69,6 +69,12 @@ export function AjustesAsistente() {
     setTipo(t)
     if (t) setEtapas(await listarEtapasDe(t.id))
   }, [tienda])
+  const enEtapas = (f: () => Promise<unknown>) => { setErr(null); f().then(cargarEtapas).catch((x) => setErr(mensajeError(x))) }
+  const mover = async (i: number, d: -1 | 1) => {
+    if (!tipo) return
+    const ids = etapas.map((x) => x.id); [ids[i], ids[i + d]] = [ids[i + d], ids[i]]
+    await reordenarEtapas(tipo.id, ids)
+  }
   React.useEffect(() => { if (paso === 2) cargarEtapas().catch((x) => setErr(mensajeError(x))) }, [paso, cargarEtapas])
 
   async function guardar(extra: Aj, siguiente: number, nombreT = tienda?.nombre ?? '') {
@@ -90,7 +96,11 @@ export function AjustesAsistente() {
         await guardar({ zona_horaria: zona, moneda: mon }, sig, nombre.trim())
       } else if (paso === 1) {
         if (Object.values(vocab).some((v) => !v.trim())) { setErr('Ninguna palabra puede quedar vacía'); return }
-        await guardar({ vocab: Object.fromEntries(Object.entries(vocab).map(([k, v]) => [k, v.trim()])) }, sig)
+        // Palabra cambiada → su género se vuelve a deducir (si no, «Modelo» heredaba «la» de la plantilla)
+        const antes = vocabDe(aj)
+        const fijados = { ...((aj.vocab_generos ?? {}) as Record<string, string>) }
+        for (const k of Object.keys(fijados)) if (vocab[k as keyof Vocab] != null && vocab[k as keyof Vocab].trim() !== antes[k as keyof Vocab]) delete fijados[k]
+        await guardar({ vocab: Object.fromEntries(Object.entries(vocab).map(([k, v]) => [k, v.trim()])), vocab_generos: fijados }, sig)
       } else if (paso === 2) {
         if (etapas.length && !etapas.some((e) => e.es_final)) await marcarFinal(etapas[etapas.length - 1].id, true)
         await guardar({}, sig)
@@ -170,15 +180,26 @@ export function AjustesAsistente() {
                 onChange={(ev) => actualizarEtapa(e.id, { rol_ejecuta: ev.target.value as Rol }).then(cargarEtapas).catch((x) => setErr(mensajeError(x)))}>
                 {ROLES.map((r) => <option key={r} value={r}>La marca: {nombresRol[r]}</option>)}
               </Select>
-              {e.es_final && <span className="text-sm text-ok-fg">Final</span>}
+              {e.es_final ? <span className="text-sm text-ok-fg">Final</span>
+                : <Button size="sm" variant="ghost" title="Con esta etapa se da por terminado" onClick={() => enEtapas(() => marcarFinal(e.id, true))}>Hacer final</Button>}
+              <Button size="sm" variant="ghost" aria-label="Subir" disabled={i === 0} onClick={() => enEtapas(() => mover(i, -1))}>↑</Button>
+              <Button size="sm" variant="ghost" aria-label="Bajar" disabled={i === etapas.length - 1} onClick={() => enEtapas(() => mover(i, 1))}>↓</Button>
+              <Button size="sm" variant="ghost" aria-label={`Quitar ${e.nombre}`} disabled={etapas.length <= 2} onClick={() => enEtapas(() => borrarEtapa(e.id))}>Quitar</Button>
             </div>
           ))}
           {tipo && tienda && (
             <form className="flex gap-2" onSubmit={async (ev) => {
               ev.preventDefault(); if (!nueva.trim()) return
-              try { await crearEtapa(tienda.id, tipo.id, nueva, etapas); setNueva(''); await cargarEtapas() } catch (x) { setErr(mensajeError(x)) }
+              try {
+                await crearEtapa(tienda.id, tipo.id, nueva, etapas); setNueva('')
+                // La nueva entra antes de la etapa final (detrás no se llegaría nunca)
+                const ls = await listarEtapasDe(tipo.id)
+                const fin = ls.findIndex((x) => x.es_final)
+                if (fin >= 0 && fin < ls.length - 1) await reordenarEtapas(tipo.id, [...ls.filter((_, j) => j !== fin).map((x) => x.id), ls[fin].id])
+                await cargarEtapas()
+              } catch (x) { setErr(mensajeError(x)) }
             }}>
-              <Input className="h-8" placeholder="Nueva etapa (se añade al final)" value={nueva} onChange={(e) => setNueva(e.target.value)} />
+              <Input className="h-8" placeholder="Nueva etapa (se añade antes de la final)" value={nueva} onChange={(e) => setNueva(e.target.value)} />
               <Button type="submit" disabled={!nueva.trim()}>+ Añadir paso</Button>
             </form>
           )}

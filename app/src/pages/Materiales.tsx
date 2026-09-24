@@ -503,6 +503,7 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
   const [editar, setEditar] = React.useState<Resto | null>(null)
   const [usado, setUsado] = React.useState<Resto | null>(null)
   const [v, setV] = React.useState('')
+  const [nuevo, setNuevo] = React.useState<{ mat: string; cant: string; origen: string } | null>(null)
   const porMat = new Map<string, Resto[]>()
   for (const r of restos) porMat.set(r.material_id, [...(porMat.get(r.material_id) ?? []), r])
   return (
@@ -510,7 +511,10 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
       <p className="m-0 rounded-sm bg-bg-3 px-3 py-2 text-sm text-fg-2">
         Los restos son sobrantes que ya no llegan a una unidad de pedido. <b>No cuentan en el stock</b> ni en los avisos: úsalos para arreglos o trabajos pequeños y dalos por usados cuando se acaben.
       </p>
-      <span className="text-sm text-fg-3">{restos.length} restos</span>
+      <div className="flex items-center gap-2">
+        <span className="flex-1 text-sm text-fg-3">{restos.length} restos</span>
+        <Button size="sm" onClick={() => setNuevo({ mat: '', cant: '', origen: '' })}>+ Apuntar resto</Button>
+      </div>
       {restos.length === 0 ? <p className="m-0 text-fg-3">No hay restos guardados.</p> : (
         <Table>
           <thead><Tr><Th>{vocab.material}</Th><Th className="text-right">Cantidad</Th><Th>Origen</Th><Th>Fecha</Th><Th /></Tr></thead>
@@ -536,6 +540,25 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
           try { await cambiarResto(editar.id, n(v) || 0); await onCambio(); setEditar(null) } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) }
         } }]}>
         <FormRow label={`Cantidad (${unidadDe(mats.find((m) => m.id === editar?.material_id), unidad)})`}><Input className="h-7 w-[140px]" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} autoFocus /></FormRow>
+      </Dialog>
+      <Dialog open={!!nuevo} onOpenChange={(o) => !o && setNuevo(null)} title="Apuntar resto"
+        description="Un sobrante que ya tenéis (por ejemplo, de antes de usar la app). No se descuenta del stock."
+        actions={[{ label: 'Apuntar', onClick: async () => {
+          if (!nuevo) return
+          const c = n(nuevo.cant)
+          if (!nuevo.mat || !c || c <= 0) { avisar({ tipo: 'aviso', texto: `Elige ${vocab.material.toLowerCase()} y pon la cantidad` }); return }
+          try { await guardarResto(nuevo.mat, c, nuevo.origen.trim() || undefined, undefined, false); await onCambio(); setNuevo(null) } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) }
+        } }]}>
+        {nuevo && <>
+          <FormRow label={vocab.material}>
+            <Select className="w-[260px]" value={nuevo.mat} onChange={(e) => setNuevo({ ...nuevo, mat: e.target.value })} autoFocus>
+              <option value="">— elige —</option>
+              {mats.filter((m) => m.activo).sort((a, b) => nombreMaterial(a).localeCompare(nombreMaterial(b))).map((m) => <option key={m.id} value={m.id}>{nombreMaterial(m)}</option>)}
+            </Select>
+          </FormRow>
+          <FormRow label={`Cantidad (${unidadDe(mats.find((m) => m.id === nuevo.mat), unidad)})`}><Input className="h-7 w-[140px]" inputMode="decimal" value={nuevo.cant} onChange={(e) => setNuevo({ ...nuevo, cant: e.target.value })} /></FormRow>
+          <FormRow label="Origen"><Input className="h-7" placeholder="Opcional: de dónde viene" value={nuevo.origen} onChange={(e) => setNuevo({ ...nuevo, origen: e.target.value })} /></FormRow>
+        </>}
       </Dialog>
       <Dialog open={!!usado} onOpenChange={(o) => !o && setUsado(null)} title="Dar por usado"
         description={usado ? `${nombreMaterial(mats.find((m) => m.id === usado.material_id))}: ${cant(usado.cantidad, unidadDe(mats.find((m) => m.id === usado.material_id), unidad))}. Deja de aparecer en «Restos».` : ''}

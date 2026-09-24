@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { Campo } from '@/data/config'
 import { crearLibro, fechaExcel, leerLibro, type Celda } from '@/lib/xlsx'
 import { plano } from '@/lib/texto'
+import type { ClaveVocab, Forma, Gramatica } from '@/lib/vocab'
 
 /**
  * Importar con plantilla: solo se acepta NUESTRA plantilla (mismas columnas).
@@ -58,6 +59,23 @@ export function columnas(entidad: Entidad, ctx: { campos: Campo[]; materiales: b
     }))
     : []
   return [...base, ...propios]
+}
+
+/**
+ * Los textos del importador (y los errores del servidor) hablan de «proveedor», «cliente»…
+ * Aquí se cambian por las palabras de la tienda, con su artículo: «el proveedor» → «la fábrica».
+ */
+export function conPalabras(texto: string, gr: Gramatica): string {
+  const PAL: [ClaveVocab, boolean][] = [['proveedor', true], ['proveedor', false], ['cliente', true], ['cliente', false], ['producto', true], ['producto', false], ['material', true], ['material', false]]
+  let s = texto
+  for (const [k, plural] of PAL) {
+    const pal = plural ? `${k === 'proveedor' ? 'proveedores' : k === 'material' ? 'materiales' : k + 's'}` : k
+    const formas: [string, Forma][] = plural ? [['los', 'los']] : [['el', 'el'], ['del', 'del'], ['al', 'al'], ['un', 'un'], ['uno', 'un'], ['ningún', 'ningun']]
+    for (const [art, f] of formas) s = s.replace(new RegExp(`(^|[^\\p{L}])${art} ${pal}(?![\\p{L}])`, 'giu'), (_, pre: string) => pre + gr.con(k, f))
+    const suelta = gr.con(k, plural ? 'los' : 'el').split(' ').slice(1).join(' ')
+    s = s.replace(new RegExp(`(^|[^\\p{L}])(${pal})(?![\\p{L}])`, 'giu'), (_, pre: string, w: string) => pre + (w[0] === w[0].toUpperCase() ? suelta.charAt(0).toUpperCase() + suelta.slice(1) : suelta))
+  }
+  return s
 }
 
 const normTitulo = (s: string) => plano(s.replace(/\*/g, '')).toLowerCase().replace(/\s+/g, ' ').trim()

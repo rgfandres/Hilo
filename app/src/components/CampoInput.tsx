@@ -163,10 +163,17 @@ export function CamposVista({ campos, datos, soloRellenos, extra }: {
   const dest = vis.filter((c) => c.destacado)
   const normales = vis.filter((c) => !c.destacado && !c.secundario)
   const sec = vis.filter((c) => c.secundario && !c.destacado)
+  const valor = (c: Campo) => {
+    const t = formatearValor(c, datos?.[c.clave])
+    // Un enlace (p. ej. a la ficha de medidas en otro sitio) se puede abrir
+    return /^https?:\/\/\S+$/.test(t)
+      ? <a href={t} target="_blank" rel="noopener noreferrer" className="break-all underline decoration-border-strong underline-offset-2 hover:decoration-fg">{t}</a>
+      : t
+  }
   const fila = (c: Campo, grande?: boolean) => (
     <Field key={c.clave} label={c.etiqueta} className="group/campo">
       <span className="inline-flex max-w-full items-start gap-1">
-        {grande ? <span className="text-md font-semibold">{formatearValor(c, datos?.[c.clave])}</span> : <span>{formatearValor(c, datos?.[c.clave])}</span>}
+        {grande ? <span className="text-md font-semibold">{valor(c)}</span> : <span className="min-w-0">{valor(c)}</span>}
         {extra?.(c)}
       </span>
     </Field>
