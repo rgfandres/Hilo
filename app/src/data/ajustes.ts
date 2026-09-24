@@ -134,9 +134,16 @@ export async function guardarCampos(tiendaId: string, entidad: PlantillaCampos['
 }
 
 // ---------- Periodos
-export interface PeriodoFila { id: string; nombre: string; activo: boolean; archivado: boolean; fecha_inicio: string | null; fecha_fin: string | null }
+export interface PeriodoFila { id: string; nombre: string; activo: boolean; archivado: boolean; fecha_inicio: string | null; fecha_fin: string | null; ajustes?: Record<string, unknown> }
 export async function listarPeriodos(tiendaId: string) {
-  return ok(await supabase.from('periodo').select('id,nombre,activo,archivado,fecha_inicio,fecha_fin').eq('tienda_id', tiendaId).order('nombre', { ascending: false })) as PeriodoFila[]
+  return ok(await supabase.from('periodo').select('id,nombre,activo,archivado,fecha_inicio,fecha_fin,ajustes').eq('tienda_id', tiendaId).order('nombre', { ascending: false })) as PeriodoFila[]
+}
+/** Cambia una clave de los ajustes propios del periodo (null = quitar y usar lo de la tienda) */
+export async function ponerAjustePeriodo(id: string, clave: string, valor: unknown) {
+  const actual = ok(await supabase.from('periodo').select('ajustes').eq('id', id).single()) as { ajustes: Record<string, unknown> | null }
+  const aj = { ...(actual.ajustes ?? {}) }
+  if (valor == null) delete aj[clave]; else aj[clave] = valor
+  ok(await supabase.from('periodo').update({ ajustes: aj }).eq('id', id))
 }
 export async function crearPeriodo(tiendaId: string, nombre: string, inicio: string | null, fin: string | null) {
   ok(await supabase.from('periodo').insert({ tienda_id: tiendaId, nombre: nombre.trim(), fecha_inicio: inicio || null, fecha_fin: fin || null }))

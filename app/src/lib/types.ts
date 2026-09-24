@@ -96,4 +96,4 @@ export interface Cliente {
   datos: Record<string, unknown>; notas: string | null
 }
 
-export interface Periodo { id: string; nombre: string }
+export interface Periodo { id: string; nombre: string; ajustes?: Record<string, unknown> }

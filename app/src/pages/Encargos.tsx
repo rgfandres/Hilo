@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
-import { ajustesMaterial, lineasDeTienda, type LineaMaterial } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -67,7 +67,7 @@ export function Encargos() {
   }, [setParams])
   const setFiltros = (f: Filtros) => setP({ f: filtrosAUrl(f) || null })
   // Cambiar de bandeja empieza limpio (sin búsqueda ni filtros)
-  const setBandeja = (b: string) => setP({ b: b === 'todos' ? null : b, q: null, f: null, desde: null, g: null })
+  const setBandeja = (b: string) => setP({ b: b === 'todos' ? null : b, q: null, f: null, desde: null, g: null, m: null })
 
   React.useEffect(() => { if (tienda) setOcultas(leerOcultas(tienda.id)) }, [tienda])
   function toggleColumna(k: string) {
@@ -77,6 +77,8 @@ export function Encargos() {
   }
 
   const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
+  const [matsEst, setMatsEst] = React.useState<MaterialEstado[]>([])
+  const filtroMat = params.get('m')
   const recargar = React.useCallback(async () => {
     if (!tienda) return
     const pid = periodo?.id ?? null
@@ -86,7 +88,10 @@ export function Encargos() {
       listarEtapas(tienda.id), plantillas(tienda.id),
     ])
     setRows(r); setAnulados(a); setEtapas(e); setPs(p); setCargado(true)
-    if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) setLineasMat(await lineasDeTienda(tienda.id).catch(() => []))
+    if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) {
+      const [l, m] = await Promise.all([lineasDeTienda(tienda.id).catch(() => []), listarMateriales(tienda.id).catch(() => [])])
+      setLineasMat(l); setMatsEst(m)
+    }
     setMotivos(await listarAnulaciones(a.map((x) => x.id)))
   }, [tienda, periodo])
 
@@ -111,6 +116,21 @@ export function Encargos() {
   // Materiales: sin pedir (hay que pedirlo) / pedidos al proveedor (esperando que llegue)
   const matPedir = React.useMemo(() => new Set(lineasMat.filter((l) => l.estado === 'PENDIENTE').map((l) => l.encargo_id)), [lineasMat])
   const matEspera = React.useMemo(() => new Set(lineasMat.filter((l) => l.estado === 'PEDIDO').map((l) => l.encargo_id)), [lineasMat])
+  /** Atajo en la fila: «pedir» (material sin pedir) o «stock bajo · pedir»; abre la bandeja filtrada por ese material */
+  const chipMat = (e: EncargoEstado) => {
+    if (!activo(e)) return null
+    const l = lineasMat.find((x) => x.encargo_id === e.id && x.estado === 'PENDIENTE')
+    if (!l) return null
+    const m = matsEst.find((x) => x.id === l.material_id)
+    const bajo = m && avisoStock(m).nivel
+    return (
+      <button className={cn('inline-flex shrink-0 items-center rounded-sm px-1 text-xs font-normal', bajo ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg')}
+        title={`${nombreMaterial(m)}: ver ${min(vocab.encargos)} que lo esperan`}
+        onClick={(x) => { x.stopPropagation(); setP({ b: 'mat-pedir', m: l.material_id, q: null, f: null }) }}>
+        {bajo ? 'stock bajo · pedir' : 'pedir'}
+      </button>
+    )
+  }
 
   // Bandejas: Mi trabajo · Todos · una por etapa (agrupadas por su grupo) · Revisar · Bloqueados · Entregados · Anulados
   const etapasTab = [...new Map(etapas.filter((e) => !e.es_final).map((e) => [e.nombre, e])).values()]
@@ -147,11 +167,11 @@ export function Encargos() {
       case 'entregados': return !!r.es_final
       case 'listos': return listoParaEntregar(r)
       case 'proveedor': return enProveedor(r)
-      case 'mat-pedir': return activo(r) && matPedir.has(r.id)
-      case 'mat-espera': return activo(r) && matEspera.has(r.id)
+      case 'mat-pedir': return activo(r) && matPedir.has(r.id) && (!filtroMat || lineasMat.some((l) => l.encargo_id === r.id && l.material_id === filtroMat))
+      case 'mat-espera': return activo(r) && matEspera.has(r.id) && (!filtroMat || lineasMat.some((l) => l.encargo_id === r.id && l.material_id === filtroMat))
       default: return 'n:' + r.etapa_actual_nombre === bandeja && !r.es_final
     }
-  }), [bandeja, rows, anulados, rol, matPedir, matEspera])
+  }), [bandeja, rows, anulados, rol, matPedir, matEspera, filtroMat, lineasMat])
 
   const tiposEnPantalla = React.useMemo(() => [...new Set(base.map((v) => v.tipo_encargo_id))], [base])
   // Todos los campos del encargo de los tipos en pantalla (para filtrar y agrupar)
@@ -178,12 +198,20 @@ export function Encargos() {
   const visibles = React.useMemo(() => filtrar(base, q, filtros, dims), [base, q, filtros, dims])
   const dimAgr = agrupar === 'no' ? null : dims.find((d) => d.clave === agrupar) ?? null
 
+  // Paginación de la lista (tamaño en Ajustes → Tienda); se oculta si cabe todo en una página
+  const porPagina = Math.max(10, Number(aj.tamano_pagina ?? 50))
+  const nPaginas = Math.max(1, Math.ceil(visibles.length / porPagina))
+  const [pagina, setPagina] = React.useState(0)
+  React.useEffect(() => { setPagina(0) }, [bandeja, q, filtros, agrupar])
+  const pag = Math.min(pagina, nPaginas - 1)
+  const enPagina = React.useMemo(() => visibles.slice(pag * porPagina, pag * porPagina + porPagina), [visibles, pag, porPagina])
+
   const grupos = React.useMemo((): [string, EncargoEstado[]][] => {
-    if (!dimAgr) return [['', visibles]]
+    if (!dimAgr) return [['', enPagina]]
     const m = new Map<string, EncargoEstado[]>()
-    for (const r of visibles) { const k = dimAgr.valor(r); m.set(k, [...(m.get(k) ?? []), r]) }
+    for (const r of enPagina) { const k = dimAgr.valor(r); m.set(k, [...(m.get(k) ?? []), r]) }
     return ordenar(dimAgr, [...m.keys()]).map((k) => [k, m.get(k)!])
-  }, [visibles, dimAgr])
+  }, [enPagina, dimAgr])
 
   // Cola de cambios: se aplican en el orden de los clics; la fila cambia al momento (optimista)
   const cola = React.useRef<Promise<unknown>>(Promise.resolve())
@@ -293,6 +321,13 @@ export function Encargos() {
         {rol !== 'LOGISTICA' && <Button variant="primary" asChild><Link to="/encargos/nuevo">+ {vocab.encargo}</Link></Button>}
       </PageHeader>
       <Tabs items={tabs} value={bandeja} onChange={setBandeja} />
+      {filtroMat && (bandeja === 'mat-pedir' || bandeja === 'mat-espera') && (
+        <div className="flex items-center gap-2 border-b border-border-light px-4 py-1.5 text-sm">
+          <span className="text-fg-3">Solo con</span><b>{nombreMaterial(matsEst.find((m) => m.id === filtroMat))}</b>
+          <button className="text-fg-3 underline hover:text-fg" onClick={() => setP({ m: null })}>Quitar filtro</button>
+          <Link to="/materiales?v=pedidos" className="ml-auto text-fg-2 underline">Ir a pedidos</Link>
+        </div>
+      )}
       <div className="flex min-h-9 flex-wrap items-center gap-2 border-b border-border-light px-4 py-1 text-sm text-fg-3">
         <span className="tabular">{visibles.length} de {base.length}</span>
         <span className="text-fg-3">· actualizado {haceCuanto(ultima)}</span>
@@ -372,6 +407,7 @@ export function Encargos() {
                             <span className="truncate">{e.cliente_nombre}</span>
                             {e.revisar_manual && <IconAlertTriangle size={13} className="shrink-0 text-warn-fg" aria-label="Marcado para revisar" />}
                             {(e.estancado || e.atascado) && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg"><IconClock size={11} />{e.atascado ? e.dias_en_etapa : Math.floor((Date.now() - new Date(e.actualizado_en).getTime()) / 864e5)} d</span>}
+                            {chipMat(e)}
                             {e.n_comentarios > 0 && <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-fg-3" title={`${e.n_comentarios} comentario${e.n_comentarios === 1 ? '' : 's'}`}><IconMessage size={12} />{e.n_comentarios}</span>}
                           </span>
                           {/* Celda combinada: si la columna del producto está oculta, va debajo del nombre */}
@@ -407,6 +443,13 @@ export function Encargos() {
               )}
             </tbody>
           </Table>
+          {nPaginas > 1 && (
+            <div className="sticky left-0 flex items-center gap-2 border-t border-border-light px-4 py-2 text-sm">
+              <Button size="sm" variant="ghost" disabled={pag === 0} onClick={() => setPagina(pag - 1)}>← Anterior</Button>
+              <span className="tabular text-fg-2">Página {pag + 1} de {nPaginas}</span>
+              <Button size="sm" variant="ghost" disabled={pag >= nPaginas - 1} onClick={() => setPagina(pag + 1)}>Siguiente →</Button>
+            </div>
+          )}
         </div>
       )}
       {sel && vista === 'lista' && (

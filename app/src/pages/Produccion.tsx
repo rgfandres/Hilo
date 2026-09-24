@@ -13,7 +13,7 @@ import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { NotaCampo } from '@/components/NotaCampo'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
-import { Button, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Th, Tr, useAvisos, type TagColor } from '@/ui'
+import { Button, CapaCarga, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Th, Tr, useAvisos, type TagColor } from '@/ui'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { cn, fechaCorta, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -253,6 +253,7 @@ export function Produccion() {
         )}
       </div>
 
+      <CapaCarga texto={busy === 'enviar' ? 'Enviando a producción…' : busy === 'imprimir' ? 'Registrando la impresión…' : null} />
       <Dialog open={!!bloqueo} onOpenChange={(o) => !o && setBloqueo(null)} title="No se puede imprimir todavía"
         description="Solo se imprime lo enviado a producción y coherente con su encargo. Revisa o desmarca estas líneas:"
         actions={[{ label: 'Entendido', onClick: () => setBloqueo(null) }]}>

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { buscarClientes, comentar, crearHito, mensajeError, siguienteNumero } from '@/data/encargos'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { PageHeader } from '@/layout/AppShell'
-import { Button, Combobox, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
+import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
 import { ajustesFicha, altaRapidaProducto, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
 import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
@@ -60,7 +60,7 @@ export function NuevoEncargo() {
   }, [existente])
   const datosGuia = React.useMemo(() => ({ ...(existente ? cliDatos : dCli), ...dEnc }), [existente, cliDatos, dCli, dEnc])
   const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [ps, tipo]) // eslint-disable-line react-hooks/exhaustive-deps
-  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>).destino ?? ''
+  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>, periodo?.ajustes).destino ?? ''
   const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(dEnc[destinoGuia] ?? ''), inicialTocado: false,
     setValor: (v) => { if (destinoGuia) setDEnc((d) => ({ ...d, [destinoGuia]: v })) } })
   React.useEffect(() => { setDEnc({}) }, [tipo])
@@ -117,6 +117,45 @@ export function NuevoEncargo() {
     return () => clearTimeout(t)
   }, [nombre, tienda, existente])
 
+  // Borrador autoguardado (solo en este dispositivo): se recupera si se cierra sin guardar
+  const claveBorrador = tienda ? `hilo.borrador.${tienda.id}` : ''
+  const hayDatos = !!(nombre.trim() || tel.trim() || existente || Object.values(dCli).some(Boolean) || Object.values(dEnc).some(Boolean) || comentario.trim() || comp.trim() || producto)
+  const [borrador, setBorrador] = React.useState<{ fecha: string; d: Record<string, unknown> } | null>(null)
+  const guardadoRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!claveBorrador) return
+    try { const b = localStorage.getItem(claveBorrador); if (b) setBorrador(JSON.parse(b)) } catch { /* sin almacenamiento */ }
+  }, [claveBorrador])
+  React.useEffect(() => {
+    if (!claveBorrador || borrador || guardadoRef.current) return
+    const t = setTimeout(() => {
+      try {
+        if (hayDatos) localStorage.setItem(claveBorrador, JSON.stringify({ fecha: new Date().toISOString(), d: { nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas } }))
+        else localStorage.removeItem(claveBorrador)
+      } catch { /* sin almacenamiento */ }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [claveBorrador, borrador, hayDatos, nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas])
+  React.useEffect(() => {
+    const h = (ev: BeforeUnloadEvent) => { if (hayDatos && !guardadoRef.current) { ev.preventDefault(); ev.returnValue = '' } }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [hayDatos])
+  function restaurar() {
+    if (!borrador) return
+    const d = borrador.d as Record<string, never>
+    setNombre(d.nombre ?? ''); setTel(d.tel ?? ''); setEmail(d.email ?? ''); setExistente(d.existente ?? null)
+    setDCli(d.dCli ?? {}); if (d.tipo) setTipo(d.tipo); setProducto(d.producto ?? '')
+    setTimeout(() => setDEnc(d.dEnc ?? {}), 0)
+    setComentario(d.comentario ?? ''); setImporte(d.importe ?? ''); setImporteAuto(false); setACuenta(d.aCuenta ?? ''); setComp(d.comp ?? ''); setMLineas(d.mLineas ?? [])
+    setBorrador(null)
+  }
+  function descartarBorrador() {
+    try { localStorage.removeItem(claveBorrador) } catch { /* sin almacenamiento */ }
+    setBorrador(null)
+  }
+  const [salir, setSalir] = React.useState(false)
+
   async function guardar(ev: React.FormEvent) {
     ev.preventDefault()
     if (!tienda) return
@@ -154,6 +193,8 @@ export function NuevoEncargo() {
         await comentar(enc.id, `Guía de medidas: ${guia.sug.motivo}.`)
       }
       avisar({ tipo: 'ok', texto: `${vocab.encargo} cread${gr.o("encargo")} para ${nombre.trim() || existente?.nombre}` })
+      guardadoRef.current = true
+      try { localStorage.removeItem(claveBorrador) } catch { /* sin almacenamiento */ }
       nav(`/encargos/${enc.id}`)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
@@ -163,6 +204,13 @@ export function NuevoEncargo() {
       <PageHeader title={gr.Con('encargo', 'nuevo')} subtitle={numero ? `Se asignará el nº ${numero}` : undefined} />
       <form onSubmit={guardar} className="flex max-w-[560px] flex-col gap-5 overflow-auto p-8">
         {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
+        {borrador && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-bg-2 px-3 py-2 text-sm">
+            <span className="flex-1">Hay un borrador sin guardar{String((borrador.d as Record<string, unknown>).nombre ?? '') ? ` de ${String((borrador.d as Record<string, unknown>).nombre)}` : ''} — {new Date(borrador.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            <Button size="sm" variant="primary" type="button" onClick={restaurar}>Restaurar</Button>
+            <Button size="sm" variant="ghost" type="button" onClick={descartarBorrador}>Descartar</Button>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1">
           <SectionLabel>{vocab.cliente}</SectionLabel>
@@ -255,9 +303,12 @@ export function NuevoEncargo() {
 
         <div className="flex gap-2">
           <Button variant="primary" type="submit" disabled={busy}>{busy ? 'Creando…' : `Crear ${min(vocab.encargo)}`}</Button>
-          <Button variant="ghost" type="button" onClick={() => nav(-1)}>Cancelar</Button>
+          <Button variant="ghost" type="button" onClick={() => (hayDatos ? setSalir(true) : nav(-1))}>Cancelar</Button>
         </div>
       </form>
+      <Dialog open={salir} onOpenChange={setSalir} title="¿Salir sin crear?"
+        description="Lo escrito queda guardado como borrador en este dispositivo: al volver a «Nuevo» podrás restaurarlo."
+        actions={[{ label: 'Salir', onClick: () => { setSalir(false); nav(-1) } }]} />
     </>
   )
 }

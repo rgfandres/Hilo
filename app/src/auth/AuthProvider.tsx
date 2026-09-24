@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!tienda) { setPeriodo(null); return }
     let alive = true
-    supabase.from('periodo').select('id,nombre').eq('tienda_id', tienda.id).eq('activo', true).maybeSingle()
+    supabase.from('periodo').select('id,nombre,ajustes').eq('tienda_id', tienda.id).eq('activo', true).maybeSingle()
       .then(({ data }) => { if (alive) setPeriodo((data as Periodo) ?? null) })
     return () => { alive = false }
   }, [tienda])

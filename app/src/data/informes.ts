@@ -176,3 +176,31 @@ export function rankingTerminados(hs: HitoInforme[], i: Intervalo, valor: (h: Hi
   }
   return [...m].sort((a, b) => b[1] - a[1])
 }
+
+/** Encargos que vuelven del proveedor dentro del intervalo (producción terminada). */
+export function recibidosProveedor(hs: HitoInforme[], i: Intervalo): Set<string> {
+  const porEnc = new Map<string, HitoInforme[]>()
+  for (const h of hs) if (avance(h)) porEnc.set(h.encargo_id, [...(porEnc.get(h.encargo_id) ?? []), h])
+  const s = new Set<string>()
+  for (const [id, lista] of porEnc) {
+    const ord = [...lista].sort((a, b) => a.fecha.localeCompare(b.fecha))
+    const entra = ord.find((h) => h.etapa_proveedor)
+    if (!entra) continue
+    const sale = ord.find((h) => h.fecha > entra.fecha && !h.etapa_proveedor && h.etapa_orden > entra.etapa_orden)
+    if (sale && dentro(sale.fecha, i)) s.add(id)
+  }
+  return s
+}
+export function creadosEn(hs: HitoInforme[], i: Intervalo): Set<string> {
+  const s = new Set<string>()
+  for (const h of hs) if (dentro(h.creado_en, i)) s.add(h.encargo_id)
+  return s
+}
+
+/** Movimientos de material de un intervalo (para el informe) */
+export async function movimientosIntervalo(tiendaId: string, ini: Date, fin: Date) {
+  const { data, error } = await supabase.from('movimiento_material').select('material_id,tipo,cantidad,revertido,fecha')
+    .eq('tienda_id', tiendaId).gte('fecha', ini.toISOString()).lt('fecha', fin.toISOString()).limit(5000)
+  if (error) throw error
+  return (data ?? []) as { material_id: string; tipo: string; cantidad: number; revertido: boolean; fecha: string }[]
+}

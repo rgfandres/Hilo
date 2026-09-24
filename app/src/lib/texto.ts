@@ -16,3 +16,9 @@ export function coincide(q: string, textos: (string | number | null | undefined)
   const digitos = bolsa.replace(/[^\d]/g, '')
   return palabras.every((w) => bolsa.includes(w) || (/^\d{3,}$/.test(w) && digitos.includes(w)))
 }
+
+/** Igual que texto_plano() de la base de datos: minúsculas y sin tildes, conservando la ñ */
+export function plano(s: string): string {
+  const de = 'ÁÉÍÓÚÜÀÈÌÒÙÂÊÎÔÛáéíóúüàèìòùâêîôû', a = 'AEIOUUAEIOUAEIOUaeiouuaeiouaeiou'
+  return [...s].map((c) => { const i = de.indexOf(c); return i >= 0 ? a[i] : c }).join('').toLowerCase()
+}

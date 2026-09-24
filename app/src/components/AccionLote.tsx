@@ -2,7 +2,7 @@ import * as React from 'react'
 import { IconX } from '@tabler/icons-react'
 import { crearHito, deshacerUltimoHito, mensajeError } from '@/data/encargos'
 import type { EncargoEstado, Etapa, Rol } from '@/lib/types'
-import { Button, Dialog, Select, useAvisos } from '@/ui'
+import { Button, CapaCarga, Dialog, Select, useAvisos } from '@/ui'
 import { num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
@@ -121,6 +121,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
         <button aria-label="Salir de la selección" title="Salir de la selección (Esc)" onClick={onSalir} className="ml-1 text-fg-3 hover:text-fg"><IconX size={16} /></button>
       </div>
 
+      <CapaCarga texto={progreso && `Pasando ${progreso}`} />
       <Dialog open={abierto} onOpenChange={(o) => { if (!progreso) setAbierto(o) }}
         title={et ? `Pasar a «${et.nombre}»` : 'Pasar'}
         description={vanA.length ? `${vanA.length === 1 ? 'Pasará 1' : `Pasarán ${vanA.length}`} ${vanA.length === 1 ? min(vocabEncargo) : min(vocabEncargos)}. Se hace de uno en uno y luego se puede deshacer todo junto.` : 'Ninguno de los seleccionados puede pasar a esa etapa.'}

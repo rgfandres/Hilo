@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/layout/AppShell'
 import { DialogoResto } from '@/components/Material'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
-import { Button, Dialog, FormRow, Input, Segmented, Select, Sheet, Table, Tabs, Tag, Td, Th, Tr, useAvisos, Textarea } from '@/ui'
+import { Button, CapaCarga, Dialog, FormRow, Input, Segmented, Select, Sheet, Table, Tabs, Tag, Td, Th, Tr, useAvisos, Textarea } from '@/ui'
 import { copiarTexto, compartir } from '@/lib/copiar'
 import { cn, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -367,6 +367,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
         )}
       </section>
 
+      <CapaCarga texto={busy ? 'Anotando el pedido…' : null} />
       <DialogoRecibir linea={recibir} unidad={aj.unidad} onClose={() => setRecibir(null)} onHecho={async (stock) => {
         const m = mats.find((x) => x.id === recibir?.material_id)
         await onCambio()

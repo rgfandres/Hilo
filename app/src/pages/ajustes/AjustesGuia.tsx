@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
-import { guardarTienda } from '@/data/ajustes'
+import { guardarTienda, ponerAjustePeriodo } from '@/data/ajustes'
+import { SelectorAmbito, useAmbito } from '@/components/Ambito'
 import { mensajeError } from '@/data/encargos'
 import { plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
@@ -14,7 +15,9 @@ type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: strin
 export function AjustesGuia() {
   const { tienda, recargar, gr } = useAuth()
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
-  const inicial = React.useMemo(() => guiaDe(aj), [tienda]) // eslint-disable-line react-hooks/exhaustive-deps
+  const amb = useAmbito('guia_medidas')
+  // La del periodo elegido si la tiene; si no, se parte de la de la tienda
+  const inicial = React.useMemo(() => guiaDe(aj, amb.propio != null ? { guia_medidas: amb.propio } : null), [tienda, amb.ambito, amb.propio]) // eslint-disable-line react-hooks/exhaustive-deps
   const [g, setG] = React.useState<Guia>(inicial)
   const [campos, setCampos] = React.useState<CampoMini[]>([])
   const [ok, setOk] = React.useState<string | null>(null)
@@ -36,7 +39,7 @@ export function AjustesGuia() {
   const medidas = campos.filter((c) => (c.entidad === 'CLIENTE' || c.entidad === 'ENCARGO') && c.tipo === 'numero')
   const cols = [...new Set([...(g.principal ? [g.principal] : []), ...g.validan])]
   const et = Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta]))
-  const sucio = JSON.stringify(g) !== JSON.stringify(inicial)
+  const sucio = JSON.stringify(g) !== JSON.stringify(inicial) || (!!amb.periodo && amb.propio == null && g.activa)
   const setFila = (i: number, f: FilaGuia) => setG((s) => ({ ...s, filas: s.filas.map((x, j) => (j === i ? f : x)) }))
   const n = (s: string) => { const v = Number(s.replace(',', '.')); return s.trim() === '' || !Number.isFinite(v) ? null : v }
 
@@ -47,14 +50,22 @@ export function AjustesGuia() {
     if (dup.length) { setErr(`Hay valores repetidos: ${dup.join(', ')}`); return }
     setBusy(true); setErr(null); setOk(null)
     try {
-      await guardarTienda(tienda.id, tienda.nombre, { ...aj, guia_medidas: { ...g, filas: g.filas.filter((f) => f.etiqueta.trim()).map((f) => ({ ...f, etiqueta: f.etiqueta.trim() })) } })
-      await recargar(); setOk('Guardado')
+      const limpia = { ...g, filas: g.filas.filter((f) => f.etiqueta.trim()).map((f) => ({ ...f, etiqueta: f.etiqueta.trim() })) }
+      if (amb.periodo) { await ponerAjustePeriodo(amb.periodo.id, 'guia_medidas', limpia); await amb.recargarPeriodos() }
+      else await guardarTienda(tienda.id, tienda.nombre, { ...aj, guia_medidas: limpia })
+      await recargar(); setOk(amb.periodo ? `Guardada como guía propia del periodo ${amb.periodo.nombre}` : 'Guardado')
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
   const sug = sugerir(g, Object.fromEntries(Object.entries(prueba).map(([k, v]) => [k, v])), et)
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-3">
+        <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={amb.setAmbito} clave="guia_medidas" />
+        {amb.periodo && (amb.propio == null
+          ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si guardas aquí, tendrá la suya propia.</span>
+          : <Button size="sm" variant="ghost" onClick={async () => { await ponerAjustePeriodo(amb.periodo!.id, 'guia_medidas', null); await amb.recargarPeriodos(); await recargar(); setOk('El periodo vuelve a usar la guía de la tienda') }}>Quitar la guía propia del periodo</Button>)}
+      </div>
       <Bloque titulo="Guía de medidas" ayuda={`Tabla de referencia para proponer un valor a partir de las medidas guardadas. Se propone en vivo al crear o editar ${gr.con('encargo', 'un')}; siempre se puede elegir otro.`}>
         <div className="flex flex-col gap-1">
           <FormRow label="Usar la guía"><Interruptor checked={g.activa} onChange={(v) => setG({ ...g, activa: v })} label={g.activa ? 'Activa' : 'Apagada'} /></FormRow>

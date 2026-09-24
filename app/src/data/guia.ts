@@ -21,8 +21,9 @@ export interface Guia {
 }
 export const GUIA_VACIA: Guia = { activa: false, destino: null, especial: 'Revisar', principal: null, validan: [], tolerancias: [1, 2, 3], responsable: '', filas: [] }
 
-export function guiaDe(aj: Record<string, unknown> | null | undefined): Guia {
-  const g = (aj?.guia_medidas ?? {}) as Partial<Guia>
+/** La guía que rige: la propia del periodo si la tiene; si no, la de la tienda */
+export function guiaDe(aj: Record<string, unknown> | null | undefined, periodoAj?: Record<string, unknown> | null): Guia {
+  const g = (periodoAj?.guia_medidas ?? aj?.guia_medidas ?? {}) as Partial<Guia>
   return { ...GUIA_VACIA, ...g, validan: g.validan ?? [], filas: g.filas ?? [], tolerancias: (g.tolerancias ?? [1, 2, 3]) as [number, number, number] }
 }
 /** Opciones del campo destino: los valores de la guía más el especial */

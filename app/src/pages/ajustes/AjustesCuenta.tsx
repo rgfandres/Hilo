@@ -81,9 +81,54 @@ export function AjustesCuenta() {
         </div>
       </Bloque>
 
+      <Mantenimiento />
+
       <Dialog open={!!quitar} onOpenChange={() => setQuitar(null)} title="Desactivar la verificación en dos pasos"
         description="Entrarás solo con tu correo. Puedes volver a activarla cuando quieras."
         actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => { if (quitar) await supabase.auth.mfa.unenroll({ factorId: quitar }); setQuitar(null); await leer() } }]} />
     </>
+  )
+}
+
+/** Mantenimiento de este dispositivo (plegado): ver estado, limpiar la caché o restablecerlo. Nunca toca los datos de la tienda. */
+function Mantenimiento() {
+  const [abierto, setAbierto] = React.useState(false)
+  const [estado, setEstado] = React.useState<string[] | null>(null)
+  const [aviso, setAviso] = React.useState<string | null>(null)
+  async function ver() {
+    const out: string[] = []
+    const js = [...document.scripts].map((s) => s.src.split('/').pop()).filter(Boolean)
+    out.push(`Versión: ${js.join(', ') || '—'}`)
+    out.push(`Conexión: ${navigator.onLine ? 'sí' : 'no'}`)
+    try { const r = await navigator.serviceWorker?.getRegistration(); out.push(`App instalable: ${r?.active ? 'activa' : 'no'}`) } catch { /* sin soporte */ }
+    try { const ks = await caches.keys(); let n = 0; for (const k of ks) n += (await (await caches.open(k)).keys()).length; out.push(`Caché: ${n} archivos`) } catch { /* sin soporte */ }
+    try { const e = await navigator.storage?.estimate(); if (e?.usage != null) out.push(`Espacio usado: ${(e.usage / 1048576).toFixed(1)} MB`) } catch { /* sin soporte */ }
+    try { out.push(`Ajustes guardados aquí: ${Object.keys(localStorage).filter((k) => k.startsWith('hilo')).length}`) } catch { /* sin almacenamiento */ }
+    setEstado(out)
+  }
+  async function limpiar(todo: boolean) {
+    try { for (const k of await caches.keys()) await caches.delete(k) } catch { /* sin soporte */ }
+    if (todo) {
+      try { for (const k of Object.keys(localStorage)) if (k.startsWith('hilo')) localStorage.removeItem(k) } catch { /* sin almacenamiento */ }
+      try { for (const r of (await navigator.serviceWorker?.getRegistrations()) ?? []) await r.unregister() } catch { /* sin soporte */ }
+    }
+    setAviso(todo ? 'Dispositivo restablecido. Recargando…' : 'Caché limpia. Recargando…')
+    setTimeout(() => location.reload(), 1000)
+  }
+  return (
+    <Bloque titulo="Este dispositivo" ayuda="Solo si algo se ve raro en este navegador. No borra nada de la tienda ni cierra la sesión.">
+      {!abierto ? <Button variant="ghost" className="self-start" onClick={() => setAbierto(true)}>Mostrar mantenimiento</Button> : (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={ver}>Ver estado</Button>
+            <Button onClick={() => limpiar(false)}>Limpiar caché</Button>
+            <Button variant="danger" onClick={() => limpiar(true)}>Restablecer este dispositivo</Button>
+          </div>
+          <span className="text-sm text-fg-3">«Restablecer» borra también lo recordado en este navegador (columnas ocultas, borradores, preferencias).</span>
+          {estado && <ul className="m-0 pl-4 text-sm text-fg-2">{estado.map((x) => <li key={x}>{x}</li>)}</ul>}
+          {aviso && <span className="text-sm font-medium">{aviso}</span>}
+        </div>
+      )}
+    </Bloque>
   )
 }

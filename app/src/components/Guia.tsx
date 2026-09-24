@@ -11,8 +11,8 @@ export function useGuia({ datos, etiquetas, valor, setValor, inicialTocado }: {
   datos: Record<string, unknown>; etiquetas: Record<string, string>
   valor: string; setValor: (v: string) => void; inicialTocado: boolean
 }) {
-  const { tienda } = useAuth()
-  const g: Guia = React.useMemo(() => guiaDe(tienda?.ajustes as Record<string, unknown>), [tienda])
+  const { tienda, periodo } = useAuth()
+  const g: Guia = React.useMemo(() => guiaDe(tienda?.ajustes as Record<string, unknown>, periodo?.ajustes), [tienda, periodo])
   const [tocado, setTocado] = React.useState(inicialTocado)
   const sug = React.useMemo(() => sugerir(g, datos, etiquetas), [g, datos, etiquetas])
   React.useEffect(() => {

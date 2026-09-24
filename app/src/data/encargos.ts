@@ -1,3 +1,4 @@
+import { plano } from '@/lib/texto'
 import { supabase } from '@/lib/supabase'
 import type { Comentario, EncargoEstado, Etapa, Hito, TipoHito } from '@/lib/types'
 
@@ -96,7 +97,7 @@ export function mensajeError(e: unknown): string {
   const m = (e as { message?: string })?.message ?? String(e)
   if (/row-level security|permission denied/i.test(m)) return 'No tienes permiso para hacer esto.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión. Revisa internet y vuelve a intentarlo.'
-  if (/timeout|timed out|canceling statement/i.test(m)) return 'El servidor está tardando demasiado. Espera un momento y pulsa «Reintentar».'
+  if (/timeout|timed out|canceling statement/i.test(m)) return 'El servidor tarda demasiado en responder. Comprueba la conexión y pulsa «Reintentar» o recarga la página.'
   if (/JWT expired|invalid JWT|refresh token/i.test(m)) return 'Tu sesión ha caducado. Vuelve a entrar.'
   if (/Proveedor no válido o inactivo/i.test(m)) return 'Tu cuenta no está asociada a ningún proveedor activo de esta tienda. Pide a la tienda que te añada.'
   if (/duplicate key|unique constraint/i.test(m)) return 'Ya existe uno igual (mismo nombre o número).'
@@ -143,7 +144,7 @@ export async function buscarClientes(tiendaId: string, q: string) {
   const { data, error } = await supabase.from('cliente')
     .select('id,nombre,telefono,email,datos')
     .eq('tienda_id', tiendaId)
-    .or(`nombre.ilike.%${q.replace(/[%,()]/g, ' ')}%,telefono.ilike.%${q.replace(/[%,()]/g, ' ')}%`)
+    .or(`nombre_plano.ilike.%${plano(q).replace(/[%,()]/g, ' ')}%,telefono.ilike.%${q.replace(/[%,()]/g, ' ')}%`)
     .order('nombre').limit(8)
   if (error) throw error
   return (data ?? []) as { id: string; nombre: string; telefono: string | null; email: string | null; datos: Record<string, unknown> }[]

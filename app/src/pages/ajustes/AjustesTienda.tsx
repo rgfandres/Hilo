@@ -40,6 +40,7 @@ export function AjustesTienda() {
     locale: (aj.locale as string) ?? 'es-ES',
     moneda: (aj.moneda as string) ?? 'EUR',
     importe: aj.usar_importe !== false,
+    normalizar: aj.normalizar_nombres === true,
     materiales: ((aj.modulos as Record<string, boolean> | undefined)?.materiales) === true,
     unidadMat: String(aj.material_unidad ?? 'm'),
     umbralMat: String(aj.umbral_material_defecto ?? 10),
@@ -109,6 +110,7 @@ export function AjustesTienda() {
         locale: f.locale,
         moneda: f.moneda.trim().toUpperCase() || 'EUR',
         usar_importe: f.importe,
+        normalizar_nombres: f.normalizar,
         modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion, logistica: f.logistica },
         logistica_dias_historico: Math.max(1, parseInt(f.diasHist, 10) || 30),
         hoja_nombre: f.hojaNombre.trim() || 'Hoja de producción',
@@ -247,6 +249,9 @@ export function AjustesTienda() {
           <FormRow label="Moneda"><Input className="h-7 w-20" value={f.moneda} maxLength={3} onChange={(e) => setF({ ...f, moneda: e.target.value })} /></FormRow>
           <FormRow label="Importes" ayuda="Importe pactado y lo entregado a cuenta en cada encargo; se ve lo pendiente de cobro y se puede filtrar.">
             <Interruptor checked={f.importe} onChange={(v) => setF({ ...f, importe: v })} label="Usar importe y cobros" />
+          </FormRow>
+          <FormRow label="Nombres" ayuda={`Nombres de ${f.vocab.clientes.toLowerCase()}, ${f.vocab.productos.toLowerCase()}, ${f.vocab.proveedores.toLowerCase()} y ${f.vocab.materiales.toLowerCase()} en MAYÚSCULAS y sin tildes (la Ñ se conserva). Al activarlo se aplica a lo nuevo y a lo que se edite. Buscar ignora las tildes siempre.`}>
+            <Interruptor checked={f.normalizar} onChange={(v) => setF({ ...f, normalizar: v })} label="Guardar en mayúsculas y sin tildes" />
           </FormRow>
           <FormRow label="Prefijo del país">
             <div className="flex flex-wrap items-center gap-2">

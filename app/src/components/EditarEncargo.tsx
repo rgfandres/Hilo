@@ -29,7 +29,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   onSaved: () => void
 }) {
   const avisar = useAvisos()
-  const { tienda, rol, vocab, gr } = useAuth()
+  const { tienda, rol, vocab, gr, periodo } = useAuth()
   const soloProveedor = rol === 'LOGISTICA'
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [productos, setProductos] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
@@ -63,7 +63,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
 
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
   // Guía de medidas: aquí solo se propone (no se cambia lo ya elegido); «Usar» lo aplica
-  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>).destino ?? ''
+  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>, periodo?.ajustes).destino ?? ''
   const datosGuia = React.useMemo(() => ({ ...f.dCli, ...f.dEnc }), [f.dCli, f.dEnc])
   const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [camposCli, camposEnc])
   const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(f.dEnc[destinoGuia] ?? ''), inicialTocado: true, setValor: () => {} })

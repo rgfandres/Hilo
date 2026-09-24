@@ -13,6 +13,7 @@ import { ajustesLogistica } from '@/data/logistica'
 import { activo, pendientesDe, tope99 } from '@/lib/bandejas'
 import { cn } from '@/lib/utils'
 import { useCerrarConAtras } from '@/lib/movil'
+import { useConexion } from '@/lib/conexion'
 
 function Item({ to, icon, children, count, title }: { to: string; icon: React.ReactNode; children: React.ReactNode; count?: number; title?: string }) {
   return (
@@ -42,6 +43,7 @@ export function AppShell() {
   const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number }>({ encargos: 0, atascados: 0 })
   const conMateriales = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && rol !== 'LOGISTICA'
   const [porPedir, setPorPedir] = React.useState(0)
+  const conexion = useConexion()
   const hoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>)
   const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
   // Contadores del menú: se recalculan al cambiar de pantalla y cada minuto (solo con la pestaña visible)
@@ -147,6 +149,9 @@ export function AppShell() {
         <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>
         <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>
         <div className="flex-1" />
+        <span className="flex items-center gap-1.5 px-2 pb-1 text-xs text-fg-3" title={conexion === 'conectado' ? 'Conectado con el servidor' : 'Sin conexión: lo que cambies no se guardará'}>
+          <span className={cn('h-1.5 w-1.5 rounded-full', conexion === 'conectado' ? 'bg-ok' : 'bg-danger')} />{conexion === 'conectado' ? 'Conectado' : 'Sin conexión'}
+        </span>
         <Item to="/ajustes" icon={<IconSettings size={14} />}>Ajustes</Item>
         <button onClick={signOut} title="Cerrar sesión" className="flex h-7 items-center gap-2 rounded-sm px-2 text-fg-2 hover:bg-bg-4">
           <span className="flex h-4 w-4 items-center justify-center rounded-sm bg-gray-5 text-[10px] font-semibold text-fg">{inicial}</span>
@@ -184,6 +189,11 @@ export function AppShell() {
           <div className="flex shrink-0 flex-wrap items-center gap-2 bg-warn-bg px-4 py-1.5 text-warn-fg" role="status">
             <span>Viendo la app como <b>{nombresRol[verComo]}</b> · solo lectura: nada se guarda.</span>
             <button onClick={() => setVerComo(null)} className="font-medium underline underline-offset-2">Salir de «Ver como»</button>
+          </div>
+        )}
+        {conexion === 'sin-conexion' && (
+          <div className="flex shrink-0 items-center gap-2 bg-danger-bg px-4 py-1.5 text-sm text-danger-fg" role="status">
+            <span className="h-1.5 w-1.5 rounded-full bg-danger" /> Sin conexión: lo que cambies no se guardará hasta que vuelva.
           </div>
         )}
         <Outlet />

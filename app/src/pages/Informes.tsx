@@ -11,6 +11,7 @@ import {
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Select, SectionLabel, Tag, tagColorFromHex } from '@/ui'
+import { Facturacion, InformeMateriales } from '@/components/InformesExtra'
 import { cn, locale } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { activo } from '@/lib/bandejas'
@@ -172,10 +173,14 @@ export function Informes() {
                 {descartados > 0 && <p className="m-0 text-sm text-warn-fg">⚠ {descartados} {descartados === 1 ? 'tramo no se ha contado' : 'tramos no se han contado'} porque la fecha de llegada es anterior a la de salida. Revisa las fechas de esos pasos en el hilo {gr_de(vocab.encargo)}.</p>}
               </section>
 
+              <Facturacion hs={hsVista} iv={iv} encargos={actuales} />
+
               <section className="flex flex-col gap-2">
                 <SectionLabel>Dónde está cada {min(vocab.encargo)} ahora</SectionLabel>
                 <Embudo actuales={enCurso} etapas={ordenEtapas} />
               </section>
+
+              <InformeMateriales iv={iv} />
 
               <section className="flex flex-col gap-2">
                 <SectionLabel>Por {min(vocab.proveedor)}</SectionLabel>

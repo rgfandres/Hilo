@@ -1,3 +1,4 @@
+import { plano } from '@/lib/texto'
 import { supabase } from '@/lib/supabase'
 import type { EncargoEstado } from '@/lib/types'
 
@@ -56,7 +57,7 @@ export interface ClienteFila {
 export async function listarClientesCat(tiendaId: string, q: string, pagina: number, porPagina: number) {
   let consulta = supabase.from('v_clientes').select('*', { count: 'exact' }).eq('tienda_id', tiendaId)
   const t = q.trim().replace(/[%,()]/g, ' ')
-  if (t) consulta = consulta.or(`nombre.ilike.%${t}%,telefono.ilike.%${t}%,email.ilike.%${t}%`)
+  if (t) consulta = consulta.or(`nombre_plano.ilike.%${plano(t)}%,telefono.ilike.%${t}%,email.ilike.%${t}%`)
   const { data, error, count } = await consulta.order('nombre').range(pagina * porPagina, pagina * porPagina + porPagina - 1)
   if (error) throw error
   return { filas: (data ?? []) as ClienteFila[], total: count ?? 0 }
