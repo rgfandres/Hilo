@@ -33,7 +33,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   const { tienda, rol, vocab, gr, periodo } = useAuth()
   const soloProveedor = rol === 'LOGISTICA'
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
-  const [productos, setProductos] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
+  const [productos, setProductos] = React.useState<{ id: string; nombre: string; activo: boolean; precio_base?: number | null }[]>([])
   const [proveedores, setProveedores] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
 
   const inicial = React.useMemo(() => ({
@@ -129,7 +129,12 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
           <SectionLabel>{vocab.encargo}</SectionLabel>
           {!soloProveedor && (
             <FormRow label={vocab.producto}>
-              <Combobox value={f.producto} onChange={set('producto')} vacio="— sin decidir —" ariaLabel={vocab.producto} etiquetaCrear="Añadir al catálogo"
+              <Combobox value={f.producto} onChange={(v) => setF((s) => {
+                  // Como en el alta: si el importe estaba vacío o era el precio del anterior, pasa al del nuevo
+                  const precio = (id: string) => { const p = productos.find((x) => x.id === id)?.precio_base; return p == null ? '' : String(p) }
+                  const auto = din.usa && (s.importe === '' || s.importe === precio(s.producto))
+                  return { ...s, producto: v, ...(auto && precio(v) !== '' ? { importe: precio(v) } : {}) }
+                })} vacio="— sin decidir —" ariaLabel={vocab.producto} etiquetaCrear="Añadir al catálogo"
                 opciones={productos.filter((p) => p.activo || p.id === f.producto).map((p) => ({ id: p.id, nombre: p.nombre, nota: p.activo ? undefined : 'inactivo' }))}
                 crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? async (n) => {
                   const id = await altaRapidaProducto(encargo.tienda_id, n)

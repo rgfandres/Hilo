@@ -229,7 +229,7 @@ export function AppShell() {
 export function PageHeader({ title, subtitle, children }: { title: React.ReactNode; subtitle?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <header className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-4 max-md:h-auto max-md:min-h-11 max-md:flex-wrap max-md:gap-2 max-md:py-1.5">
-      <span className="whitespace-nowrap font-medium">{title}</span>
+      <span className="min-w-0 truncate whitespace-nowrap font-medium max-md:max-w-full">{title}</span>
       {subtitle && <span className="hidden whitespace-nowrap text-fg-3 lg:inline">{subtitle}</span>}
       <div className="flex-1" />
       {children}

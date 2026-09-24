@@ -7,10 +7,10 @@ import { ajustesMaterial, cant, listarMateriales } from '@/data/materiales'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { PageHeader } from '@/layout/AppShell'
-import { CamposForm, aTexto, limpiar } from '@/components/CampoInput'
+import { CamposForm, CamposVista, aTexto, limpiar } from '@/components/CampoInput'
 import { Button, Dialog, FormRow, Input, SectionLabel, Select, Sheet, Tag, Textarea } from '@/ui'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
-import { cn, locale } from '@/lib/utils'
+import { ajustesDinero, cn, locale } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 /** «A medida · 8,7 m · Complementos: …» */
@@ -30,6 +30,9 @@ export function Productos() {
   const { tienda, vocab, gr, rol } = useAuth()
   const puedeEditar = rol === 'ADMIN' || rol === 'OPERATIVO'
   const moneda = String((tienda?.ajustes as Record<string, unknown>)?.moneda ?? 'EUR')
+  // Precio y aviso de ficha, solo si la tienda usa importes / fichas
+  const usaDinero = ajustesDinero(tienda?.ajustes as Record<string, unknown>).usa
+  const usaFichas = ajustesFicha(tienda?.ajustes as Record<string, unknown>).construcciones.length > 0 || ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo
   const [lista, setLista] = React.useState<ProductoFila[] | null>(null)
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [q, setQ] = React.useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
@@ -63,7 +66,7 @@ export function Productos() {
         {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.producto}</Button>}
       </PageHeader>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
-        <div className="relative w-[280px]">
+        <div className="relative w-[280px] max-md:w-full">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
           <Input className="h-7 pl-8" placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -91,9 +94,9 @@ export function Productos() {
                     {!p.activo && <Tag color="gray">inactiv{gr.o('producto')}</Tag>}
                   </div>
                   {tieneFicha(p) ? <span className="truncate text-xs text-fg-2">{resumenFicha(p, tienda?.ajustes as Record<string, unknown>)}</span>
-                    : <span className="text-xs text-warn-fg">Sin ficha técnica</span>}
+                    : puedeEditar && usaFichas && <span className="text-xs text-warn-fg">Sin ficha técnica</span>}
                   <span className="text-sm text-fg-3">
-                    {[formatoPrecio(p.precio_base, moneda), p.encargos ? `${p.encargos} ${p.encargos === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : null].filter(Boolean).join(' · ') || '—'}
+                    {[usaDinero ? formatoPrecio(p.precio_base, moneda) : null, p.encargos ? `${p.encargos} ${p.encargos === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : null].filter(Boolean).join(' · ') || '—'}
                   </span>
                 </div>
               </button>
@@ -193,8 +196,9 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
         </div>
         <div className="flex flex-col gap-1">
           <FormRow label="Nombre *"><Input className="h-7" disabled={soloLectura} value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} autoFocus={nuevo} /></FormRow>
-          <FormRow label="Precio"><Input className="h-7 w-[140px]" disabled={soloLectura} inputMode="decimal" value={f.precio} onChange={(e) => setF({ ...f, precio: e.target.value })} placeholder="Opcional" /></FormRow>
-          <CamposForm campos={campos} valores={f.datos} onCambio={(k, v) => setF((s) => ({ ...s, datos: { ...s.datos, [k]: v } }))} />
+          {(ajustesDinero(ajs).usa || f.precio) && <FormRow label="Precio"><Input className="h-7 w-[140px]" disabled={soloLectura} inputMode="decimal" value={f.precio} onChange={(e) => setF({ ...f, precio: e.target.value })} placeholder="Opcional" /></FormRow>}
+          {soloLectura ? <CamposVista campos={campos} datos={f.datos} soloRellenos />
+            : <CamposForm campos={campos} valores={f.datos} onCambio={(k, v) => setF((s) => ({ ...s, datos: { ...s.datos, [k]: v } }))} />}
           {!nuevo && (
             <FormRow label="Estado">
               <Interruptor checked={f.activo} disabled={soloLectura} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('producto')}: se puede elegir` : `Inactiv${gr.o('producto')}: no sale al crear`} />
@@ -213,7 +217,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
             <Input className="h-7 w-[120px]" inputMode="decimal" disabled={soloLectura} value={f.consumo} onChange={(e) => setF({ ...f, consumo: e.target.value })} />
           </FormRow>
           {(fic.construcciones.length > 0 || f.construccion) && (
-            <FormRow label="Construcción">
+            <FormRow label="Elaboración">
               <Select disabled={soloLectura} value={f.construccion} onChange={(e) => setF({ ...f, construccion: e.target.value })}>
                 <option value="">—</option>
                 {[...new Set([...fic.construcciones, ...(f.construccion ? [f.construccion] : [])])].map((x) => <option key={x} value={x}>{x}</option>)}

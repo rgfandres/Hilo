@@ -76,15 +76,14 @@ export function AjustesCuenta() {
 
       <Bloque titulo="Sesión" ayuda="En un dispositivo compartido, sal al terminar para que entre otra persona.">
         <div className="flex flex-wrap gap-2">
-          <Button onClick={signOut}>Salir</Button>
-          <Button variant="ghost" onClick={signOut}>Cambiar de usuario</Button>
+          <Button onClick={signOut}>Salir (para que entre otra persona)</Button>
         </div>
       </Bloque>
 
       <Mantenimiento />
 
       <Dialog open={!!quitar} onOpenChange={() => setQuitar(null)} title="Desactivar la verificación en dos pasos"
-        description="Entrarás solo con tu correo. Puedes volver a activarla cuando quieras."
+        description="Ya no se te pedirá el código del móvil al entrar: solo tu forma de entrar habitual. Puedes volver a activarla cuando quieras."
         actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => { if (quitar) await supabase.auth.mfa.unenroll({ factorId: quitar }); setQuitar(null); await leer() } }]} />
     </>
   )

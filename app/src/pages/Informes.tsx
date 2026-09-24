@@ -143,7 +143,7 @@ export function Informes() {
           {!cargando && !err && (
             <>
               <section className="flex flex-col gap-2">
-                <SectionLabel>Producción · {min(vocab.encargos)} que llegan a cada etapa</SectionLabel>
+                <SectionLabel>Avance por etapa · {min(vocab.encargos)} que llegan a cada una</SectionLabel>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                   <Tile titulo={`Nuev${os}`} n={prod.nuevos} ant={prod.nuevosAnt} />
                   {prod.etapas.map(({ e, n, ant }) => <Tile key={e.id} titulo={e.nombre} n={n} ant={ant} color={e.color} />)}

@@ -163,7 +163,7 @@ export function DialogoResto({ resto, unidad, onCerrar, onGuardar }: {
   const avisar = useAvisos()
   return (
     <Dialog open={!!resto} onOpenChange={(o) => { if (!o) onCerrar() }} title="¿Guardar como resto?"
-      description={resto ? `De ${nombreMaterial(resto.m)} quedan ${cant(resto.cantidad, unidad)}: ya no llega a una unidad de pedido. Si lo apartas como resto, el stock queda a 0 y el trozo se ve en «Restos».` : ''}
+      description={resto ? `De ${nombreMaterial(resto.m)} quedan ${cant(resto.cantidad, unidad)}: ya no llega a una unidad de pedido. Si lo apartas como resto, el stock queda a 0 y lo sobrante se ve en «Restos».` : ''}
       actions={[{ label: 'Guardar como resto', onClick: async () => {
         if (!resto) return
         try { await onGuardar(resto); avisar({ tipo: 'ok', texto: `Guardado como resto: ${cant(resto.cantidad, unidad)}` }); onCerrar() }

@@ -167,8 +167,9 @@ export function ParaHoy() {
             <section className="flex flex-col gap-1.5">
               <SectionLabel className="px-2">{fin.listos}</SectionLabel>
               <div className="border-t border-border-light">
-                {listos.slice(0, 10).map((e) => <Fila key={e.id} e={e} motivo={<Tag color="green">{e.etapa_actual_nombre}</Tag>} />)}
+                {listos.slice(0, 10).map((e) => <Fila key={e.id} e={e} motivo={<Tag color={bloqueado(e) ? 'amber' : 'green'} title={bloqueado(e) ? e.puertas_pendientes.filter((p) => p.dura).map((p) => p.mensaje).join(' · ') : undefined}>{bloqueado(e) ? `Bloquead${gr.o('encargo')}` : e.etapa_actual_nombre}</Tag>} />)}
               </div>
+              {listos.length > 10 && <Link to={aLista({ b: 'listos', desde: fin.listos })} className="px-2 text-sm text-fg-3 hover:text-fg">Ver todo ({listos.length})</Link>}
             </section>
           )}
 

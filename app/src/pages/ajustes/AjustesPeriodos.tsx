@@ -65,6 +65,7 @@ export function AjustesPeriodos() {
         <form className="flex items-center gap-2" onSubmit={async (e) => {
           e.preventDefault(); if (!tienda || !nuevo.nombre.trim()) return
           setErr(null); setOk(null)
+          if (nuevo.inicio && nuevo.fin && nuevo.fin < nuevo.inicio) { setErr('El fin no puede ser anterior al inicio'); return }
           try { await crearPeriodo(tienda.id, nuevo.nombre, nuevo.inicio, nuevo.fin); setNuevo({ nombre: '', inicio: '', fin: '' }); await cargar(); setOk('Periodo creado (no activo)') }
           catch (x) { const m = mensajeError(x); setErr(/duplicate|unique/i.test(m) ? 'Ya hay un periodo con ese nombre' : m) }
         }}>

@@ -29,7 +29,10 @@ export function relativo(iso: string | null | undefined): string {
 
 export function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short' })
+  const d = new Date(iso)
+  // Con año solo si no es el actual (para no mezclar días de años distintos)
+  const otroAno = d.getFullYear() !== new Date().getFullYear()
+  return d.toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short', ...(otroAno ? { year: 'numeric' } : {}) })
 }
 
 /** Nº de encargo con 3 cifras y, si lo tiene, el prefijo de su serie: «007», «S012». */

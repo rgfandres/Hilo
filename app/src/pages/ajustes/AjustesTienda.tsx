@@ -96,6 +96,12 @@ export function AjustesTienda() {
     if (f.materiales && !numOk(f.porEncargo)) { setErr(`«Pedido por ${f.vocab.encargo.toLowerCase()}» debe ser un número (0 o más)`); return }
     if (f.materiales && !numOk(f.umbralResto)) { setErr('El umbral de resto debe ser un número (0 o más)'); return }
     if (f.logistica && !(numOk(f.diasHist, 1) && /^\d*$/.test(f.diasHist.trim()))) { setErr('El histórico de logística debe ser un número entero de días (1 o más)'); return }
+    // Nombres de rol: ni vacíos ni repetidos; moneda: código de 3 letras (EUR, USD…)
+    const nombresR = Object.values(f.roles).map((v) => v.trim().toLowerCase())
+    if (nombresR.some((v) => !v)) { setErr('Ningún rol puede quedar sin nombre'); return }
+    if (new Set(nombresR).size !== nombresR.length) { setErr('Dos roles no pueden llamarse igual'); return }
+    const mon = f.moneda.trim().toUpperCase().replace('€', 'EUR').replace('$', 'USD') || 'EUR'
+    try { if (!/^[A-Z]{3}$/.test(mon)) throw 0; new Intl.NumberFormat('es-ES', { style: 'currency', currency: mon }) } catch { setErr('La moneda va con su código de 3 letras: EUR, USD, MXN…'); return }
     const vacias = Object.entries(f.vocab).filter(([, v]) => !v.trim())
     if (vacias.length) { setErr('Ninguna palabra del vocabulario puede quedar vacía'); return }
     setBusy(true); setErr(null); setOk(null)
@@ -115,7 +121,7 @@ export function AjustesTienda() {
         numeracion_reinicia_por_periodo: f.reinicia,
         zona_horaria: f.zona,
         locale: f.locale,
-        moneda: f.moneda.trim().toUpperCase() || 'EUR',
+        moneda: mon || 'EUR',
         usar_importe: f.importe,
         normalizar_nombres: f.normalizar,
         modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion, logistica: f.logistica },
@@ -288,7 +294,7 @@ export function AjustesTienda() {
 
       <Bloque titulo="Ficha técnica" ayuda={`Lo que cada ${f.vocab.producto.toLowerCase()} lleva: se rellena en su ficha del catálogo y se ve como resumen en cada ${f.vocab.encargo.toLowerCase()}.`}>
         <div className="flex flex-col gap-1">
-          <FormRow label="Tipos de construcción" ayuda="Separados por comas. Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
+          <FormRow label="Tipos de elaboración" ayuda="Separados por comas (a medida, de serie…). Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
           <FormRow label="Complementos" ayuda={`Lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…): un campo de texto en el alta y en la ficha.`}><Interruptor checked={f.usaComp} onChange={(v) => setF({ ...f, usaComp: v })} label="Usar complementos" /></FormRow>
           {f.usaComp && <FormRow label="Cómo los llamáis"><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>}
         </div>
@@ -329,7 +335,7 @@ export function AjustesTienda() {
 
       <Bloque titulo={`Pantalla de ${f.roles.LOGISTICA}`} ayuda={`Bandejas para quien lleva y trae: una por cada etapa que marca «${f.roles.LOGISTICA}» (Ajustes → Flujos) y una por cada comprobación obligatoria antes de ella, con tarjetas para el móvil.`}>
         <div className="flex flex-col gap-1">
-          <FormRow label="Módulo"><Interruptor checked={f.logistica} onChange={(v) => setF({ ...f, logistica: v })} label="Usar la pantalla de logística" /></FormRow>
+          <FormRow label="Módulo"><Interruptor checked={f.logistica} onChange={(v) => setF({ ...f, logistica: v })} label={`Usar la pantalla de «${f.roles.LOGISTICA}»`} /></FormRow>
           {f.logistica && <FormRow label="Histórico (días)"><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /></FormRow>}
         </div>
       </Bloque>

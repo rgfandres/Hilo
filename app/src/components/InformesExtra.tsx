@@ -57,7 +57,7 @@ export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Inter
       <SectionLabel>Facturación estimada</SectionLabel>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <Cifra titulo="Entrada" valor={dinero(entrada.t, din.moneda)} nota={nota(entrada)} />
-        <Cifra titulo="Producción terminada" valor={dinero(prod.t, din.moneda)} nota={nota(prod)} />
+        <Cifra titulo={`Vuelto de ${min(vocab.proveedor)}`} valor={dinero(prod.t, din.moneda)} nota={nota(prod)} />
         <Cifra titulo="Entregado" valor={dinero(entregado.t, din.moneda)} nota={nota(entregado)} />
         <Cifra titulo="En curso (cartera)" valor={dinero(cartera.t, din.moneda)} nota={nota(cartera)} />
         <Cifra titulo="Pendiente de cobro" valor={dinero(totalPend, din.moneda)} nota={`${pendCobro.length} con algo pendiente`} />

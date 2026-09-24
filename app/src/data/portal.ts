@@ -6,6 +6,8 @@ export interface EncargoPortal {
   tipo_encargo_id: string; datos: Record<string, unknown>; cliente_datos: Record<string, unknown>
   etapa_actual_nombre: string | null; carpeta: 'EN_CURSO' | 'ENTREGADOS'
   siguiente_clave: string | null; siguiente_nombre: string | null
+  /** Lo que impide marcar el siguiente paso (condiciones obligatorias pendientes) */
+  bloqueo?: string | null
   hitos: { nombre: string; fecha: string }[]; actualizado_en: string
 }
 

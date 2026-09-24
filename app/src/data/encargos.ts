@@ -198,9 +198,9 @@ export async function listarProveedores(tiendaId: string) {
 }
 
 export async function listarProductos(tiendaId: string) {
-  const { data, error } = await supabase.from('producto').select('id,nombre,activo').eq('tienda_id', tiendaId).order('nombre')
+  const { data, error } = await supabase.from('producto').select('id,nombre,activo,precio_base').eq('tienda_id', tiendaId).order('nombre')
   if (error) throw error
-  return (data ?? []) as { id: string; nombre: string; activo: boolean }[]
+  return (data ?? []) as { id: string; nombre: string; activo: boolean; precio_base?: number | null }[]
 }
 
 export async function marcarRevisar(encargoId: string, nota: string) {

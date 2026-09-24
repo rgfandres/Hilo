@@ -15,12 +15,12 @@ import { DialogoResto } from '@/components/Material'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
 import { Button, CapaCarga, Dialog, FormRow, Input, Segmented, Select, Sheet, Table, Tabs, Tag, Td, Th, Tr, useAvisos, Textarea } from '@/ui'
 import { copiarTexto, compartir } from '@/lib/copiar'
-import { cn, num3, locale, zona } from '@/lib/utils'
+import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 type Vista = 'catalogo' | 'pedidos' | 'movimientos' | 'restos'
 const n = (x: string) => Number(String(x).replace(',', '.'))
-const fecha = (s: string) => new Date(s).toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short' })
+const fecha = (s: string) => fechaCorta(s)
 
 /** Materiales: catálogo con stock, pedidos a proveedor, libro de movimientos y restos. */
 export function Materiales() {
@@ -55,10 +55,10 @@ export function Materiales() {
 
   const lista = mats ?? []
   const nPedir = lista.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length
-  const nCamino = pedidos.filter((p) => p.estado !== 'RECIBIDO').length
+  const nCamino = pedidos.filter((p) => p.estado === 'PENDIENTE' || p.estado === 'PARCIAL').length
   const tabs = [
     { key: 'catalogo', label: 'Catálogo', count: lista.filter((m) => m.activo).length },
-    { key: 'pedidos', label: 'Pedidos', count: nPedir + nCamino || undefined, aviso: nPedir > 0, title: `${nPedir} por pedir · ${nCamino} en camino` },
+    { key: 'pedidos', label: 'Pedidos', count: nPedir || undefined, aviso: nPedir > 0, title: `${nPedir} por pedir · ${nCamino} en camino` },
     { key: 'movimientos', label: 'Movimientos' },
     { key: 'restos', label: 'Restos', count: restos.length || undefined },
   ]
@@ -137,9 +137,9 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
                       <Td className="text-right tabular">
                         {puedeEditar ? <button className="rounded-sm px-1 hover:bg-bg-4" title="Corregir el stock (queda en el libro)" onClick={() => setStock(m)}>{cant(m.stock, unidad)}</button> : cant(m.stock, unidad)}
                       </Td>
-                      <Td className="text-right tabular text-fg-2">{Number(m.demanda) > 0 ? `${cant(m.demanda, unidad)} · ${m.encargos_pendientes}` : '—'}</Td>
+                      <Td className="text-right tabular text-fg-2">{Number(m.demanda) > 0 ? <>{cant(m.demanda, unidad)} <span className="text-fg-3">({m.encargos_pendientes} {Number(m.encargos_pendientes) === 1 ? min(vocab.encargo) : min(vocab.encargos)})</span></> : '—'}</Td>
                       <Td className="text-right tabular text-fg-2">{Number(m.en_camino) > 0 ? cant(m.en_camino, unidad) : '—'}</Td>
-                      <Td className="text-right tabular text-fg-3">{m.umbral_efectivo}</Td>
+                      <Td className="text-right tabular text-fg-3">{cant(m.umbral_efectivo, unidad)}</Td>
                       <Td className="text-fg-2">{m.ubicacion ?? ''}</Td>
                       <Td>{av.nivel === 'falta' ? <Tag color="red">Falta</Tag> : av.nivel === 'limite' ? <Tag color="amber">Al límite</Tag> : Number(m.restos) > 0 ? <Tag color="gray">+{cant(m.restos, unidad)} en restos</Tag> : null}
                         {!m.unidad_efectiva && <span className="ml-1 text-xs text-fg-3" title="Sin unidad de pedido: la propuesta no se redondea y no se ofrecen restos">sin unidad de pedido</span>}</Td>
@@ -314,7 +314,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
     } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) } finally { setBusy(null) }
   }
 
-  const visibles = pedidos.filter((p) => filtro === 'todos' || p.estado !== 'RECIBIDO')
+  const visibles = pedidos.filter((p) => filtro === 'todos' || p.estado === 'PENDIENTE' || p.estado === 'PARCIAL')
   return (
     <div className="flex flex-col gap-5 p-4">
       <section className="flex flex-col gap-2">
@@ -357,7 +357,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
       <section className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="m-0 text-md font-semibold">Pedidos hechos</h2>
-          <Segmented value={filtro} onChange={(k) => setFiltro(k as typeof filtro)} items={[{ key: 'camino', label: 'En camino', count: pedidos.filter((p) => p.estado !== 'RECIBIDO').length }, { key: 'todos', label: 'Todos', count: pedidos.length }]} />
+          <Segmented value={filtro} onChange={(k) => setFiltro(k as typeof filtro)} items={[{ key: 'camino', label: 'En camino', count: pedidos.filter((p) => p.estado === 'PENDIENTE' || p.estado === 'PARCIAL').length }, { key: 'todos', label: 'Todos', count: pedidos.length }]} />
         </div>
         {visibles.length === 0 ? <p className="m-0 text-fg-3">{filtro === 'camino' ? 'Nada en camino.' : 'Aún no hay pedidos.'}</p> : (
           <Table>
@@ -368,7 +368,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
                   <Td className="text-fg-2">{fecha(p.fecha)}</Td>
                   <Td className="text-fg-2">{p.proveedor_nombre ?? '—'}</Td>
                   <Td className="font-medium">{nombreMaterial(p)}</Td>
-                  <Td className="text-right tabular">{Number(p.recibido).toLocaleString('es-ES')} / {cant(p.cantidad, aj.unidad)}</Td>
+                  <Td className="text-right tabular">{Number(p.recibido).toLocaleString(locale())} / {cant(p.cantidad, aj.unidad)}</Td>
                   <Td><Tag color={p.estado === 'RECIBIDO' ? 'green' : p.estado === 'CERRADA' ? 'gray' : p.estado === 'PARCIAL' ? 'amber' : 'blue'}>{p.estado === 'RECIBIDO' ? 'Recibido' : p.estado === 'CERRADA' ? 'Cerrado' : p.estado === 'PARCIAL' ? 'Parcial' : 'En camino'}</Tag>
                     {p.estado === 'CERRADA' && p.cerrada_motivo && <div className="text-xs text-fg-3">{p.cerrada_motivo}</div>}</Td>
                   <Td className="text-sm text-fg-2">{p.encargos.map((e) => <Link key={e.id} to={`/encargos/${e.id}`} className="mr-1.5 hover:underline">{num3(e)} {e.cliente}</Link>)}</Td>
@@ -486,6 +486,7 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
   const { vocab } = useAuth()
   const avisar = useAvisos()
   const [editar, setEditar] = React.useState<Resto | null>(null)
+  const [usado, setUsado] = React.useState<Resto | null>(null)
   const [v, setV] = React.useState('')
   const total = restos.reduce((a, r) => a + Number(r.cantidad), 0)
   const porMat = new Map<string, Resto[]>()
@@ -493,7 +494,7 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
   return (
     <div className="flex flex-col gap-3 p-4">
       <p className="m-0 rounded-sm bg-bg-3 px-3 py-2 text-sm text-fg-2">
-        Los restos son trozos que ya no llegan a una unidad de pedido. <b>No cuentan en el stock</b> ni en los avisos: úsalos para arreglos o piezas pequeñas y dalos por usados cuando se acaben.
+        Los restos son sobrantes que ya no llegan a una unidad de pedido. <b>No cuentan en el stock</b> ni en los avisos: úsalos para arreglos o trabajos pequeños y dalos por usados cuando se acaben.
       </p>
       <span className="text-sm text-fg-3">{restos.length} restos · {cant(total, unidad)} en total</span>
       {restos.length === 0 ? <p className="m-0 text-fg-3">No hay restos guardados.</p> : (
@@ -508,20 +509,26 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
                 <Td className="text-fg-2">{fecha(r.fecha)}</Td>
                 <Td className="whitespace-nowrap">
                   <Button size="sm" variant="ghost" onClick={() => { setEditar(r); setV(String(r.cantidad)) }}>Corregir</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setEditar(r); setV('0') }}>Usado</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setUsado(r)}>Usado</Button>
                 </Td>
               </Tr>
             )))}
           </tbody>
         </Table>
       )}
-      <Dialog open={!!editar} onOpenChange={(o) => !o && setEditar(null)} title="Corregir resto" description="Si pones 0 se da por usado."
+      <Dialog open={!!editar} onOpenChange={(o) => !o && setEditar(null)} title="Corregir resto" description="La cantidad que queda de verdad. Si pones 0 se da por usado."
         actions={[{ label: 'Guardar', onClick: async () => {
           if (!editar) return
           try { await cambiarResto(editar.id, n(v) || 0); await onCambio(); setEditar(null) } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) }
         } }]}>
         <FormRow label={`Cantidad (${unidad})`}><Input className="h-7 w-[140px]" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} autoFocus /></FormRow>
       </Dialog>
+      <Dialog open={!!usado} onOpenChange={(o) => !o && setUsado(null)} title="Dar por usado"
+        description={usado ? `${nombreMaterial(mats.find((m) => m.id === usado.material_id))}: ${cant(usado.cantidad, unidad)}. Deja de aparecer en «Restos».` : ''}
+        actions={[{ label: 'Dar por usado', onClick: async () => {
+          if (!usado) return
+          try { await cambiarResto(usado.id, 0); await onCambio(); setUsado(null) } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) }
+        } }]} />
     </div>
   )
 }

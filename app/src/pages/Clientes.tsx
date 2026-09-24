@@ -44,9 +44,9 @@ export function Clientes() {
         {puedeCrear && <Button variant="primary" onClick={() => setNuevo(true)}>+ {vocab.cliente}</Button>}
       </PageHeader>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
-        <div className="relative w-[320px]">
+        <div className="relative w-[320px] max-md:w-full">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
-          <Input className="h-7 pl-8" placeholder="Buscar por nombre, teléfono o correo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          <Input className="h-7 pl-8" placeholder="Buscar por nombre, teléfono o correo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus={!window.matchMedia?.("(pointer: coarse)").matches} />
         </div>
         {err && <span className="inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-sm text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); setReintento((n) => n + 1) }}>Reintentar</button></span>}
         <div className="flex-1" />

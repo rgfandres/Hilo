@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { plano } from '@/lib/texto'
 import { IconArrowDown, IconArrowUp, IconLock, IconAlertTriangle, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
@@ -117,7 +118,11 @@ export function AjustesFlujos() {
                   const v = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '')
                   e.target.value = v
                   if (v === (tipo.serie ?? '')) return
-                  try { await actualizarTipo(tipo.id, { serie: v }); await cargarTipos() } catch (x) { setErr(mensajeError(x)) }
+                  try {
+                    await actualizarTipo(tipo.id, { serie: v }); await cargarTipos()
+                    const otro = tipos.find((x) => x.id !== tipo.id && (x.serie ?? '') === v)
+                    if (otro) setOk(`Aviso: «${otro.nombre}» usa la misma serie${v ? ` «${v}»` : ' (sin letras)'}; compartirán la numeración.`)
+                  } catch (x) { setErr(mensajeError(x)) }
                 }}
                 className="h-6 w-14 rounded-sm border border-border bg-bg px-1.5 text-center font-mono text-fg" />
             </label>
@@ -143,7 +148,7 @@ export function AjustesFlujos() {
                     </div>
                     <span className="w-5 text-right text-sm text-fg-3 tabular">{i + 1}</span>
                     <ColorEtapa value={e.color} onChange={(c) => hacer(() => actualizarEtapa(e.id, { color: c }))} />
-                    <NombreEnLinea value={e.nombre} onSave={(v) => hacer(() => actualizarEtapa(e.id, { nombre: v }))} />
+                    <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(() => actualizarEtapa(e.id, { nombre: v })) }} />
                     <div className="flex-1" />
                     {ps.some((p) => p.dura) && <IconLock size={13} className="text-danger-fg" />}
                     {ps.some((p) => !p.dura) && <IconAlertTriangle size={13} className="text-warn-fg" />}
@@ -208,7 +213,7 @@ export function AjustesFlujos() {
                                 hacer(() => crearPuerta(tienda.id, {
                                   etapa_destino_id: e.id, tipo: t.v, referencia: ref, dura: i !== 0,
                                   etiqueta: t.v === 'CHECK' ? 'Comprobación' : null,
-                                  mensaje: t.v === 'HITO_PREVIO' ? `Antes tiene que pasar por ${nombreRef}` : t.v === 'CAMPO_NO_VACIO' ? `Falta ${nombreRef.toLowerCase()}` : t.v === 'MATERIAL' ? `Falta recibir el ${min(vocab.material)}` : 'Falta marcar la comprobación',
+                                  mensaje: t.v === 'HITO_PREVIO' ? `Antes tiene que pasar por ${nombreRef}` : t.v === 'CAMPO_NO_VACIO' ? `Falta ${nombreRef.toLowerCase()}` : t.v === 'MATERIAL' ? `Falta recibir ${gr.con('material', 'el')}` : 'Falta marcar la comprobación',
                                 }), 'Condición añadida')
                               }}>+ {t.label.toLowerCase()}</Button>
                           ))}
@@ -224,6 +229,7 @@ export function AjustesFlujos() {
           </Lista>
           <form className="flex gap-2" onSubmit={async (ev) => {
             ev.preventDefault(); if (!tienda || !nuevaEtapa.trim()) return
+            if (etapas.some((x) => plano(x.nombre) === plano(nuevaEtapa))) { setErr(`Ya hay una etapa «${nuevaEtapa.trim()}» en este tipo`); return }
             if (await hacer(() => crearEtapa(tienda.id, tipoId, nuevaEtapa, etapas), 'Etapa añadida')) setNuevaEtapa('')
           }}>
             <Input className="h-7" placeholder="Nombre de la nueva etapa (se añade al final)" value={nuevaEtapa} onChange={(e) => setNuevaEtapa(e.target.value)} />
@@ -238,6 +244,7 @@ export function AjustesFlujos() {
         description={dlgTipo === 'nuevo' ? 'Por ejemplo: «A medida», «Arreglo», «Reparación». Después le añades sus etapas.' : undefined}
         actions={[{ label: dlgTipo === 'nuevo' ? 'Crear' : 'Guardar', disabled: !nombreTipo.trim(), onClick: async () => {
           if (!tienda) return
+          if (tipos.some((x) => (dlgTipo === 'nuevo' || x.id !== tipo?.id) && plano(x.nombre) === plano(nombreTipo))) { setDErr(`Ya hay un tipo «${nombreTipo.trim()}»`); return }
           try {
             if (dlgTipo === 'nuevo') { const t = await crearTipo(tienda.id, nombreTipo, tipos.map((x) => x.clave)); await cargarTipos(); setTipoId(t.id) }
             else if (tipo) { await actualizarTipo(tipo.id, { nombre: nombreTipo.trim() }); await cargarTipos() }

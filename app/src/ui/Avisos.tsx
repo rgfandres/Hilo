@@ -12,6 +12,9 @@ export interface Aviso { id: number; tipo: TipoAviso; texto: string; accion?: { 
 type Nuevo = Omit<Aviso, 'id'>
 
 const DURACION: Record<TipoAviso, number> = { ok: 3000, info: 4000, aviso: 7000, error: 8000 }
+/** Segundos para pulsar «Deshacer» (Ajustes → Tienda); igual en lista, logística, ficha y portal */
+let SEG_DESHACER = 8
+export const setSegundosDeshacer = (s: unknown) => { const n = Number(s); SEG_DESHACER = Number.isFinite(n) && n >= 3 ? n : 8 }
 const Ctx = React.createContext<(a: Nuevo) => void>(() => {})
 
 export function AvisosProvider({ children }: { children: React.ReactNode }) {
@@ -21,7 +24,7 @@ export function AvisosProvider({ children }: { children: React.ReactNode }) {
     const id = Date.now() + Math.random()
     setLista((l) => [...l.slice(-3), { ...a, id }])
     // Con una acción (p. ej. Deshacer) se deja más tiempo para pulsarla
-    if (!a.persistente) setTimeout(() => cerrar(id), a.accion ? Math.max(DURACION[a.tipo], 8000) : DURACION[a.tipo])
+    if (!a.persistente) setTimeout(() => cerrar(id), a.accion ? Math.max(DURACION[a.tipo], SEG_DESHACER * 1000) : DURACION[a.tipo])
   }, [cerrar])
   return (
     <Ctx.Provider value={avisar}>

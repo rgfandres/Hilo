@@ -34,17 +34,17 @@ export function Tabs({ items, value, onChange, className }: {
               className={cn(
                 'relative inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap px-2 text-base font-medium text-fg-2 transition-colors',
                 on ? 'text-fg shadow-[inset_0_-2px_0_var(--color-gray-12)]' : 'hover:text-fg rounded-sm hover:bg-bg-3',
-                t.tone === 'danger' && !on && 'text-danger-fg',
+                t.tone === 'danger' && !on && (t.count ?? 1) > 0 && 'text-danger-fg',
               )}
             >
               {t.label}
               {t.count != null && (
-                <span className={cn('text-xs tabular', t.aviso && !on ? 'font-semibold text-danger-fg' : 'text-fg-3')}>{t.count}</span>
+                <span className={cn('text-xs tabular', t.aviso && !on ? cn('font-semibold', t.tone === 'danger' ? 'text-danger-fg' : 'text-[var(--accent)]') : 'text-fg-3')}>{t.count}</span>
               )}
               {t.aviso && !on && (
                 <span className="relative flex h-1.5 w-1.5" aria-label="Pendiente">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-danger" />
+                  <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', t.tone === 'danger' ? 'bg-danger' : 'bg-[var(--accent)]')} />
+                  <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', t.tone === 'danger' ? 'bg-danger' : 'bg-[var(--accent)]')} />
                 </span>
               )}
             </button>

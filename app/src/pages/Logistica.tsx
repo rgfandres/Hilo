@@ -72,7 +72,7 @@ export function Logistica() {
         const ya = out.find((b) => b.key === key)
         if (ya) { ya.etapas.push(et); continue }
         out.push({ key, label: p.etiqueta || p.mensaje, tipo: 'check', etapas: [et], ref: p.referencia, destino: et.nombre,
-          subtitulo: `Marca «${p.etiqueta || p.mensaje}» cuando esté: pasan solos a «${et.nombre}».` })
+          subtitulo: `Marca «${p.etiqueta || p.mensaje}» cuando esté: después pasan a la bandeja «${et.nombre}» para marcarla.` })
       }
       const key = 'e:' + et.nombre
       const ya = out.find((b) => b.key === key)
@@ -115,7 +115,7 @@ export function Logistica() {
   const visibles = usarCarpetas && carpeta !== null ? filtrados.filter((e) => (e.proveedor_nombre ?? '') === carpeta) : filtrados
 
   const hoja = ajustesHoja(aj)
-  const valorDe = (e: EncargoEstado) => hoja.campoCol ? String((e.datos ?? {})[hoja.campoCol] ?? '') : ''
+  const valorDe = (e: EncargoEstado) => hoja.activo && hoja.campoCol ? String((e.datos ?? {})[hoja.campoCol] ?? '') : ''
   const fechaCampo = (e: EncargoEstado) => {
     const c = camposDe(ps, 'ENCARGO', e.tipo_encargo_id).find((x) => x.tipo === 'fecha' && (e.datos ?? {})[x.clave])
     return c ? { etiqueta: c.etiqueta, valor: String((e.datos ?? {})[c.clave]) } : null
@@ -160,7 +160,7 @@ export function Logistica() {
       <>
         <PageHeader title={nombresRol.LOGISTICA} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
-          <span>La pantalla de logística está apagada.</span>
+          <span>La pantalla de «{nombresRol.LOGISTICA}» está apagada.</span>
           {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/tienda">Activarla en Ajustes → Tienda</Link></Button>}
         </div>
       </>

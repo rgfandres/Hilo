@@ -9,6 +9,7 @@ import { camposDe, formatearValor, plantillas, type Campo, type PlantillaCampos 
 import { cn, fechaCorta, num3, relativo } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { Button, Input, UndoBar } from '@/ui'
+import { useDobleToque } from '@/lib/movil'
 
 type CampoV = Campo & { visible_proveedor?: boolean }
 
@@ -26,7 +27,9 @@ export function Portal() {
   const [carpeta, setCarpeta] = React.useState<'EN_CURSO' | 'ENTREGADOS'>('EN_CURSO')
   const [q, setQ] = React.useState('')
   const [abierto, setAbierto] = React.useState<string | null>(null)
-  const [armado, setArmado] = React.useState<string | null>(null)
+  const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
+  const toque = useDobleToque(Number(ajT.segundos_doble_toque ?? 3.5))
+  const armado = toque.armado
   const [busy, setBusy] = React.useState<string | null>(null)
   const [undo, setUndo] = React.useState<{ id: string; msg: string } | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
@@ -38,8 +41,6 @@ export function Portal() {
     setLista(l); setPs(p)
   }, [tienda, verComo])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
-  // El armado de la doble pulsación se desarma solo a los 3,5 s
-  React.useEffect(() => { if (!armado) return; const t = setTimeout(() => setArmado(null), 3500); return () => clearTimeout(t) }, [armado])
 
   const nombreProv = lista?.[0]?.proveedor_nombre
   const filtro = q.trim().toLowerCase()
@@ -49,8 +50,8 @@ export function Portal() {
 
   async function marcar(e: EncargoPortal) {
     if (verComo || !e.siguiente_clave) return
-    if (armado !== e.id) { setArmado(e.id); return }
-    setArmado(null); setBusy(e.id); setErr(null)
+    if (!toque.pulsar(e.id)) return
+    setBusy(e.id); setErr(null)
     try {
       await crearHito(e.id, e.siguiente_clave)
       setUndo({ id: e.id, msg: `${num3(e)} · ${e.siguiente_nombre}` })
@@ -158,9 +159,12 @@ export function Portal() {
                       <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? `Devuelt${gr.o('encargo')}` : null), relativo(e.actualizado_en)].filter(Boolean).join(' · ')}</span>
                     </div>
                   </button>
-                  {e.siguiente_clave && e.carpeta === 'EN_CURSO' && (
+                  {e.siguiente_clave && e.carpeta === 'EN_CURSO' && e.bloqueo && (
+                    <span className="max-w-[45%] shrink-0 text-right text-sm text-warn-fg" title={e.bloqueo}>Aún no: {e.bloqueo}</span>
+                  )}
+                  {e.siguiente_clave && e.carpeta === 'EN_CURSO' && !e.bloqueo && (
                     <Button variant={armado === e.id ? 'armed' : 'default'} disabled={!!verComo || busy === e.id} onClick={() => marcar(e)} className="h-9 shrink-0 px-3">
-                      {armado === e.id ? '¿Confirmar?' : e.siguiente_nombre}
+                      {armado === e.id ? `¿${e.siguiente_nombre}? Toca otra vez` : e.siguiente_nombre}
                     </Button>
                   )}
                 </div>
@@ -195,7 +199,7 @@ export function Portal() {
 
       {undo && (
         <div className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center px-4">
-          <UndoBar className="pointer-events-auto w-full max-w-[420px]" message={undo.msg} onUndo={deshacer} onExpire={() => setUndo(null)} />
+          <UndoBar className="pointer-events-auto w-full max-w-[420px]" seconds={Number(ajT.segundos_deshacer ?? 8)} message={undo.msg} onUndo={deshacer} onExpire={() => setUndo(null)} />
         </div>
       )}
     </div>

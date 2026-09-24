@@ -4,6 +4,7 @@ import { setSoloLectura, supabase } from '@/lib/supabase'
 import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
 import { contextoErrores } from '@/data/encargos'
+import { setSegundosDeshacer } from '@/ui/Avisos'
 import { gramatica, generosDe, rolesDe, vocabDe, type Gramatica, type Vocab } from '@/lib/vocab'
 
 interface AuthState {
@@ -132,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setLocale((tienda?.ajustes?.locale as string | undefined) ?? 'es-ES')
     setZona(tienda?.ajustes?.zona_horaria as string | undefined)
+    setSegundosDeshacer(tienda?.ajustes?.segundos_deshacer)
     const c = (tienda?.ajustes?.color_primario as string | undefined) ?? '#333333'
     document.documentElement.style.setProperty('--accent', c)
   }, [tienda])

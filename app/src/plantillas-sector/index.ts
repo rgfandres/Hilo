@@ -179,7 +179,7 @@ export const PLANTILLAS: PlantillaSector[] = [
     campos: {
       ENCARGO: [
         { clave: 'estancia', etiqueta: 'Estancia', tipo: 'opcion', opciones: ['Cocina', 'Baño', 'Dormitorio', 'Salón', 'Oficina', 'Otra'], en_tabla: true, visible_proveedor: true },
-        { clave: 'material', etiqueta: 'Material', tipo: 'texto', visible_proveedor: true },
+        { clave: 'madera', etiqueta: 'Madera o tablero', tipo: 'texto', visible_proveedor: true },
         { clave: 'acabado', etiqueta: 'Acabado', tipo: 'texto', visible_proveedor: true },
         { clave: 'direccion', etiqueta: 'Dirección de instalación', tipo: 'texto' },
         { clave: 'fecha_instalacion', etiqueta: 'Instalación prevista', tipo: 'fecha', en_tabla: true },
@@ -188,7 +188,7 @@ export const PLANTILLAS: PlantillaSector[] = [
     tipos: [{ clave: 'PROYECTO', nombre: 'Proyecto a medida', etapas: [
       { clave: 'MEDICION', nombre: 'Medición hecha', rol: 'ATENCION', color: GRIS },
       { clave: 'DISENO', nombre: 'Diseño aprobado', rol: 'ATENCION', color: AMBAR, puertas: [cobro('Señal cobrada', 'Falta cobrar la señal')] },
-      { clave: 'FABRICACION', nombre: 'En fabricación', color: MORADO, visible: true, espera: true, puertas: [{ tipo: 'CAMPO_NO_VACIO', ref: 'material', mensaje: 'Falta el material', dura: false }] },
+      { clave: 'FABRICACION', nombre: 'En fabricación', color: MORADO, visible: true, espera: true, puertas: [{ tipo: 'CAMPO_NO_VACIO', ref: 'madera', mensaje: 'Falta elegir la madera', dura: false }] },
       { clave: 'FABRICADO', nombre: 'Fabricado', color: AZUL, visible: true, marca: true },
       { clave: 'INSTALADO', nombre: 'Instalado', rol: 'LOGISTICA', color: VERDE, final: true, puertas: [cobro('Pago final cobrado', 'Falta cobrar el resto')] },
     ] }],

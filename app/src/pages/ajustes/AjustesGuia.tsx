@@ -24,6 +24,8 @@ export function AjustesGuia() {
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [importar, setImportar] = React.useState<string | null>(null)
+  const [impErr, setImpErr] = React.useState<string | null>(null)
+  const [quitarPropia, setQuitarPropia] = React.useState(false)
   const [gen, setGen] = React.useState<{ desde: string; hasta: string; paso: string; base: Record<string, string>; inc: Record<string, string> } | null>(null)
   const [prueba, setPrueba] = React.useState<Record<string, string>>({})
   React.useEffect(() => setG(inicial), [inicial])
@@ -40,7 +42,7 @@ export function AjustesGuia() {
   const medidas = campos.filter((c) => (c.entidad === 'CLIENTE' || c.entidad === 'ENCARGO') && c.tipo === 'numero' && c.medida)
   const cols = [...new Set([...(g.principal ? [g.principal] : []), ...g.validan])]
   const et = Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta]))
-  const sucio = JSON.stringify(g) !== JSON.stringify(inicial) || (!!amb.periodo && amb.propio == null && g.activa)
+  const sucio = JSON.stringify(g) !== JSON.stringify(inicial)
   const setFila = (i: number, f: FilaGuia) => setG((s) => ({ ...s, filas: s.filas.map((x, j) => (j === i ? f : x)) }))
   const n = (s: string) => { const v = Number(s.replace(',', '.')); return s.trim() === '' || !Number.isFinite(v) ? null : v }
 
@@ -66,8 +68,8 @@ export function AjustesGuia() {
       <div className="flex flex-wrap items-center gap-3">
         <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={amb.setAmbito} clave="guia_medidas" />
         {amb.periodo && (amb.propio == null
-          ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si guardas aquí, tendrá la suya propia.</span>
-          : <Button size="sm" variant="ghost" onClick={async () => { await ponerAjustePeriodo(amb.periodo!.id, 'guia_medidas', null); await amb.recargarPeriodos(); await recargar(); setOk('El periodo vuelve a usar la guía de la tienda') }}>Quitar la guía propia del periodo</Button>)}
+          ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>
+          : <Button size="sm" variant="ghost" onClick={() => setQuitarPropia(true)}>Quitar la guía propia del periodo</Button>)}
       </div>
       <Bloque titulo="Guía de medidas" ayuda={`Tabla de referencia para proponer un valor a partir de las medidas guardadas. Se propone en vivo al crear o editar ${gr.con('encargo', 'un')}; siempre se puede elegir otro.`}>
         <div className="flex flex-col gap-1">
@@ -142,11 +144,15 @@ export function AjustesGuia() {
 
       <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setG(inicial); setErr(null) }} />
 
-      <Dialog open={importar !== null} onOpenChange={(o) => !o && setImportar(null)} title="Pegar desde hoja de cálculo"
+      <Dialog open={quitarPropia} onOpenChange={setQuitarPropia} title="Quitar la guía propia del periodo"
+        description="El periodo vuelve a usar la guía de la tienda y su tabla propia se borra."
+        actions={[{ label: 'Quitar', variant: 'danger', onClick: async () => { setQuitarPropia(false); await ponerAjustePeriodo(amb.periodo!.id, 'guia_medidas', null); await amb.recargarPeriodos(); await recargar(); setOk('El periodo vuelve a usar la guía de la tienda') } }]} />
+      <Dialog open={importar !== null} onOpenChange={(o) => { if (!o) { setImportar(null); setImpErr(null) } }} error={impErr} title="Pegar desde hoja de cálculo"
         description="Copia la tabla con su cabecera: una fila por valor y una columna por medida, o al revés. Los nombres de las medidas deben coincidir con los de Ajustes → Campos."
         actions={[{ label: 'Importar', onClick: async () => {
           const r = importarGuia(importar ?? '', medidas)
-          if (typeof r === 'string') { setErr(r); setImportar(null); return }
+          if (typeof r === 'string') { setImpErr(r); return }
+          setImpErr(null)
           setG((s) => ({ ...s, filas: r.filas, principal: s.principal ?? r.columnas[0] ?? null, validan: [...new Set([...s.validan, ...r.columnas.filter((c) => c !== (s.principal ?? r.columnas[0]))])] }))
           setImportar(null); setOk(`${r.filas.length} filas importadas: revisa y guarda`)
         } }]}>
