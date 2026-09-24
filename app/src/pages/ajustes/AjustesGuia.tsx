@@ -61,7 +61,7 @@ export function AjustesGuia() {
           <FormRow label="Se guarda en" ayuda={`Campo ${gr.con('encargo', 'del')} donde queda el valor elegido; sus opciones pasan a ser las de la guía.`}>
             <Select className="w-[260px]" value={g.destino ?? ''} onChange={(e) => setG({ ...g, destino: e.target.value || null })}>
               <option value="">— elegir —</option>
-              {campos.filter((c) => c.entidad === 'ENCARGO' && (c.tipo === 'opcion' || c.tipo === 'texto')).map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
+              {campos.filter((c) => c.entidad === 'ENCARGO' && c.tipo !== 'fecha' && c.tipo !== 'lista').map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
             </Select>
           </FormRow>
           <FormRow label="Medida principal" ayuda="La que manda.">
