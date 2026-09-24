@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { ajustesMaterial, guardarUnidadProveedor, unidadesProveedor } from '@/data/materiales'
 import { encargosDeProveedor, errorNombre, guardarProveedor, haceEncargos, listarProveedoresCat, obtenerProveedor, vendeMaterial, type ProveedorFila, type TipoProveedor } from '@/data/catalogos'
 import { listarEtapas, mensajeError } from '@/data/encargos'
+import { leerNumero } from '@/data/config'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Dialog, Field, FormRow, Input, SectionLabel, Select, Sheet, Table, Tabs, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
@@ -202,7 +203,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
     if (p && p.activo && !f.activo && !confirmado) { setConfirmar(true); return }
     setBusy(true); setErr(null)
     try {
-      const u = unidad.trim() ? Number(unidad.replace(',', '.')) : null
+      const u = unidad.trim() ? (leerNumero(unidad) ?? NaN) : null
       if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
       const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo, ...(matAj.activo ? { tipo: f.tipo } : {}) })
       idCreado.current = id   // si el segundo paso falla, reintentar edita este y no crea otro

@@ -9,6 +9,7 @@ import {
 } from '@/data/materiales'
 import { listarProveedoresCat, vendeMaterial, type ProveedorFila } from '@/data/catalogos'
 import { mensajeError } from '@/data/encargos'
+import { leerNumero } from '@/data/config'
 import { listarEquipo } from '@/data/ajustes'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/layout/AppShell'
@@ -20,7 +21,7 @@ import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 type Vista = 'catalogo' | 'pedidos' | 'movimientos' | 'restos'
-const n = (x: string) => Number(String(x).replace(',', '.'))
+const n = (x: string) => leerNumero(String(x)) ?? NaN
 const fecha = (s: string) => fechaCorta(s)
 
 /**

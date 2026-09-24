@@ -458,8 +458,10 @@ export function Encargos() {
         </div>
       )}
       <div className="flex min-h-9 flex-wrap items-center gap-2 border-b border-border-light px-4 py-1 text-sm text-fg-3">
-        <span className="tabular">{visibles.length} de {base.length}</span>
-        <span className="text-fg-3">· actualizado {haceCuanto(ultima)}</span>
+        {cargado ? <>
+          <span className="tabular">{visibles.length} de {base.length}</span>
+          <span className="text-fg-3">· actualizado {haceCuanto(ultima)}</span>
+        </> : <span>Cargando…</span>}
         <button className="text-fg-3 underline-offset-2 hover:text-fg hover:underline" onClick={() => recargar().then(marcar).catch((x) => setErr(mensajeError(x)))}>Actualizar</button>
         {chips.map(([k, vals]) => {
           const d = dims.find((x) => x.clave === k)

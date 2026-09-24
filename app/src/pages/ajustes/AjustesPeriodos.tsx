@@ -13,7 +13,7 @@ import { Bloque, Estado, FilaLista, Lista, Pagina } from './Ajustes'
  */
 export function AjustesPeriodos() {
   const { tienda, recargar, vocab, gr } = useAuth()
-  const [lista, setLista] = React.useState<PeriodoFila[]>([])
+  const [lista, setLista] = React.useState<PeriodoFila[] | null>(null)
   const [nuevo, setNuevo] = React.useState({ nombre: '', inicio: '', fin: '' })
   const [editar, setEditar] = React.useState<PeriodoFila | null>(null)
   const [activar, setActivar] = React.useState<PeriodoFila | null>(null)
@@ -36,7 +36,7 @@ export function AjustesPeriodos() {
       <Pagina titulo="Periodos" ayuda={`Temporadas, años o campañas. Las listas de ${vocab.encargos.toLowerCase()} muestran el periodo activo.`}
         mas={`Solo puede haber un periodo activo a la vez. Al cambiarlo, todo el equipo pasa a ver el nuevo y lo que se cree irá a él; nada del anterior se borra.${reinicia ? ' La numeración empieza en 001 en cada periodo.' : ''}`} />
       <Bloque titulo="Lista">
-        {lista.length === 0 ? <p className="text-fg-3">No hay periodos: se trabaja con todo junto.</p> : (
+        {lista == null ? <p className="text-fg-3">Cargando…</p> : lista.length === 0 ? <p className="text-fg-3">No hay periodos: se trabaja con todo junto.</p> : (
           <>
           <Lista>
             {lista.filter((p) => !p.archivado).map((p) => (

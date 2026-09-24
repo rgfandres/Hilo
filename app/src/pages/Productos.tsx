@@ -5,7 +5,7 @@ import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, errorNombre, guardarProducto, listarProductosCat, subirFoto, tieneFicha, type ProductoFila } from '@/data/catalogos'
 import { ajustesMaterial, cant, listarMateriales, unidadPorTipo } from '@/data/materiales'
-import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
+import { camposDe, leerNumero, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { PageHeader } from '@/layout/AppShell'
 import { CamposForm, CamposVista, aTexto, limpiar } from '@/components/CampoInput'
@@ -161,10 +161,10 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
     if (!nombre) { setErr('El nombre es obligatorio'); return }
     const otro = lista.find((x) => x.nombre.toLowerCase() === nombre.toLowerCase() && (nuevo || x.id !== (p as ProductoFila).id))
     if (otro) { setErr(`Ya existe ${gr.con('producto', 'un')} con ese nombre${otro.activo ? '' : ` (inactiv${gr.o('producto')})`}`); return }
-    const precio = f.precio.trim() ? Number(f.precio.replace(',', '.')) : null
-    if (precio != null && !(precio >= 0)) { setErr('El precio no es válido'); return }
-    const consumo = f.consumo.trim() ? Number(f.consumo.replace(',', '.')) : null
-    if (consumo != null && !(consumo >= 0)) { setErr('El consumo no es válido'); return }
+    const precio = f.precio.trim() ? (leerNumero(f.precio, { dinero: true }) ?? NaN) : null
+    if (precio != null && !(precio >= 0)) { setErr('El precio no es válido: escribe solo el número, p. ej. 1.250,50'); return }
+    const consumo = f.consumo.trim() ? (leerNumero(f.consumo) ?? NaN) : null
+    if (consumo != null && !(consumo >= 0)) { setErr('El consumo no es válido: escribe solo el número, p. ej. 8,35'); return }
     const falta = campos.filter((c) => c.obligatorio && !f.datos[c.clave])
     if (falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
     if (!nuevo && !f.activo && (p as ProductoFila).activo && !confirmado) { setConfirmarBaja(true); return }
@@ -245,9 +245,10 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
             <span className="text-fg-2">{(p as ProductoFila).encargos} {(p as ProductoFila).encargos === 1 ? min(vocab.encargo) : min(vocab.encargos)} con {gr.con('producto', 'este')}. Si cambias el nombre, se ve el nuevo en todos.</span>
           </div>
         ) : null}
-        {err && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
+        {err && soloLectura && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
         {!soloLectura && (
-          <div className="sticky bottom-0 -mx-5 mt-auto flex justify-end gap-1.5 border-t border-border bg-bg px-5 pt-3">
+          <div className="sticky bottom-0 -mx-5 mt-auto flex flex-wrap items-center justify-end gap-1.5 border-t border-border bg-bg px-5 pt-3">
+            {err && <div role="alert" className="mr-auto rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg max-md:w-full">{err}</div>}
             <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
             <Button variant="primary" onClick={() => guardar()} disabled={busy || subiendo || (!nuevo && !sucio)}>{busy ? 'Guardando…' : 'Guardar'}</Button>
           </div>

@@ -81,9 +81,11 @@ export function formatearValor(c: Campo | undefined, v: unknown): string {
  * Número escrito a la española o a la inglesa: «19,96», «1.234,5», «1234.5», «1 234».
  * Devuelve null si no es un número.
  */
-export function leerNumero(s: string): number | null {
-  let t = s.trim().replace(/\s/g, '')
+export function leerNumero(s: string, o: { dinero?: boolean } = {}): number | null {
+  let t = String(s ?? '').trim().replace(/\s/g, '').replace(/€/g, '')
   if (!t) return null
+  // En dinero, «1.200» es mil doscientos (a la española), no uno coma dos
+  if (o.dinero && /^\d{1,3}(\.\d{3})+$/.test(t)) return Number(t.replace(/\./g, ''))
   const coma = t.lastIndexOf(','), punto = t.lastIndexOf('.')
   if (coma > -1 && punto > -1) t = coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '')
   else if (coma > -1) t = t.replace(',', '.')
