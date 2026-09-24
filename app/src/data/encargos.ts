@@ -123,14 +123,14 @@ export function mensajeError(e: unknown): string {
   if (/IMPORT_VACIO/.test(m)) return 'El archivo no tiene filas.'
   if (/IMPORT_SIN_MODULO/.test(m)) return 'Activa antes el módulo de materiales.'
   if (/IMPORT_FORMATO/.test(m)) return 'El archivo no tiene el formato de la plantilla.'
-  if (/SIN_PERMISO_DESHACER/.test(m)) return 'Solo puedes deshacer tus propios pasos de los últimos minutos. Administración puede deshacer cualquiera.'
+  if (/SIN_PERMISO_DESHACER/.test(m)) return 'Solo puedes deshacer tus propios pasos de los últimos minutos. Quien administra la tienda puede deshacer cualquiera.'
   if (/TIPO_SIN_FINAL/.test(m)) return 'El tipo necesita una etapa final para poder usarse. Marca antes otra como final o deja el tipo sin elegir.'
-  if (/MIEMBRO_DESACTIVADO/.test(m)) return 'Tu acceso a esta tienda está desactivado. Pide a administración que te active.'
+  if (/MIEMBRO_DESACTIVADO/.test(m)) return 'Tu acceso a esta tienda está desactivado. Pide a quien administra la tienda que te active.'
   const dom = m.match(/DOMINIO_(PUBLICO|AJENO):(.*)$/)
   if (dom) return dom[1] === 'PUBLICO' ? `«${dom[2]}» es un correo gratuito: entraría cualquiera. Usa el dominio propio de la tienda.` : `Solo puedes aprobar el dominio de tu propio correo (no «${dom[2]}»).`
   if (/OTRA_TIENDA/.test(m)) return 'Ese dato no es de esta tienda.'
   const salto = m.match(/SALTO_ETAPAS:(.*)$/)
-  if (salto) return `Se saltaría «${salto[1].split(', ').join('», «')}». Solo Administración puede saltar etapas.`
+  if (salto) return `Se saltaría «${salto[1].split(', ').join('», «')}». Solo quien administra la tienda puede saltar etapas.`
   const rol = m.match(/ROL_NO_MARCA:[^:]*:(.*)$/)
   if (rol) return `Tu rol no puede marcar «${rol[1]}». Lo marca otra persona del equipo.`
   if (/Etapa .* no existe para este tipo/.test(m)) return 'Esa etapa ya no existe en el flujo. Recarga la página.'

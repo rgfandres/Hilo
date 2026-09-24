@@ -13,7 +13,7 @@ interface Plan {
   fuera: { e: EncargoEstado; motivo: Motivo; detalle?: string }[]
 }
 const TEXTO_MOTIVO: Record<Motivo, string> = {
-  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado', salto: 'se saltaría etapas (solo Administración puede saltar)',
+  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado', salto: 'se saltaría etapas (solo quien administra la tienda puede saltarlas)',
 }
 
 /**

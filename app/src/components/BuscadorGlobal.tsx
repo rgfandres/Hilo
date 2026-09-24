@@ -22,13 +22,14 @@ export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenCh
   const [sel, setSel] = React.useState(0)
   const [base, setBase] = React.useState<{ enc: EncargoEstado[]; prod: { id: string; nombre: string; activo: boolean }[]; prov: { id: string; nombre: string; activo: boolean }[] } | null>(null)
   const [clientes, setClientes] = React.useState<Resultado[]>([])
+  const [errBase, setErrBase] = React.useState(false)
   useCerrarConAtras(open, () => onOpenChange(false))
 
   React.useEffect(() => {
     if (!open || !tienda) return
     setQ(''); setSel(0)
     Promise.all([listarEncargos(tienda.id), listarEncargos(tienda.id, { estado: 'ANULADO' }), listarProductos(tienda.id), listarProveedores(tienda.id)])
-      .then(([enc, anul, prod, prov]) => setBase({ enc: [...enc, ...anul], prod, prov })).catch(() => setBase({ enc: [], prod: [], prov: [] }))
+      .then(([enc, anul, prod, prov]) => { setErrBase(false); setBase({ enc: [...enc, ...anul], prod, prov }) }).catch(() => { setErrBase(true); setBase({ enc: [], prod: [], prov: [] }) })
   }, [open, tienda])
 
   // Clientes: en el servidor (pueden ser muchos), con una pequeña espera al teclear
@@ -83,6 +84,7 @@ export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenCh
           </div>
           <div className="overflow-y-auto p-1">
             {!q.trim() && <div className="px-3 py-6 text-center text-fg-3">Escribe un nombre, un Nº o un teléfono.</div>}
+            {errBase && <div className="px-3 py-2 text-center text-sm text-danger-fg">No se ha podido cargar todo: puede faltar algún resultado. Cierra y vuelve a abrir el buscador.</div>}
             {q.trim() && base && resultados.length === 0 && <div className="px-3 py-6 text-center text-fg-3">Sin resultados para «{q}».</div>}
             {resultados.map((r, i) => {
               const cab = r.grupo !== grupoAnterior ? r.grupo : null
