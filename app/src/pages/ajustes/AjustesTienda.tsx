@@ -162,7 +162,8 @@ export function AjustesTienda() {
   const { tienda, f, setF, setErr, subiendo, setSubiendo } = t
   return (
     <>
-      <Pagina titulo="Datos de la tienda" ayuda="Nombre, color y logo que se ven en la app y en lo que imprimes." mas="El color se usa en el logo mientras no subas uno. El enlace de reseña se ofrece al cliente al entregar (Google, redes…)." />
+      <Pagina titulo="Datos de la tienda" ayuda="Nombre, color y logo que se ven en la app y en lo que imprimes." mas="El color se usa en el logo mientras no subas uno. El enlace de reseña se ofrece al cliente al entregar (Google, redes…)."
+        acciones={<Link to="/ajustes/asistente" className="text-sm text-fg-3 underline underline-offset-2 hover:text-fg">Asistente de configuración</Link>} />
         <div className="flex flex-col gap-1">
           <FormRow label="Nombre"><Input className="h-7" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></FormRow>
           <FormRow label="Color">

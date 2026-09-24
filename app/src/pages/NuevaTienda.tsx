@@ -23,11 +23,13 @@ export function NuevaTienda() {
     setCreando(true); setError(null)
     const datos = datosPlantilla(sel)
     if (!ejemplos) { delete datos.productos; delete datos.proveedores }
+    // La tienda nueva empieza con el asistente de configuración pendiente
+    datos.ajustes = { ...(datos.ajustes ?? {}), asistente: { hecho: false, paso: 0 } }
     const { data, error } = await supabase.rpc('crear_tienda', { p_nombre: nombre.trim(), p_plantilla: datos })
     if (error) { setError(mensajeError(error)); setCreando(false); return }
     setTiendaPorId(data as string)
     // Recarga completa: la tienda nueva entra con su vocabulario, flujos y permisos desde cero
-    window.location.assign('/ajustes/tienda')
+    window.location.assign('/ajustes/asistente')
   }
 
   return (

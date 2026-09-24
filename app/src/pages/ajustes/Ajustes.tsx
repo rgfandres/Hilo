@@ -5,6 +5,7 @@ import { PageHeader } from '@/layout/AppShell'
 import { cn } from '@/lib/utils'
 import { Button, Popover } from '@/ui'
 import { useCambiosSinGuardar } from '@/lib/salir'
+import { AvisoAsistente } from './AjustesAsistente'
 
 type Quien = 'admin' | 'gestion' | 'todos'
 type Aj = Record<string, unknown>
@@ -17,6 +18,7 @@ const GRUPOS: { titulo: string; items: Sec[] }[] = [
     { to: 'tienda', label: () => 'Datos de la tienda', quien: 'admin' },
     { to: 'region', label: () => 'Idioma y región', quien: 'admin' },
     { to: 'palabras', label: () => 'Cómo lo llamáis', quien: 'admin' },
+    { to: 'importar', label: () => 'Importar datos', quien: 'admin' },
   ] },
   { titulo: 'Cómo trabajáis', items: [
     { to: 'flujos', label: () => 'Tipos y etapas', quien: 'admin' },
@@ -78,6 +80,7 @@ export function Ajustes() {
         </nav>
         <div className="min-w-0 flex-1 overflow-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-8 px-8 py-6 max-md:px-4 max-md:py-4">
+            {loc.pathname !== '/ajustes/asistente' && <AvisoAsistente />}
             <Outlet />
           </div>
         </div>

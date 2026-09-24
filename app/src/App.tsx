@@ -32,6 +32,8 @@ import { AjustesCampos } from '@/pages/ajustes/AjustesCampos'
 import { AjustesPeriodos } from '@/pages/ajustes/AjustesPeriodos'
 import { AjustesMensajes } from '@/pages/ajustes/AjustesMensajes'
 import { AjustesFicha } from '@/pages/ajustes/AjustesFicha'
+import { AjustesImportar } from '@/pages/ajustes/AjustesImportar'
+import { AjustesAsistente } from '@/pages/ajustes/AjustesAsistente'
 
 function Gate() {
   const { avisoInvitacion, cerrarAvisoInvitacion } = useAuth()
@@ -92,6 +94,8 @@ function Pantallas() {
           <Route path="papeles" element={<AjustesPapeles />} />
           <Route path="reglas" element={<AjustesReglas />} />
           <Route path="modulos" element={<AjustesModulos />} />
+          <Route path="importar" element={<AjustesImportar />} />
+          <Route path="asistente" element={rol === 'ADMIN' ? <AjustesAsistente /> : <Navigate to="/ajustes" replace />} />
           <Route path="materiales" element={<AjustesMateriales />} />
           <Route path="hoja" element={<AjustesHoja />} />
           <Route path="logistica" element={<AjustesLogistica />} />
