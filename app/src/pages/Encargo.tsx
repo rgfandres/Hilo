@@ -254,7 +254,7 @@ export function Encargo() {
         {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
-          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otro ${min(vocab.encargo)} (ficha nueva con sus datos)` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
+          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otr${gr.o('encargo')} ${min(vocab.encargo)} (ficha nueva con sus datos)` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
         )}
         <Button variant="ghost" onClick={abrirFicha}>Imprimir ficha</Button>
       </PageHeader>
@@ -273,7 +273,7 @@ export function Encargo() {
 
           {anulado && (
             <div className="flex flex-col gap-2 rounded-md border border-border bg-bg-2 p-3">
-              <span className="font-medium">Anulado {anul ? `el ${fechaCorta(anul.fecha)}` : ''}</span>
+              <span className="font-medium">Anulad{gr.o('encargo')} {anul ? `el ${fechaCorta(anul.fecha)}` : ''}</span>
               {anul?.motivo && <span className="text-sm text-fg-2">Motivo: {anul.motivo}</span>}
               <span className="text-sm text-fg-3">El número {num3(e)} no se reutiliza.</span>
               {rol === 'ADMIN' && <div><Button onClick={() => abrir('recuperar')}>Recuperar</Button></div>}
@@ -298,7 +298,7 @@ export function Encargo() {
               <ul className="m-0 flex list-disc flex-col gap-0.5 pl-4 text-sm text-fg-2">{motivos.map((m) => <li key={m}>{m}</li>)}</ul>
               <span className="text-sm text-fg-3">Última modificación: {fechaCorta(e.actualizado_en)}</span>
               {e.revisar_manual && puedeRevisar && (
-                <div><Button size="sm" onClick={() => quitarRevisar(e.id).then(cargar).catch((x) => setErr(mensajeError(x)))}>Quitar marca: ya está revisado</Button></div>
+                <div><Button size="sm" onClick={() => quitarRevisar(e.id).then(cargar).catch((x) => setErr(mensajeError(x)))}>Quitar marca: ya está revisad{gr.o('encargo')}</Button></div>
               )}
             </div>
           )}
@@ -356,7 +356,7 @@ export function Encargo() {
                 </>}
               </Field>
             )}
-            <Field label="Creado">{fechaCorta(e.creado_en)}</Field>
+            <Field label={`Cread${gr.o('encargo')}`}>{fechaCorta(e.creado_en)}</Field>
           </div>
 
           {cli && (

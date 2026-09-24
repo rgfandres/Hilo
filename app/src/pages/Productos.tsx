@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { coincide } from '@/lib/texto'
 import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -65,7 +66,7 @@ export function Productos() {
 
   return (
     <>
-      <PageHeader title={vocab.productos} subtitle={lista ? `${visibles.length} de ${lista.length}` : undefined}>
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'productos', vocab.productos)} subtitle={lista ? `${visibles.length} de ${lista.length}` : undefined}>
         {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.producto}</Button>}
       </PageHeader>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
@@ -216,11 +217,11 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
           <SectionLabel>Ficha técnica</SectionLabel>
           {mat.activo && <>
             <datalist id="tipos-mat-prod">{tiposMat.map((x) => <option key={x} value={x} />)}</datalist>
-            <FormRow label={`${vocab.material} principal`} ayuda="El tipo que lleva; la variante (color, acabado…) se elige en cada encargo.">
+            <FormRow label={`${vocab.material} principal`} ayuda={`El tipo que lleva; la variante (color, acabado…) se elige en cada ${min(vocab.encargo)}.`}>
               <Input className="h-7" list="tipos-mat-prod" disabled={soloLectura} value={f.mtipo} onChange={(e) => setF({ ...f, mtipo: e.target.value })} />
             </FormRow>
           </>}
-          {(mat.activo || f.consumo) && <FormRow label={`Consumo${mat.activo ? ` (${udConsumo})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
+          {(mat.activo || f.consumo) && <FormRow label={`Consumo${mat.activo ? ` (${udConsumo})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? `Se propone al añadir ${gr.con('material', 'el')} ${gr.con('encargo', 'al')} y es lo que se descuenta.` : ''}`}>
             <Input className="h-7 w-[120px]" inputMode="decimal" disabled={soloLectura} value={f.consumo} onChange={(e) => setF({ ...f, consumo: e.target.value })} />
           </FormRow>}
           {(fic.construcciones.length > 0 || f.construccion) && (

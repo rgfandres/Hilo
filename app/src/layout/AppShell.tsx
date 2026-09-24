@@ -46,7 +46,7 @@ function Item({ to, icon, children, count, title }: { to: string; icon: React.Re
 }
 
 export function AppShell() {
-  const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, rol, verComo, setVerComo, nombresRol } = useAuth()
+  const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, rol, verComo, setVerComo, nombresRol, gr } = useAuth()
   const loc = useLocation()
   const logo = ((tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url as string | undefined) ?? null
   const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number; logistica: number; porTipo: Record<string, number> }>({ encargos: 0, atascados: 0, logistica: 0, porTipo: {} })
@@ -154,7 +154,7 @@ export function AppShell() {
   const nm = (k: Pantalla, d: string) => nombreMenu(tienda?.ajustes as Record<string, unknown>, k, d)
   // Barra inferior del móvil: 4 destinos según el rol + «Más» (abre el menú completo)
   const todosDestinos = [
-    { k: 'logistica' as Pantalla, to: '/logistica', label: nm('logistica', 'Mi trabajo'), icon: IconTruck, n: cuenta.logistica },
+    { k: 'logistica' as Pantalla, to: '/logistica', label: nm('logistica', 'Logística'), icon: IconTruck, n: cuenta.logistica },
     { k: 'parahoy' as Pantalla, to: rol === 'LOGISTICA' ? '/para-hoy' : '/', label: nm('parahoy', 'Para hoy'), icon: IconClock },
     { k: 'encargos' as Pantalla, to: '/encargos', label: nm('encargos', vocab.encargos), icon: IconLayoutList, n: cuenta.encargos },
     { k: 'nuevo' as Pantalla, to: '/encargos/nuevo', label: 'Nuevo', icon: IconPlus },
@@ -165,7 +165,7 @@ export function AppShell() {
   const destinos = pant
     ? todosDestinos.filter((d) => pant.has(d.k) && (d.k !== 'logistica' || conLogistica)).slice(0, 4)
     : rol === 'LOGISTICA'
-    ? [conLogistica ? { to: '/logistica', label: nm('logistica', 'Mi trabajo'), icon: IconTruck, n: cuenta.logistica } : { to: '/encargos?b=mio', label: 'Mi trabajo', icon: IconListCheck }, { to: '/encargos', label: nm('encargos', vocab.encargos), icon: IconLayoutList, n: conLogistica ? undefined : cuenta.encargos },
+    ? [conLogistica ? { to: '/logistica', label: nm('logistica', 'Logística'), icon: IconTruck, n: cuenta.logistica } : { to: '/encargos?b=mio', label: 'Mi trabajo', icon: IconListCheck }, { to: '/encargos', label: nm('encargos', vocab.encargos), icon: IconLayoutList, n: conLogistica ? undefined : cuenta.encargos },
        { to: '/proveedores', label: nm('proveedores', vocab.proveedores), icon: IconBuildingWarehouse }, { to: '/para-hoy', label: nm('parahoy', 'Para hoy'), icon: IconClock }]
     : rol === 'ATENCION'
       ? [{ to: '/', label: nm('parahoy', 'Para hoy'), icon: IconClock }, { to: '/clientes', label: nm('clientes', vocab.clientes), icon: IconUser },
@@ -217,14 +217,14 @@ export function AppShell() {
         {ve('encargos') && tiposMenu.map((t) => (
           <Item key={t.id} to={`/encargos?t=${t.id}`} icon={<IconLayoutList size={14} />} count={cuenta.porTipo[t.id] ?? 0}>{t.nombre}</Item>
         ))}
-        {pant?.has('nuevo') && !pant.has('encargos') && <Item to="/encargos/nuevo" icon={<IconPlus size={14} />}>{`${vocab.encargo} nuevo`}</Item>}
+        {pant?.has('nuevo') && !pant.has('encargos') && <Item to="/encargos/nuevo" icon={<IconPlus size={14} />}>{`${vocab.encargo} nuev${gr.o('encargo')}`}</Item>}
         {ve('clientes') && <Item to="/clientes" icon={<IconUser size={14} />}>{nm('clientes', vocab.clientes)}</Item>}
         {ve('productos') && <Item to="/productos" icon={<IconBox size={14} />}>{nm('productos', vocab.productos)}</Item>}
-        {ve('proveedores') && <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en manos de un proveedor">{nm('proveedores', vocab.proveedores)}</Item>}
-        {conLogistica && rol !== 'ATENCION' && ve('logistica') && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' || rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.logistica : 0}>{nm('logistica', nombresRol.LOGISTICA)}</Item>}
+        {ve('proveedores') && <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title={`Atascados: demasiados días en manos de ${gr.con('proveedor', 'un')}`}>{nm('proveedores', vocab.proveedores)}</Item>}
+        {conLogistica && rol !== 'ATENCION' && ve('logistica') && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' || rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.logistica : 0}>{nm('logistica', 'Logística')}</Item>}
         {hoja.activo && rol !== 'LOGISTICA' && ve('produccion') && <Item to="/produccion" icon={<IconPrinter size={14} />}>{nm('produccion', hoja.nombre)}</Item>}
         {conMateriales && ve('materiales') && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={ajMat.contador === 'ninguno' ? 0 : porPedir}
-          title={ajMat.contador === 'restos' ? 'Con resto por guardar: lo que queda ya no llega a una unidad de pedido' : 'Por pedir: el stock no cubre lo pedido por los encargos más el umbral'}>{nm('materiales', vocab.materiales)}</Item>}
+          title={ajMat.contador === 'restos' ? 'Con resto por guardar: lo que queda ya no llega a una unidad de pedido' : `Por pedir: el stock no cubre lo pedido para ${gr.con('encargo', 'los')} más el umbral`}>{nm('materiales', vocab.materiales)}</Item>}
         {conMateriales && ajMat.menuPedidos && ve('pedidos') && <Item to="/pedidos" icon={<IconInbox size={14} />} count={enCamino} title="Pedidos abiertos: sin recibir o a medias">{nm('pedidos', 'Pedidos')}</Item>}
         {rol === 'ADMIN' && <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>}
         {rol === 'ADMIN' && <Item to="/informes" icon={<IconChartBar size={14} />}>{nm('informes', 'Informes')}</Item>}

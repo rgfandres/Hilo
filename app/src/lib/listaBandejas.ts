@@ -85,16 +85,20 @@ export function enEtapas(b: BandejaLista, e: EncargoEstado): boolean {
 }
 
 /** Propuesta de partida: las bandejas automáticas de hoy, ya escritas para poder cambiarlas */
-export function bandejasPorDefecto(etapas: Etapa[], nombres: { todos: string; terminados: string; anulados: string; pedir: string; espera: string }): BandejaLista[] {
+export function bandejasPorDefecto(etapas: Etapa[], nombres: { todos: string; terminados: string; anulados: string; pedir: string; espera: string; bloqueados: string }, o: { materiales: boolean }): BandejaLista[] {
   const out: BandejaLista[] = []
   const add = (b: Omit<BandejaLista, 'key'>) => out.push({ ...b, key: claveBandeja(b, out.map((x) => x.key)) })
   add({ nombre: nombres.todos, tipo: 'todos' })
+  add({ nombre: 'Mi trabajo', tipo: 'mio', accionable: true })
   for (const e of [...new Map([...etapas].sort((a, b) => a.orden - b.orden).filter((x) => !x.es_final).map((x) => [x.nombre, x])).values()]) {
     add({ nombre: e.nombre, tipo: 'etapas', etapas: [{ etapa: e.nombre }], grupo: e.grupo ?? undefined, accionable: !e.es_espera })
   }
-  add({ nombre: nombres.pedir, tipo: 'pedir', accionable: true })
-  add({ nombre: nombres.espera, tipo: 'espera_material' })
+  if (o.materiales) {
+    add({ nombre: nombres.pedir, tipo: 'pedir', accionable: true })
+    add({ nombre: nombres.espera, tipo: 'espera_material' })
+  }
   add({ nombre: 'Revisar', tipo: 'revisar', accionable: true })
+  add({ nombre: nombres.bloqueados, tipo: 'bloqueados' })
   add({ nombre: nombres.terminados, tipo: 'terminados' })
   add({ nombre: nombres.anulados, tipo: 'anulados' })
   return out

@@ -10,7 +10,7 @@ import { BarraGuardar, Interruptor, Pagina } from './Ajustes'
 
 /** Ajustes → Qué ve cada papel: pantallas del menú (y de la barra del móvil) por papel. */
 export function AjustesPantallas() {
-  const { tienda, recargar, vocab, nombresRol } = useAuth()
+  const { tienda, recargar, vocab, nombresRol, gr } = useAuth()
   const aj = React.useMemo(() => (tienda?.ajustes ?? {}) as Record<string, unknown>, [tienda?.ajustes])
   const inicial = React.useMemo(() => ((aj.pantallas ?? {}) as Partial<Record<Rol, Pantalla[]>>), [aj])
   const [cfg, setCfg] = React.useState(inicial)
@@ -20,7 +20,7 @@ export function AjustesPantallas() {
   React.useEffect(() => setCfg(inicial), [inicial])
   const sucio = JSON.stringify(cfg) !== JSON.stringify(inicial)
   const nombre: Record<Pantalla, string> = {
-    parahoy: 'Para hoy', encargos: `${vocab.encargos} (la lista)`, nuevo: `${vocab.encargo} nuevo`, clientes: vocab.clientes, productos: vocab.productos,
+    parahoy: 'Para hoy', encargos: `${vocab.encargos} (la lista)`, nuevo: `${vocab.encargo} nuev${gr.o('encargo')}`, clientes: vocab.clientes, productos: vocab.productos,
     proveedores: vocab.proveedores, logistica: 'Pantalla de logística', produccion: ajustesHoja(aj).nombre, materiales: vocab.materiales, pedidos: `Pedidos de ${min(vocab.material)}`, informes: 'Informes',
   }
   // Lo de siempre para cada papel, como punto de partida al personalizar
@@ -42,8 +42,8 @@ export function AjustesPantallas() {
 
   return (
     <>
-      <Pagina titulo="Qué ve cada papel" ayuda="Las pantallas del menú (y de la barra del móvil) de cada papel, Administración lo ve todo. El nombre de cada menú se cambia en Nombres."
-        mas="Solo cambia lo que se ve en el menú y a dónde se puede entrar; lo que cada papel puede hacer lo marcan sus permisos. Las fichas sueltas (un encargo, un cliente) se pueden abrir siempre desde un enlace. Los tipos con menú propio se renombran en Tipos y etapas → Renombrar." />
+      <Pagina titulo="Qué ve cada papel" ayuda={`Las pantallas del menú (y de la barra del móvil) de cada papel. ${nombresRol.ADMIN} lo ve todo. El nombre de cada menú se cambia en Nombres.`}
+        mas={`Solo cambia lo que se ve en el menú y a dónde se puede entrar; lo que cada papel puede hacer lo marcan sus permisos. Las fichas sueltas (${gr.con('encargo', 'un')}, ${gr.con('cliente', 'un')}) se pueden abrir siempre desde un enlace. Los tipos con menú propio se renombran en Tipos y etapas → Renombrar.`} />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -67,7 +67,7 @@ export function AjustesPantallas() {
                 {PAPELES_CONFIGURABLES.map((r) => (
                   <td key={r} className="p-2">
                     {cfg[r]
-                      ? <input type="checkbox" className="accent-gray-12" aria-label={`${nombre[p.k]} para ${r}`} checked={cfg[r]!.includes(p.k)} onChange={(e) => toggle(r, p.k, e.target.checked)} />
+                      ? <input type="checkbox" className="accent-gray-12" aria-label={`${nombre[p.k]} para ${nombresRol[r as keyof typeof nombresRol] ?? r}`} checked={cfg[r]!.includes(p.k)} onChange={(e) => toggle(r, p.k, e.target.checked)} />
                       : <span className="text-fg-3">{deSiempre(r).includes(p.k) ? '✓' : '—'}</span>}
                   </td>
                 ))}

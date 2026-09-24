@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconMail, IconPhone } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -35,7 +36,7 @@ export function Proveedores() {
   const nInactivos = delTipo.filter((p) => !p.activo).length
   return (
     <>
-      <PageHeader title={deMaterial ? tituloMat : vocab.proveedores} subtitle={lista ? `${visibles.length}` : undefined}>
+      <PageHeader title={deMaterial ? tituloMat : nombreMenu(tienda?.ajustes as Record<string, unknown>, 'proveedores', vocab.proveedores)} subtitle={lista ? `${visibles.length}` : undefined}>
         {puedeEditar && <Button variant="primary" onClick={() => setNuevo(true)}>+ {deMaterial ? 'Proveedor' : vocab.proveedor}</Button>}
       </PageHeader>
       {matAj.activo && (
@@ -187,10 +188,12 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
   const [confirmar, setConfirmar] = React.useState(false)
   const matAj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [unidad, setUnidad] = React.useState('')
+  // Unidad tal como llegó: si aún no ha llegado (o no se pudo leer) no se toca al guardar
+  const unidadIni = React.useRef<string | null>(null)
   React.useEffect(() => {
     if (!open) return
-    setUnidad('')
-    if (p && tienda && matAj.activo) unidadesProveedor(tienda.id).then((u) => setUnidad(u[p.id] == null ? '' : String(u[p.id]))).catch(() => {})
+    setUnidad(''); unidadIni.current = p ? null : ''
+    if (p && tienda && matAj.activo) unidadesProveedor(tienda.id).then((u) => { const v = u[p.id] == null ? '' : String(u[p.id]).replace('.', ','); unidadIni.current = v; setUnidad(v) }).catch(() => {})
     setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo, tipo: p.tipo ?? 'ENCARGOS' } : { nombre: '', tel: '', email: '', notas: '', activo: true, tipo: tipoNuevo })
     setErr(null)
   }, [open, p])
@@ -207,7 +210,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
       if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
       const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo, ...(matAj.activo ? { tipo: f.tipo } : {}) })
       idCreado.current = id   // si el segundo paso falla, reintentar edita este y no crea otro
-      if (matAj.activo) await guardarUnidadProveedor(id, u)
+      if (matAj.activo && unidadIni.current !== null && unidad !== unidadIni.current) await guardarUnidadProveedor(id, u)
       onSaved(id); onClose()
     } catch (x) { setErr(errorNombre(mensajeError(x), gr.con('proveedor', 'un'))) } finally { setBusy(false) }
   }
@@ -228,7 +231,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
             </Select>
           </FormRow>}
           {matAj.activo && <FormRow label={`Unidad de pedido (${matAj.unidad})`} ayuda={`Lo que vende de una vez (un rollo de 50…). Se usa para redondear los pedidos de ${min(vocab.material)}.`}>
-            <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="Opcional" /></FormRow>}
+            <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => { setUnidad(e.target.value); if (unidadIni.current === null) unidadIni.current = '\u0000' }} placeholder="Opcional" /></FormRow>}
           {p && <FormRow label="Estado"><Interruptor checked={f.activo} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('proveedor')}` : `Inactiv${gr.o('proveedor')}: no se le asigna nada ni entra`} /></FormRow>}
         </div>
         <div className="flex flex-col gap-1"><SectionLabel>Notas</SectionLabel><Textarea value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} placeholder="Opcional: especialidad, plazos, precios…" /></div>

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { tiposAparte } from '@/lib/listaBandejas'
 import { listarTipos } from '@/data/ajustes'
 import { Link } from 'react-router-dom'
@@ -146,7 +147,7 @@ export function Informes() {
 
   return (
     <>
-      <PageHeader title="Informes" subtitle={iv.titulo}>
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'informes', 'Informes')} subtitle={iv.titulo}>
         <div className="no-imprimir flex items-center gap-1">
           {tiposInf.length > 1 && (
             <Select className="h-7 w-[170px]" value={deTipo} onChange={(e) => setDeTipo(e.target.value)} aria-label="Qué entra">
@@ -316,7 +317,7 @@ function Anulados({ iv, entra }: { iv: Intervalo; entra: (tipoId: string) => boo
   return (
     <section className="flex flex-col gap-2">
       <SectionLabel>Anulad{os} · {as ? as.length : '…'}</SectionLabel>
-      {as && as.length === 0 && <p className="m-0 text-fg-3">Ningún {min(vocab.encargo)} anulad{gr.o('encargo')} en este intervalo.</p>}
+      {as && as.length === 0 && <p className="m-0 text-fg-3">{gr.Con('encargo', 'ningun')} anulad{gr.o('encargo')} en este intervalo.</p>}
       {as && as.length > 0 && <>
         <TablaSimple cabecera={['Motivo', vocab.encargos]} alinear={[false, true]}
           filas={[...motivos].sort((a, b) => b[1] - a[1]).map(([k, n]) => [k || <span key="s" className="text-fg-3">Sin motivo</span>, n])} />

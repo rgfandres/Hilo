@@ -18,6 +18,7 @@ import { Bloque, Estado, FilaLista, Lista, Pagina } from './Ajustes'
 export function AjustesProveedores() {
   const { tienda, vocab, rol, gr } = useAuth()
   const [lista, setLista] = React.useState<ProveedorConAcceso[]>([])
+  const [cargado, setCargado] = React.useState(false)
   const [abierto, setAbierto] = React.useState<string | null>(null)
   const [correo, setCorreo] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
@@ -25,7 +26,7 @@ export function AjustesProveedores() {
 
   const cargar = React.useCallback(async () => {
     if (!tienda) return
-    setLista(await listarProveedoresAcceso(tienda.id))
+    setLista(await listarProveedoresAcceso(tienda.id)); setCargado(true)
   }, [tienda])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
@@ -43,7 +44,7 @@ export function AjustesProveedores() {
     <Pagina titulo={`Portal de ${min(VS)}`} ayuda={<>Cada correo que añadas entra a ver solo lo suyo. Altas y bajas, en <Link to="/proveedores" className="underline">{VS}</Link>.</>} />
     <Bloque titulo="Correos con acceso">
 
-      {lista.length === 0 ? <p className="text-fg-3">Todavía no hay {min(VS)}. <Link to="/proveedores" className="underline">Añadir</Link></p> : (
+      {!cargado ? <p className="text-fg-3">Cargando…</p> : lista.length === 0 ? <p className="text-fg-3">Todavía no hay {min(VS)}. <Link to="/proveedores" className="underline">Añadir</Link></p> : (
         <Lista>
           {lista.map((p) => (
             <React.Fragment key={p.id}>

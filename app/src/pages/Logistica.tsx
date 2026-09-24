@@ -227,7 +227,7 @@ export function Logistica() {
   if (!lg.activo) {
     return (
       <>
-        <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', nombresRol.LOGISTICA)} />
+        <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', 'Logística')} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
           <span>La pantalla de logística está apagada.</span>
           {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/modulos">Activarla en Ajustes → Módulos</Link></Button>}
@@ -239,10 +239,10 @@ export function Logistica() {
   const tabs = bandejas.map((b) => ({ key: b.key, label: b.label, count: reparto.get(b.key)?.length ?? 0, aviso: b.tipo !== 'historico' && (reparto.get(b.key)?.length ?? 0) > 0 }))
   const vacio = actual?.conf.vacio?.trim() || undefined
   const puedeTodos = !!actual && actual.tipo === 'etapa' && !!actual.conf.todos && visibles.length > 1
-  const textoTodos = `${actual?.conf.todos_texto?.trim() || 'Marcar todos'} (${visibles.length})`
+  const textoTodos = `${actual?.conf.todos_texto?.trim() || `Marcar ${gr.con('encargo', 'todos')}`} (${visibles.length})`
   return (
     <>
-      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', nombresRol.LOGISTICA)} subtitle={actual?.subtitulo} />
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'logistica', 'Logística')} subtitle={actual?.subtitulo} />
       {logis.length === 0 && encs && <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa la marca «{nombresRol.LOGISTICA}». Asígnaselas en Ajustes → Tipos y etapas.</p>}
       {bandejas.length > 1 && <Tabs items={tabs} value={actual?.key ?? ''} onChange={(k) => { setBandeja(k); setCarpeta(null); setProd('') }} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
@@ -401,6 +401,8 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
   const { tienda, vocab, rol } = useAuth()
   const avisar = useAvisos()
   const [e, setE] = React.useState<EncargoEstado | null>(null)
+  const [errFicha, setErrFicha] = React.useState<string | null>(null)
+  const [intento, setIntento] = React.useState(0)
   const [ft, setFt] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
   const [prov, setProv] = React.useState('')
   const [busy, setBusy] = React.useState(false)
@@ -411,7 +413,7 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
     setMarcados(Object.fromEntries(((data ?? []) as { clave: string; marcado: boolean; fecha: string | null }[]).map((c) => [c.clave, { marcado: c.marcado, fecha: c.fecha }])))
   }, [])
   React.useEffect(() => {
-    setE(null); setFt(null); setMarcados({}); setEmail(null)
+    setE(null); setFt(null); setMarcados({}); setEmail(null); setErrFicha(null)
     if (!id) return
     // Siempre datos frescos al abrir
     obtenerEncargo(id).then((x) => {
@@ -421,14 +423,16 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
         leerChecks(x.id).catch(() => {})
         supabase.from('cliente').select('email').eq('id', x.cliente_id).maybeSingle().then(({ data }) => setEmail((data as { email?: string | null } | null)?.email ?? null))
       }
-    }).catch(() => {})
-  }, [id, leerChecks])
+    }).catch((x) => setErrFicha(mensajeError(x)))
+  }, [id, leerChecks, intento])
   const aj = tienda?.ajustes as Record<string, unknown>
   const campos = e ? camposDe(ps, 'ENCARGO', e.tipo_encargo_id) : []
   const wa = e ? telefonoWhatsApp(e.cliente_telefono, String(aj?.prefijo_telefono ?? '34')) : null
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()} side="right" title={e ? `${vocab.encargo} ${num3(e)}` : vocab.encargo} className="flex flex-col gap-3">
-      {!e ? <p className="text-fg-3">Cargando…</p> : <>
+      {!e ? (errFicha
+        ? <div className="flex flex-col items-start gap-2"><p className="m-0 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">No se ha podido abrir: {errFicha}</p><Button size="sm" onClick={() => setIntento((n) => n + 1)}>Reintentar</Button></div>
+        : <p className="text-fg-3">Cargando…</p>) : <>
         <div className="flex flex-col gap-0.5">
           <span className="text-sm text-fg-3">{vocab.encargo} {num3(e)} · {e.etapa_actual_nombre}</span>
           <span className="text-lg font-semibold">{e.producto_nombre ?? '—'}</span>

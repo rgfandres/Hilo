@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link, useSearchParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -84,10 +85,10 @@ export function Materiales({ soloPedidos = false }: { soloPedidos?: boolean }) {
   return (
     <>
       {soloPedidos
-        ? <PageHeader title={`Pedidos de ${min(vocab.material)}`} subtitle={mats ? `${nCamino} en camino` : undefined}>
+        ? <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'pedidos', `Pedidos de ${min(vocab.material)}`)} subtitle={mats ? `${nCamino} en camino` : undefined}>
             <Button variant="ghost" asChild><Link to="/materiales">{vocab.materiales}</Link></Button>
           </PageHeader>
-        : <PageHeader title={vocab.materiales} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined}>
+        : <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'materiales', vocab.materiales)} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined}>
             <Button variant="ghost" asChild><Link to="/proveedores?t=material">Proveedores</Link></Button>
           </PageHeader>}
       {!soloPedidos && <Tabs items={tabs} value={vista} onChange={(k) => setSp((s) => { s.set('v', k); return s }, { replace: true })} />}
@@ -113,7 +114,7 @@ function RestosPorGuardar({ rp, unidad, onCambio }: { rp: { m: MaterialEstado; c
   return (
     <div className="m-3 flex flex-col gap-1 rounded-sm border-l-4 border-warn-fg bg-warn-bg px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center gap-2 text-warn-fg">
-        <b>🧶 {rp.length} {rp.length === 1 ? min(vocab.material) : min(vocab.materiales)} con resto por guardar</b>
+        <b>{rp.length} {rp.length === 1 ? min(vocab.material) : min(vocab.materiales)} con resto por guardar</b>
         <span className="text-xs">lo que queda ya no llega a una unidad de pedido (≤ {cant(hasta, unidad)})</span>
       </div>
       {rp.map((x) => (

@@ -40,6 +40,8 @@ export function AjustesFlujos() {
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [tipoId, setTipoId] = React.useState<string>('')
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
+  // Tipo cuyas etapas ya se han leído (para no avisar de «sin etapas» mientras cargan)
+  const [etapasDe, setEtapasDe] = React.useState('')
   const [puertas, setPuertas] = React.useState<PuertaDef[]>([])
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [abierta, setAbierta] = React.useState<string | null>(null)
@@ -60,7 +62,7 @@ export function AjustesFlujos() {
   const cargarEtapas = React.useCallback(async () => {
     if (!tipoId) { setEtapas([]); setPuertas([]); return }
     const e = await listarEtapasDe(tipoId)
-    setEtapas(e)
+    setEtapas(e); setEtapasDe(tipoId)
     setPuertas(await listarPuertas(e.map((x) => x.id)))
   }, [tipoId])
   React.useEffect(() => { cargarTipos().catch((x) => setErr(mensajeError(x))) }, [cargarTipos])
@@ -148,7 +150,7 @@ export function AjustesFlujos() {
         <Bloque titulo={`Etapas de «${tipo.nombre}»`}
           ayuda={<>Pulsa una etapa para editarla. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa. {nombresRol.ADMIN} y {nombresRol.OPERATIVO} pueden marcar cualquiera.</>}>
           {etapas.length > 0 && !etapas.some((x) => x.es_final) && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa es final: {gr.con('encargo', 'los')} de este tipo nunca terminarían. Abre la última y activa «Es el final».</p>}
-          {etapas.length === 0 && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Este tipo aún no tiene etapas: hasta que las tenga no se podrá usar.</p>}
+          {etapasDe === tipoId && etapas.length === 0 && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Este tipo aún no tiene etapas: hasta que las tenga no se podrá usar.</p>}
           <Lista>
             {etapas.map((e, i) => {
               const ps = puertas.filter((p) => p.etapa_destino_id === e.id)
@@ -166,7 +168,7 @@ export function AjustesFlujos() {
                       if (!hecho || !tienda) return
                       const msgs = (await listarPlantillas(tienda.id).catch(() => [])).filter((m) => m.etapa_id === e.id)
                       if (msgs.length || ps.length) setOk(`Guardado. Revisa lo que ya llevaba «${v.trim()}»: ${[
-                        msgs.length ? `mensaje${msgs.length > 1 ? 's' : ''} ${msgs.map((m) => `«${m.nombre}»`).join(', ')} (Ajustes → Mensajes)` : '',
+                        msgs.length ? `mensaje${msgs.length > 1 ? 's' : ''} ${msgs.map((m) => `«${m.nombre}»`).join(', ')} (Ajustes → Mensajes al cliente)` : '',
                         ps.length ? `${ps.length} condici${ps.length > 1 ? 'ones' : 'ón'} (${ps.map((x) => `«${x.mensaje}»`).join(', ')}; en «Editar»)` : '',
                       ].filter(Boolean).join(' y ')}.`)
                     }) }} />

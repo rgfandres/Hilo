@@ -5,6 +5,7 @@ import { listarPeriodos } from '@/data/ajustes'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { listarMateriales } from '@/data/materiales'
+import { ajustesFicha } from '@/data/catalogos'
 import { Button, Select } from '@/ui'
 import { num3 } from '@/lib/utils'
 import type { EncargoEstado } from '@/lib/types'
@@ -65,7 +66,7 @@ export function AjustesExportar() {
     const vistos = new Set<string>()
     const campos = [...new Set(filas.map((e) => e.tipo_encargo_id))].flatMap((t) => camposDe(ps as PlantillaCampos[], 'ENCARGO', t))
       .filter((c) => (vistos.has(c.clave) ? false : (vistos.add(c.clave), true)))
-    const cab = ['Nº', 'Tipo', 'Estado', 'Etapa', vocab.cliente, 'Teléfono', 'Correo', vocab.producto, vocab.proveedor, 'Importe', 'A cuenta', 'Complementos', 'Creado', ...campos.map((c) => c.etiqueta)]
+    const cab = ['Nº', 'Tipo', 'Estado', 'Etapa', vocab.cliente, 'Teléfono', 'Correo', vocab.producto, vocab.proveedor, 'Importe', 'A cuenta', ajustesFicha(tienda.ajustes as Record<string, unknown>).etiqueta, 'Creado', ...campos.map((c) => c.etiqueta)]
     const out = filas.map((e) => {
       const c = cli.get(e.cliente_id) ?? {}
       return [num3(e), tipo.get(e.tipo_encargo_id) ?? '', e.estado === 'ANULADO' ? 'Anulado' : 'Activo', e.etapa_actual_nombre ?? '', e.cliente_nombre ?? '',

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconMail, IconPhone, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -40,7 +41,7 @@ export function Clientes() {
   const paginas = res ? Math.max(1, Math.ceil(res.total / POR_PAGINA)) : 1
   return (
     <>
-      <PageHeader title={vocab.clientes} subtitle={res ? `${res.total} ${res.total === 1 ? min(vocab.cliente) : min(vocab.clientes)}` : undefined}>
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'clientes', vocab.clientes)} subtitle={res ? `${res.total} ${res.total === 1 ? min(vocab.cliente) : min(vocab.clientes)}` : undefined}>
         {puedeCrear && <Button variant="primary" onClick={() => setNuevo(true)}>+ {vocab.cliente}</Button>}
       </PageHeader>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">

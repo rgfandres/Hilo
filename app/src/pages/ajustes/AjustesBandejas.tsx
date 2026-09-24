@@ -36,7 +36,8 @@ export function AjustesBandejas() {
   const nueva = () => setBs((xs) => [...xs, { key: claveBandeja({ tipo: 'etapas', nombre: 'Nueva bandeja' }, xs.map((x) => x.key)), nombre: 'Nueva bandeja', tipo: 'etapas', etapas: [] }])
   const proponer = () => {
     const fin = textosFin(etapas, gr)
-    setBs(bandejasPorDefecto(etapas, { todos: `Tod${gr.o('encargo', true)}`, terminados: fin.terminados, anulados: `Anulad${gr.o('encargo', true)}`, pedir: `Pedir ${min(vocab.material)}`, espera: `Esperando ${min(vocab.material)}` }))
+    setBs(bandejasPorDefecto(etapas, { todos: `Tod${gr.o('encargo', true)}`, terminados: fin.terminados, anulados: `Anulad${gr.o('encargo', true)}`, pedir: `Pedir ${min(vocab.material)}`, espera: `Esperando ${min(vocab.material)}`, bloqueados: `Bloquead${gr.o('encargo', true)}` },
+      { materiales: ((tienda?.ajustes as Record<string, unknown> | undefined)?.modulos as Record<string, boolean> | undefined)?.materiales === true }))
   }
 
   async function guardar() {

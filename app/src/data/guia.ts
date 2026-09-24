@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { leerNumero } from '@/data/config'
 
 /**
  * Guía de medidas de la tienda: una fila por valor (p. ej. 38, 40… o S, M, L) con la medida de
@@ -33,7 +34,7 @@ export const opcionesGuia = (g: Guia) => [...g.filas.map((f) => f.etiqueta), ...
 
 const num = (v: unknown): number | null => {
   if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'))
+  const n = typeof v === 'number' ? v : (leerNumero(String(v)) ?? NaN)
   return Number.isFinite(n) ? n : null
 }
 /** Índice de la fila que toca: la primera que alcanza la medida o la más cercana (si pasa de todas, la última y fuera de tabla) */
@@ -88,7 +89,7 @@ export function importarGuia(texto: string, campos: { clave: string; etiqueta: s
   const cab = lineas[0].slice(1)
   const porColumnas = cab.filter((h) => buscar(h)).length
   const porFilas = lineas.slice(1).filter((l) => buscar(l[0])).length
-  const n = (s: string) => { const v = Number(s.replace(',', '.')); return s === '' || !Number.isFinite(v) ? null : v }
+  const n = (s: string) => (s === '' ? null : leerNumero(s))
   if (porColumnas >= porFilas && porColumnas > 0) {
     const cols = cab.map((h) => buscar(h)?.clave ?? null)
     return { columnas: cols.filter(Boolean) as string[], filas: lineas.slice(1).filter((l) => l[0]).map((l) => ({ etiqueta: l[0], valores: Object.fromEntries(cols.map((c, j) => [c, n(l[j + 1] ?? '')]).filter(([c]) => c)) })) }

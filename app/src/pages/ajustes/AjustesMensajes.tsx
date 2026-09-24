@@ -22,6 +22,7 @@ type EtapaOpcion = { id: string; label: string; nombre: string }
 export function AjustesMensajes() {
   const { tienda, vocab, gr, recargar } = useAuth()
   const [lista, setLista] = React.useState<PlantillaMensaje[]>([])
+  const [cargado, setCargado] = React.useState(false)
   const [etapas, setEtapas] = React.useState<EtapaOpcion[]>([])
   const [campos, setCampos] = React.useState<Campo[]>([])
   const [err, setErr] = React.useState<string | null>(null)
@@ -32,7 +33,7 @@ export function AjustesMensajes() {
     if (!tienda) return
     const [pl, tipos, ps] = await Promise.all([listarPlantillas(tienda.id), listarTipos(tienda.id), leerCampos(tienda.id)])
     const ets = (await Promise.all(tipos.map(async (t) => (await listarEtapasDe(t.id)).map((e) => ({ id: e.id, nombre: e.nombre, label: tipos.length > 1 ? `${t.nombre} · ${e.nombre}` : e.nombre }))))).flat()
-    setLista(pl); setEtapas(ets)
+    setLista(pl); setEtapas(ets); setCargado(true)
     const vistos = new Set<string>()
     setCampos(ps.filter((p) => p.entidad !== 'PRODUCTO').flatMap((p) => p.campos).filter((c) => !vistos.has(c.clave) && (vistos.add(c.clave), true)))
   }, [tienda])
@@ -88,7 +89,8 @@ export function AjustesMensajes() {
       </Bloque>
 
       <div className="flex flex-col gap-3">
-        {lista.length === 0 && <p className="text-fg-3">No hay plantillas todavía.</p>}
+        {cargado && lista.length === 0 && <p className="text-fg-3">No hay plantillas todavía.</p>}
+        {!cargado && <p className="text-fg-3">Cargando…</p>}
         {lista.map((p) => (
           <TarjetaPlantilla key={p.id} p={p} etapas={etapas} ejemplo={ejemplo} marcadores={marcadores}
             onGuardar={async (patch) => { setErr(null); setOk(null); try { await actualizarPlantilla(p.id, patch); await cargar(); setOk(`«${patch.nombre ?? p.nombre}» guardada`) } catch (x) { setErr(mensajeError(x)) } }}

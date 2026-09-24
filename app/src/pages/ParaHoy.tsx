@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link } from 'react-router-dom'
 import { IconAdjustments } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -41,6 +42,7 @@ export function ParaHoy() {
   const [rows, setRows] = React.useState<EncargoEstado[]>([])
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [err, setErr] = React.useState<string | null>(null)
+  const [cargado, setCargado] = React.useState(false)
   const [ocultos, setOcultos] = React.useState<Bloque[]>([])
   const [pers, setPers] = React.useState(false)
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
@@ -48,7 +50,7 @@ export function ParaHoy() {
   const leer = React.useCallback(async () => {
     if (!tienda) return
     const [r, e] = await Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }), listarEtapas(tienda.id)])
-    setRows(r); setEtapas(e)
+    setRows(r); setEtapas(e); setCargado(true)
   }, [tienda, periodo])
   React.useEffect(() => {
     if (!tienda) return
@@ -127,7 +129,7 @@ export function ParaHoy() {
 
   return (
     <>
-      <PageHeader title="Para hoy" subtitle={hoy}>
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'parahoy', 'Para hoy')} subtitle={hoy}>
         <Popover open={pers} onOpenChange={setPers} align="end" className="w-[240px]"
           trigger={({ toggle: t }) => <Button variant="ghost" onClick={t}><IconAdjustments size={14} />Personalizar</Button>}>
           <div className="px-2 py-1 text-xs text-fg-3">Bloques que ves (en este dispositivo)</div>
@@ -138,6 +140,8 @@ export function ParaHoy() {
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <div className="flex max-w-[980px] flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
           {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
+          {!cargado && !err && <p className="m-0 text-fg-3">Cargando…</p>}
+          {cargado && <>
           <p className="m-0 leading-relaxed text-fg-2">
             Tienes <Link to="/encargos" className="font-medium text-fg underline decoration-border-strong">{enCurso.length} {min(enCurso.length === 1 ? vocab.encargo : vocab.encargos)} en curso</Link>.
             {mios.length + revisar.length > 0
@@ -224,6 +228,7 @@ export function ParaHoy() {
               )}
             </div>
           )}
+          </>}
         </div>
       </div>
     </>

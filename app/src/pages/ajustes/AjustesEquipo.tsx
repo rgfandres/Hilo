@@ -23,6 +23,7 @@ export function AjustesEquipo() {
   const AYUDA = ayudaRoles(vocab)
   const [equipo, setEquipo] = React.useState<MiembroEquipo[]>([])
   const [invs, setInvs] = React.useState<Invitacion[]>([])
+  const [cargado, setCargado] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
   const [ok, setOk] = React.useState<string | null>(null)
   const [invitar, setInvitar] = React.useState(false)
@@ -37,7 +38,7 @@ export function AjustesEquipo() {
   const cargar = React.useCallback(async () => {
     if (!tienda) return
     const [e, i] = await Promise.all([listarEquipo(tienda.id), listarInvitaciones(tienda.id)])
-    setEquipo(e); setInvs(i)
+    setEquipo(e); setInvs(i); setCargado(true)
   }, [tienda])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
@@ -112,7 +113,7 @@ export function AjustesEquipo() {
       </Bloque>
 
       <Bloque titulo="Invitaciones pendientes" ayuda="Con correo: se acepta sola cuando esa persona entra. Sin correo: vale para cualquiera que tenga el enlace. Caducan a los 14 días.">
-        {invs.length === 0 ? <p className="text-fg-3">No hay invitaciones pendientes.</p> : (
+        {!cargado ? <p className="text-fg-3">Cargando…</p> : invs.length === 0 ? <p className="text-fg-3">No hay invitaciones pendientes.</p> : (
           <Lista>
             {invs.map((i) => (
               <FilaLista key={i.id}>

@@ -1,4 +1,4 @@
-import { plantillas } from '@/data/config'
+import { leerNumero, plantillas } from '@/data/config'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, subirFoto } from '@/data/catalogos'
@@ -10,7 +10,7 @@ import { listarEtapas } from '@/data/encargos'
 import type { Etapa } from '@/lib/types'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
-import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
+import { ROLES, ROLES_DEFECTO, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
 import { Link } from 'react-router-dom'
 import { Avanzado, BarraGuardar, Bloque, FilaForm, Info, Interruptor, ListaTextos, Pagina } from './Ajustes'
 
@@ -107,13 +107,13 @@ function useFormTienda() {
     if (!(dias >= 1 && dias <= 365)) { setErr('Los días para «estancado» deben estar entre 1 y 365'); return }
     const atasco = parseInt(f.atasco, 10)
     if (!(atasco >= 1 && atasco <= 365)) { setErr('Los días para «atascado» deben estar entre 1 y 365'); return }
-    const deshacer = parseInt(f.deshacer, 10), toque = Number(f.toque.replace(',', '.')), pagina = parseInt(f.pagina, 10)
+    const deshacer = parseInt(f.deshacer, 10), toque = leerNumero(f.toque) ?? NaN, pagina = parseInt(f.pagina, 10)
     if (!(deshacer >= 3 && deshacer <= 60)) { setErr('El tiempo para deshacer debe estar entre 3 y 60 segundos'); return }
     if (!(toque >= 1 && toque <= 10)) { setErr('El doble toque debe estar entre 1 y 10 segundos'); return }
     if (!(pagina >= 10 && pagina <= 500)) { setErr('Las filas por página deben estar entre 10 y 500'); return }
     if (f.resena.trim() && !/^https:\/\/[^\s]+\.[^\s]+/.test(f.resena.trim())) { setErr('El enlace de reseña debe empezar por https:// (cópialo de tu ficha de Google o similar)'); return }
     // Números de materiales y logística: sin texto ni negativos
-    const numOk = (s: string, min = 0) => { const t = s.trim().replace(',', '.'); return t === '' || (Number.isFinite(Number(t)) && Number(t) >= min) }
+    const numOk = (s: string, min = 0) => { const t = s.trim(); const v = leerNumero(t); return t === '' || (v != null && v >= min) }
     if (f.materiales && !numOk(f.umbralMat)) { setErr('El umbral de material debe ser un número (0 o más)'); return }
     if (f.logistica && !(numOk(f.diasHist, 1) && /^\d*$/.test(f.diasHist.trim()))) { setErr('El histórico de logística debe ser un número entero de días (1 o más)'); return }
     // Nombres de rol: ni vacíos ni repetidos; moneda: código de 3 letras (EUR, USD…)
@@ -160,7 +160,7 @@ function useFormTienda() {
         hoja_imp_marca: f.impMarca === '●' ? null : f.impMarca,
         hoja_imp_cabecera: f.impCabecera ? 'producto' : null,
         material_unidad: f.unidadMat.trim() || 'uds',
-        umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
+        umbral_material_defecto: leerNumero(f.umbralMat) ?? 0,
         material_menu_pedidos: f.menuPedidos,
         material_contador: f.contadorMat === 'pedir' ? null : f.contadorMat,
         material_pedir: f.pedirMat === 'falta' ? 'falta' : null,
@@ -291,7 +291,7 @@ export function AjustesNombres() {
   const sucio = t.sucio || cambiosFlujo > 0
   const mod = (k: string) => ((aj.modulos as Record<string, boolean> | undefined)?.[k]) === true
   const defecto = menuPorDefecto({ encargos: f.vocab.encargos, clientes: f.vocab.clientes, productos: f.vocab.productos, proveedores: f.vocab.proveedores,
-    materiales: f.vocab.materiales, logistica: f.roles.LOGISTICA, hoja: ajustesHoja(aj).nombre })
+    materiales: f.vocab.materiales, logistica: 'Logística', hoja: ajustesHoja(aj).nombre })
   const menuVisible = PANTALLAS.filter((p) => p.k !== 'nuevo' && (p.k !== 'logistica' || mod('logistica')) && (p.k !== 'produccion' || mod('produccion'))
     && ((p.k !== 'materiales' && p.k !== 'pedidos') || mod('materiales')))
   const art = (k: ClaveVocab) => (f.generos[k] === 'f' ? 'la' : 'el')
@@ -321,7 +321,7 @@ export function AjustesNombres() {
     <>
       <Pagina titulo="Nombres" ayuda="Todo lo que tiene nombre en la app, en un solo sitio. Escribe encima y pulsa Guardar." />
 
-      <Bloque titulo="Las palabras de tu negocio" ayuda={`Así se verá: «${f.vocab.encargo} nuevo», «3 ${f.vocab.encargos.toLowerCase()}», «${art('cliente')} ${f.vocab.cliente.toLowerCase()}», «${art('proveedor')} ${f.vocab.proveedor.toLowerCase()}».`}>
+      <Bloque titulo="Las palabras de tu negocio" ayuda={`Así se verá: «${f.vocab.encargo} nuev${f.generos.encargo === 'f' ? 'a' : 'o'}», «3 ${f.vocab.encargos.toLowerCase()}», «${art('cliente')} ${f.vocab.cliente.toLowerCase()}», «${art('proveedor')} ${f.vocab.proveedor.toLowerCase()}».`}>
         <div className="grid grid-cols-[1fr_1fr_1fr_70px] items-center gap-x-3 gap-y-1.5 max-md:grid-cols-[1fr_1fr_60px]">
           <span className="text-sm text-fg-3 max-md:hidden">Qué es</span><span className="text-sm text-fg-3">Uno</span><span className="text-sm text-fg-3">Varios</span><span className="text-sm text-fg-3">Se dice</span>
           {PALABRAS.filter((p) => p.k !== 'material' || mod('materiales')).map((p) => (
@@ -362,7 +362,7 @@ export function AjustesNombres() {
       <Bloque titulo="Los papeles del equipo" ayuda="Cómo llamáis a cada papel. Cambiar el nombre no cambia lo que puede hacer.">
         <div className="flex flex-col gap-1">
           {ROLES.map((r) => (
-            <FormRow key={r} label={r === 'ADMIN' ? 'Administración' : r === 'OPERATIVO' ? 'Producción' : r === 'ATENCION' ? 'Atención' : 'Logística'}>
+            <FormRow key={r} label={ROLES_DEFECTO[r]}>
               <div className="flex items-center gap-3">
                 <Input className="h-7 w-[200px]" value={f.roles[r]} onChange={(e) => setF({ ...f, roles: { ...f.roles, [r]: e.target.value } })} />
                 <span className="truncate text-sm text-fg-3 max-md:hidden">{AYUDA[r]}</span>
@@ -492,7 +492,7 @@ export function AjustesHoja() {
   const { f, setF, camposEnc } = t
   return (
     <>
-      <Pagina titulo={f.hojaNombre || 'Hoja de producción'} ayuda={`Hoja con los ${f.vocab.encargos.toLowerCase()} para enviar a quien los fabrica. Qué etapa la envía se elige en Tipos y etapas.`} />
+      <Pagina titulo={f.hojaNombre || 'Hoja de producción'} ayuda={`Hoja con ${gramatica(f.vocab, f.generos).con('encargo', 'los')} para enviar a quien l${f.generos.encargo === 'f' ? 'as' : 'os'} fabrica. Qué etapa la envía se elige en Tipos y etapas.`} />
       {!f.produccion && <Apagado />}
         <div className="flex flex-col gap-1">
           {f.produccion && <>
@@ -568,11 +568,13 @@ export function AjustesLogistica() {
   const { f, setF, tienda, camposEnc } = t
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [puertas, setPuertas] = React.useState<PuertaDef[]>([])
+  const [etCargadas, setEtCargadas] = React.useState(false)
   React.useEffect(() => {
     if (!tienda) return
     listarEtapas(tienda.id).then(async (et) => {
       setEtapas(et)
       setPuertas(await listarPuertas(et.filter((x) => x.rol_ejecuta === 'LOGISTICA').map((x) => x.id)))
+      setEtCargadas(true)
     }).catch(() => {})
   }, [tienda])
   const L = f.logis
@@ -610,7 +612,7 @@ export function AjustesLogistica() {
         </div>
         <div className="flex flex-col gap-2">
           <span className="font-medium">Bandejas</span>
-          {bandejas.length <= 1 && <p className="m-0 text-sm text-fg-3">Ninguna etapa la marca «{quien}» todavía.</p>}
+          {etCargadas && bandejas.length <= 1 && <p className="m-0 text-sm text-fg-3">Ninguna etapa la marca «{quien}» todavía.</p>}
           {bandejas.map((b, i) => {
             const c = L.bandejas[b.key] ?? {}
             return (

@@ -31,6 +31,7 @@ export function NuevoEncargo() {
   const [params] = useSearchParams()
   const [tipos, setTipos] = React.useState<{ id: string; clave: string; nombre: string }[]>([])
   const [productos, setProductos] = React.useState<{ id: string; nombre: string; precio_base?: number | null }[]>([])
+  const [prodCargados, setProdCargados] = React.useState(false)
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [tipo, setTipo] = React.useState('')
   const [producto, setProducto] = React.useState('')
@@ -101,7 +102,7 @@ export function NuevoEncargo() {
         supabase.from('producto').select('id,nombre,precio_base').eq('tienda_id', tienda.id).eq('activo', true).order('nombre'),
         plantillas(tienda.id),
       ])
-      setTipos(t.data ?? []); setProductos(p.data ?? []); setPs(c)
+      setTipos(t.data ?? []); setProductos(p.data ?? []); setProdCargados(true); setPs(c)
       // Solo se elige el tipo si aún no hay uno (una recarga no cambia lo que ya se ha elegido)
       // ?tipo= (desde el menú propio de un tipo) manda; si no, el primero que no va aparte
       const pt = params.get('tipo')
@@ -350,7 +351,7 @@ export function NuevoEncargo() {
                 return id
               } : undefined} />
           </FormRow>
-          {productos.length === 0 && <p className="pb-1 text-sm text-fg-3 md:pl-[128px]">No hay {min(vocab.productos)} en el catálogo.{(rol === 'ADMIN' || rol === 'OPERATIVO') && <> <Link to="/productos" className="underline">Añadir</Link></>}</p>}
+          {prodCargados && productos.length === 0 && <p className="pb-1 text-sm text-fg-3 md:pl-[128px]">No hay {min(vocab.productos)} en el catálogo.{(rol === 'ADMIN' || rol === 'OPERATIVO') && <> <Link to="/productos" className="underline">Añadir</Link></>}</p>}
           <CamposForm campos={guia.adaptar(camposEnc)} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}

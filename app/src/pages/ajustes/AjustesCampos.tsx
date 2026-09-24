@@ -29,6 +29,7 @@ export function AjustesCampos() {
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [dest, setDest] = React.useState<Destino>({ entidad: 'CLIENTE', tipoId: null })
   const [campos, setCampos] = React.useState<CampoExt[]>([])
+  const [cargadoCampos, setCargadoCampos] = React.useState(false)
   const [original, setOriginal] = React.useState('[]')
   const [nuevo, setNuevo] = React.useState('')
   const [nuevoTipo, setNuevoTipo] = React.useState<Campo['tipo']>('texto')
@@ -66,7 +67,7 @@ export function AjustesCampos() {
   React.useEffect(() => {
     const fila = ps.find((p) => p.entidad === dest.entidad && (p.tipo_encargo_id ?? null) === dest.tipoId)
     const c = [...(fila?.campos ?? [])].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)) as CampoExt[]
-    setCampos(c); setOriginal(JSON.stringify(c))
+    setCampos(c); setOriginal(JSON.stringify(c)); setCargadoCampos(true)
   }, [ps, dest])
   React.useEffect(() => { setErr(null); setOk(null) }, [dest])
 
@@ -149,7 +150,7 @@ export function AjustesCampos() {
       </Bloque>
 
       <div className="flex flex-col gap-2">
-        {campos.length === 0 && <p className="text-fg-3">Todavía no hay campos aquí.</p>}
+        {cargadoCampos && campos.length === 0 && <p className="text-fg-3">Todavía no hay campos aquí.</p>}
         {campos.map((c, i) => (
           <div key={c.clave} className="flex flex-col gap-2 rounded-md border border-border p-2.5">
             <div className="flex items-center gap-2">
@@ -269,7 +270,7 @@ function CopiarAlRepetir({ ps, tipos }: { ps: PlantillaCampos[]; tipos: TipoEnca
   const sucio = JSON.stringify(sel) !== JSON.stringify(inicial)
   if (!opciones.length) return null
   return (
-    <Bloque titulo={`Otro ${vocab.encargo.toLowerCase()} para ${gr.con('cliente', 'el')}`}
+    <Bloque titulo={`Otr${gr.o('encargo')} ${vocab.encargo.toLowerCase()} para ${gr.con('cliente', 'el')}`}
       ayuda={`Al pulsar «+ ${vocab.encargo} para ${gr.con('cliente', 'este')}» desde ${gr.con('encargo', 'un')}, se copian estos datos. Lo demás empieza vacío.`}>
       <div className="flex flex-wrap gap-1">
         {opciones.map((o) => {

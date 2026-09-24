@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link, useSearchParams } from 'react-router-dom'
 import { IconPencil, IconPrinter } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -191,7 +192,7 @@ export function Produccion() {
   const tabs = orden.map(([k, v]) => ({ key: k, label: v.nombre, count: v.pend || undefined, aviso: listosTodos.some((e) => (e.producto_id ?? SIN) === k), title: `${v.n} líneas · ${v.pend} sin imprimir` }))
   return (
     <>
-      <PageHeader title={hoja.nombre} subtitle={lineas ? (() => { const n = todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length; return n ? `${n} ${n === 1 ? 'línea' : 'líneas'} sin imprimir` : 'Todo impreso' })() : undefined} />
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'produccion', hoja.nombre)} subtitle={lineas ? (() => { const n = todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length; return n ? `${n} ${n === 1 ? 'línea' : 'líneas'} sin imprimir` : 'Todo impreso' })() : undefined} />
       {etProd.size === 0 && lineas && (
         <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a {laHoja}. Márcalo en Ajustes → Tipos y etapas → la etapa → «Envía a {laHoja}».</p>
       )}

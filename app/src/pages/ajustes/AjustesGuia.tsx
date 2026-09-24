@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { guardarTienda, ponerAjustePeriodo } from '@/data/ajustes'
 import { SelectorAmbito, useAmbito } from '@/components/Ambito'
 import { mensajeError } from '@/data/encargos'
-import { plantillas } from '@/data/config'
+import { leerNumero, plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
 import { Avanzado, BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
@@ -45,7 +45,7 @@ export function AjustesGuia() {
   const et = Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta]))
   const sucio = JSON.stringify(g) !== JSON.stringify(inicial)
   const setFila = (i: number, f: FilaGuia) => setG((s) => ({ ...s, filas: s.filas.map((x, j) => (j === i ? f : x)) }))
-  const n = (s: string) => { const v = Number(s.replace(',', '.')); return s.trim() === '' || !Number.isFinite(v) ? null : v }
+  const n = (s: string) => (s.trim() === '' ? null : leerNumero(s))
 
   async function guardar() {
     if (!tienda) return

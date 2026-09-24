@@ -57,7 +57,7 @@ function Pantallas() {
   const { loading, session, tienda, rol, esProveedor, fase, recuperando } = useAuth()
   const { pathname } = useLocation()
   const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
-  if (pathname === '/demo') return <Demo />
+  if (import.meta.env.DEV && pathname === '/demo') return <Demo />
   if (pathname.startsWith('/invitacion/') && !loading) {
     return <Routes><Route path="/invitacion/:token" element={<Invitacion />} /></Routes>
   }

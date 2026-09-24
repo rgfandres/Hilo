@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { nombreMenu } from '@/lib/pantallas'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -198,7 +199,7 @@ export function Encargos() {
       })
       .filter((t) => t.count > 0 || bandeja === t.key),
     ...(matPedir.size || bandeja === 'mat-pedir' ? [{ key: 'mat-pedir', label: `Pedir ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matPedir.has(r.id)).length, aviso: rol === 'ADMIN' || rol === 'OPERATIVO', title: `Llevan ${min(vocab.material)} que aún no se ha pedido ni recibido`, grupo: finGrupo }] : []),
-    ...(matEspera.size || bandeja === 'mat-espera' ? [{ key: 'mat-espera', label: `Esperando ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matEspera.has(r.id)).length, title: `${vocab.material} pedido al proveedor que aún no ha llegado`, grupo: finGrupo }] : []),
+    ...(matEspera.size || bandeja === 'mat-espera' ? [{ key: 'mat-espera', label: `Esperando ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matEspera.has(r.id)).length, title: `${vocab.material} pedid${gr.o('material')} que aún no ha llegado`, grupo: finGrupo }] : []),
     { key: 'revisar', label: 'Revisar', count: revisar.length, tone: 'danger' as const, aviso: revisar.length > 0, title: CRITERIO_REVISAR, grupo: finGrupo },
     ...(bloqueados.length || bandeja === 'bloqueados' ? [{ key: 'bloqueados', label: `Bloquead${gr.o('encargo', true)}`, count: bloqueados.length, title: 'El siguiente paso tiene una condición que bloquea: se puede resolver desde aquí', grupo: finGrupo }] : []),
     { key: 'entregados', label: fin.terminados, count: rows.filter((r) => r.es_final).length, grupo: finGrupo },
@@ -395,7 +396,7 @@ export function Encargos() {
 
   return (
     <>
-      <PageHeader title={nombreTipo ?? vocab.encargos} subtitle={dimAgr ? `Por ${min(dimAgr.etiqueta)}` : undefined}>
+      <PageHeader title={nombreTipo ?? nombreMenu(tienda?.ajustes as Record<string, unknown>, 'encargos', vocab.encargos)} subtitle={dimAgr ? `Por ${min(dimAgr.etiqueta)}` : undefined}>
         <div className="relative">
           <IconSearch size={14} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-fg-3" />
           <Input ref={buscar} value={q} onChange={(e) => setP({ q: e.target.value })} placeholder="Buscar nombre, Nº, teléfono…"
@@ -491,7 +492,7 @@ export function Encargos() {
 
       {vista === 'tablero' ? (
         <Tablero visibles={visibles} etapas={etapas} tipos={tiposEnPantalla} etiqueta={etapaTag} boton={botonSiguiente}
-          abrir={(e) => nav(`/encargos/${e.id}`)} sinProveedor={SIN} hayFiltro={hayFiltro} />
+          abrir={(e) => nav(`/encargos/${e.id}`)} sinProveedor={SIN} hayFiltro={hayFiltro} cargado={cargado} />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           <Table>
@@ -610,12 +611,12 @@ export function Encargos() {
 }
 
 /** Tablero: una columna por etapa (en el orden del flujo). */
-function Tablero({ visibles, etapas, tipos, etiqueta, boton, abrir, sinProveedor, hayFiltro }: {
+function Tablero({ visibles, etapas, tipos, etiqueta, boton, abrir, sinProveedor, hayFiltro, cargado }: {
   visibles: EncargoEstado[]; etapas: Etapa[]; tipos: string[]
   etiqueta: (e: EncargoEstado) => React.ReactNode
   boton: (e: EncargoEstado) => React.ReactNode
   abrir: (e: EncargoEstado) => void
-  sinProveedor: string; hayFiltro: boolean
+  sinProveedor: string; hayFiltro: boolean; cargado: boolean
 }) {
   const columnas = React.useMemo(() => {
     const m = new Map<string, number>()
@@ -656,7 +657,7 @@ function Tablero({ visibles, etapas, tipos, etiqueta, boton, abrir, sinProveedor
           </div>
         )
       })}
-      {visibles.length === 0 && <div className="m-auto text-fg-3">{hayFiltro ? 'Nada coincide con la búsqueda o los filtros.' : 'Esta bandeja está vacía.'}</div>}
+      {visibles.length === 0 && <div className="m-auto text-fg-3">{!cargado ? 'Cargando…' : hayFiltro ? 'Nada coincide con la búsqueda o los filtros.' : 'Esta bandeja está vacía.'}</div>}
     </div>
   )
 }
