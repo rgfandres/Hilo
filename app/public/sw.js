@@ -1,7 +1,7 @@
 /* Hilo · service worker mínimo.
    Permite instalar la app y abre al instante la última versión de la interfaz.
    Los datos NUNCA se guardan aquí: todo lo que viene de Supabase va siempre a la red. */
-const CACHE = 'hilo-app-v1'
+const CACHE = 'hilo-app-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => {
@@ -15,12 +15,18 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return
   // Navegación: red primero y, sin conexión, la última página guardada
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then((r) => { const c = r.clone(); caches.open(CACHE).then((ca) => ca.put('/', c)); return r })
+    e.respondWith(fetch(req).then((r) => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then((ca) => ca.put('/', c)) } return r })
       .catch(() => caches.match('/').then((r) => r || Response.error())))
     return
   }
   // Recursos con huella (/assets/…): caché primero
   if (url.pathname.startsWith('/assets/')) {
-    e.respondWith(caches.match(req).then((r) => r || fetch(req).then((res) => { const c = res.clone(); caches.open(CACHE).then((ca) => ca.put(req, c)); return res })))
+    // Solo se guarda si de verdad es el recurso: durante un despliegue la ruta aún puede
+    // devolver la página (HTML) y guardarla dejaría la app en blanco
+    e.respondWith(caches.match(req).then((r) => r || fetch(req).then((res) => {
+      const tipo = res.headers.get('content-type') || ''
+      if (res.ok && !tipo.includes('text/html')) { const c = res.clone(); caches.open(CACHE).then((ca) => ca.put(req, c)) }
+      return res
+    })))
   }
 })
