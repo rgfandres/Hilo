@@ -7,7 +7,7 @@ import {
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
   avisoStock, bajoUmbral, cerrarLineaPedido, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
 } from '@/data/materiales'
-import { listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
+import { listarProveedoresCat, vendeMaterial, type ProveedorFila } from '@/data/catalogos'
 import { mensajeError } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/layout/AppShell'
@@ -77,7 +77,9 @@ export function Materiales() {
 
   return (
     <>
-      <PageHeader title={vocab.materiales} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined} />
+      <PageHeader title={vocab.materiales} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined}>
+        <Button variant="ghost" asChild><Link to="/proveedores?t=material">Proveedores</Link></Button>
+      </PageHeader>
       <Tabs items={tabs} value={vista} onChange={(k) => setSp((s) => { s.set('v', k); return s }, { replace: true })} />
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err} <button className="font-medium underline" onClick={() => { setErr(null); cargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></div>}
       <div className="min-h-0 flex-1 overflow-auto">
@@ -229,7 +231,14 @@ function FichaMaterial({ m, mats, provs, soloLectura, onClose, onSaved }: {
       <FormRow label="Proveedor">
         <Select disabled={soloLectura} value={f.proveedor_id} onChange={(e) => setF({ ...f, proveedor_id: e.target.value })}>
           <option value="">— sin proveedor —</option>
-          {provs.filter((p) => p.activo || p.id === f.proveedor_id).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          {(() => {
+            const vis = provs.filter((p) => p.activo || p.id === f.proveedor_id)
+            const suyos = vis.filter(vendeMaterial), otros = vis.filter((p) => !vendeMaterial(p))
+            return <>
+              {suyos.length > 0 && <optgroup label={`Proveedores de ${min(vocab.material)}`}>{suyos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</optgroup>}
+              {otros.length > 0 && <optgroup label={vocab.proveedores}>{otros.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</optgroup>}
+            </>
+          })()}
         </Select>
       </FormRow>
       <FormRow label="Se cuenta en" ayuda="m, cm, uds, g, kg, quilates… Cada material puede tener la suya.">

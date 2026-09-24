@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { telefonoWhatsApp } from '@/data/mensajes'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarEncargos, listarEtapas, marcarCheck, mensajeError, obtenerEncargo } from '@/data/encargos'
 import { listarPuertas, type PuertaDef } from '@/data/ajustes'
-import { listarProveedoresCat, fichaProducto, tieneFicha, ajustesFicha, type ProveedorFila, type FichaTecnica } from '@/data/catalogos'
+import { listarProveedoresCat, haceEncargos, fichaProducto, tieneFicha, ajustesFicha, type ProveedorFila, type FichaTecnica } from '@/data/catalogos'
 import { camposDe, formatearValor, plantillas, type PlantillaCampos } from '@/data/config'
 import { ajustesLogistica, bandejasLogistica, hitosDe, type BandejaLogistica, type ConfigBandeja, type HitoMini } from '@/data/logistica'
 import { ajustesHoja } from '@/data/produccion'
@@ -56,7 +56,7 @@ export function Logistica() {
     const [e, et, pv, p] = await Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }), listarEtapas(tienda.id), listarProveedoresCat(tienda.id), plantillas(tienda.id)])
     const logis = et.filter((x) => x.rol_ejecuta === 'LOGISTICA')
     const pu = await listarPuertas(logis.map((x) => x.id))
-    setEncs(e); setEtapas(et); setProvs(pv); setPs(p); setPuertas(pu); setOcultos(new Set())
+    setEncs(e); setEtapas(et); setProvs(pv.filter(haceEncargos)); setPs(p); setPuertas(pu); setOcultos(new Set())
     const ids = e.filter((x) => x.estado === 'ACTIVO').map((x) => x.id)
     setHitos(await hitosDe(ids))
   }, [tienda, periodo])

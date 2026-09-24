@@ -63,7 +63,7 @@ export const enlaceInvitacion = (token: string) => `${window.location.origin}/in
 export interface ProveedorConAcceso { id: string; nombre: string; activo: boolean; notas: string | null; emails: string[] }
 export async function listarProveedoresAcceso(tiendaId: string): Promise<ProveedorConAcceso[]> {
   const ps = ok(await supabase.from('proveedor').select('id,nombre,activo,notas, proveedor_usuario(email)')
-    .eq('tienda_id', tiendaId).order('nombre')) as unknown as (Omit<ProveedorConAcceso, 'emails'> & { proveedor_usuario: { email: string }[] })[]
+    .eq('tienda_id', tiendaId).neq('tipo', 'MATERIAL').order('nombre')) as unknown as (Omit<ProveedorConAcceso, 'emails'> & { proveedor_usuario: { email: string }[] })[]
   return ps.map(({ proveedor_usuario, ...p }) => ({ ...p, emails: proveedor_usuario.map((u) => u.email).sort() }))
 }
 export async function crearProveedor(tiendaId: string, nombre: string) {

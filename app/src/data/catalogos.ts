@@ -86,14 +86,21 @@ export async function encargosDeCliente(clienteId: string) {
 export interface ProveedorFila {
   id: string; tienda_id: string; nombre: string; activo: boolean; notas: string | null
   telefono: string | null; email_contacto: string | null; accesos: number; en_su_mano: number; asignados: number; atascados?: number
+  /** TALLER = hace encargos · MATERIAL = vende material · AMBOS */
+  tipo?: TipoProveedor; unidad_pedido?: number | null
 }
+export type TipoProveedor = 'ENCARGOS' | 'MATERIAL' | 'AMBOS'
+/** ¿Se le pueden asignar encargos? */
+export const haceEncargos = (p: { tipo?: TipoProveedor }) => p.tipo !== 'MATERIAL'
+/** ¿Vende material? */
+export const vendeMaterial = (p: { tipo?: TipoProveedor }) => p.tipo === 'MATERIAL' || p.tipo === 'AMBOS'
 export async function listarProveedoresCat(tiendaId: string) {
   return ok(await supabase.from('v_proveedores').select('*').eq('tienda_id', tiendaId).order('nombre')) as ProveedorFila[]
 }
 export async function obtenerProveedor(id: string) {
   return ok(await supabase.from('v_proveedores').select('*').eq('id', id).maybeSingle()) as ProveedorFila | null
 }
-export async function guardarProveedor(tiendaId: string, id: string | null, p: { nombre: string; telefono: string | null; email_contacto: string | null; notas: string | null; activo: boolean }) {
+export async function guardarProveedor(tiendaId: string, id: string | null, p: { nombre: string; telefono: string | null; email_contacto: string | null; notas: string | null; activo: boolean; tipo?: TipoProveedor }) {
   const fila = { ...p, nombre: p.nombre.trim() }
   if (id) { ok(await supabase.from('proveedor').update(fila).eq('id', id)); return id }
   return (ok(await supabase.from('proveedor').insert({ tienda_id: tiendaId, ...fila }).select('id').single()) as { id: string }).id

@@ -1,13 +1,13 @@
 import * as React from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconMail, IconPhone } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesMaterial, guardarUnidadProveedor, unidadesProveedor } from '@/data/materiales'
-import { encargosDeProveedor, errorNombre, guardarProveedor, listarProveedoresCat, obtenerProveedor, type ProveedorFila } from '@/data/catalogos'
+import { encargosDeProveedor, errorNombre, guardarProveedor, haceEncargos, listarProveedoresCat, obtenerProveedor, vendeMaterial, type ProveedorFila, type TipoProveedor } from '@/data/catalogos'
 import { listarEtapas, mensajeError } from '@/data/encargos'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
-import { Button, Dialog, Field, FormRow, Input, SectionLabel, Sheet, Table, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
+import { Button, Dialog, Field, FormRow, Input, SectionLabel, Select, Sheet, Table, Tabs, Tag, Td, Textarea, Th, Tr, tagColorFromHex } from '@/ui'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
 import { num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -24,13 +24,25 @@ export function Proveedores() {
   const cargar = React.useCallback(async () => { if (tienda) setLista(await listarProveedoresCat(tienda.id)) }, [tienda])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
-  const visibles = (lista ?? []).filter((p) => inactivos || p.activo)
-  const nInactivos = (lista ?? []).filter((p) => !p.activo).length
+  // Con materiales: dos listas, los que hacen encargos y los que venden material
+  const matAj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
+  const [sp, setSp] = useSearchParams()
+  const deMaterial = matAj.activo && sp.get('t') === 'material'
+  const tituloMat = `Proveedores de ${min(vocab.material)}`
+  const delTipo = (lista ?? []).filter((p) => (deMaterial ? vendeMaterial(p) : haceEncargos(p)))
+  const visibles = delTipo.filter((p) => inactivos || p.activo)
+  const nInactivos = delTipo.filter((p) => !p.activo).length
   return (
     <>
-      <PageHeader title={vocab.proveedores} subtitle={lista ? `${visibles.length}` : undefined}>
-        {puedeEditar && <Button variant="primary" onClick={() => setNuevo(true)}>+ {vocab.proveedor}</Button>}
+      <PageHeader title={deMaterial ? tituloMat : vocab.proveedores} subtitle={lista ? `${visibles.length}` : undefined}>
+        {puedeEditar && <Button variant="primary" onClick={() => setNuevo(true)}>+ {deMaterial ? 'Proveedor' : vocab.proveedor}</Button>}
       </PageHeader>
+      {matAj.activo && (
+        <Tabs value={deMaterial ? 'material' : 'encargos'} onChange={(k) => setSp(k === 'material' ? { t: 'material' } : {}, { replace: true })} items={[
+          { key: 'encargos', label: vocab.proveedores, count: (lista ?? []).filter((p) => p.activo && haceEncargos(p)).length },
+          { key: 'material', label: tituloMat, count: (lista ?? []).filter((p) => p.activo && vendeMaterial(p)).length },
+        ]} />
+      )}
       {(nInactivos > 0 || err) && (
         <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
           {nInactivos > 0 && <Interruptor checked={inactivos} onChange={setInactivos} label={`Ver inactiv${gr.o('proveedor', true)} (${nInactivos})`} />}
@@ -38,6 +50,22 @@ export function Proveedores() {
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
+        {deMaterial ? (
+          <Table>
+            <thead><tr><Th className="w-[240px]">Nombre</Th><Th className="w-[180px]">Unidad de pedido</Th><Th className="w-[150px]">Teléfono</Th><Th>Correo</Th></tr></thead>
+            <tbody>
+              {visibles.map((p) => (
+                <Tr key={p.id} className="cursor-pointer" onClick={() => nav(`/proveedores/${p.id}`)}>
+                  <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactivo</Tag>}{p.tipo === 'AMBOS' && <Tag color="gray" className="ml-2">también {min(vocab.proveedor)}</Tag>}</Td>
+                  <Td className="text-fg-2 tabular">{p.unidad_pedido ? `${Number(p.unidad_pedido).toLocaleString('es-ES')} ${matAj.unidad}` : <span className="text-fg-3">—</span>}</Td>
+                  <Td className="text-fg-2">{p.telefono ?? <span className="text-fg-3">—</span>}</Td>
+                  <Td className="text-fg-2">{p.email_contacto ?? <span className="text-fg-3">—</span>}</Td>
+                </Tr>
+              ))}
+              {lista && visibles.length === 0 && <tr><td colSpan={4} className="h-24 text-center text-fg-3">Todavía no hay proveedores de {min(vocab.material)}.</td></tr>}
+            </tbody>
+          </Table>
+        ) : (
         <Table>
           <thead><tr>
             <Th className="w-[240px]">Nombre</Th><Th className="w-[140px]">En su mano</Th><Th className="w-[120px]" title="Demasiados días en su mano">Atascados</Th><Th className="w-[140px]" title="En curso, sin contar lo terminado">Asignados</Th>
@@ -57,8 +85,9 @@ export function Proveedores() {
             {lista && visibles.length === 0 && <tr><td colSpan={6} className="h-24 text-center text-fg-3">{lista.length ? `Tod${gr.o('proveedor', true)} están inactiv${gr.o('proveedor', true)}: activa «Ver inactiv${gr.o('proveedor', true)}» para verl${gr.o('proveedor', true)}.` : `Todavía no hay ${min(vocab.proveedores)}.`}</td></tr>}
           </tbody>
         </Table>
+        )}
       </div>
-      <EditarProveedor open={nuevo} p={null} lista={lista ?? []} onClose={() => setNuevo(false)} onSaved={(id) => nav(`/proveedores/${id}`)} />
+      <EditarProveedor open={nuevo} p={null} tipoNuevo={deMaterial ? 'MATERIAL' : 'ENCARGOS'} lista={lista ?? []} onClose={() => setNuevo(false)} onSaved={(id) => nav(`/proveedores/${id}`)} />
     </>
   )
 }
@@ -146,11 +175,11 @@ export function Proveedor() {
   )
 }
 
-function EditarProveedor({ open, p, lista, onClose, onSaved }: {
-  open: boolean; p: ProveedorFila | null; lista: ProveedorFila[]; onClose: () => void; onSaved: (id: string) => void
+function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARGOS' }: {
+  open: boolean; p: ProveedorFila | null; lista: ProveedorFila[]; onClose: () => void; onSaved: (id: string) => void; tipoNuevo?: TipoProveedor
 }) {
   const { tienda, vocab, gr } = useAuth()
-  const [f, setF] = React.useState({ nombre: '', tel: '', email: '', notas: '', activo: true })
+  const [f, setF] = React.useState({ nombre: '', tel: '', email: '', notas: '', activo: true, tipo: 'ENCARGOS' as TipoProveedor })
   const idCreado = React.useRef<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -161,7 +190,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
     if (!open) return
     setUnidad('')
     if (p && tienda && matAj.activo) unidadesProveedor(tienda.id).then((u) => setUnidad(u[p.id] == null ? '' : String(u[p.id]))).catch(() => {})
-    setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo } : { nombre: '', tel: '', email: '', notas: '', activo: true })
+    setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo, tipo: p.tipo ?? 'ENCARGOS' } : { nombre: '', tel: '', email: '', notas: '', activo: true, tipo: tipoNuevo })
     setErr(null)
   }, [open, p])
 
@@ -175,7 +204,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
     try {
       const u = unidad.trim() ? Number(unidad.replace(',', '.')) : null
       if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
-      const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo })
+      const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo, ...(matAj.activo ? { tipo: f.tipo } : {}) })
       idCreado.current = id   // si el segundo paso falla, reintentar edita este y no crea otro
       if (matAj.activo) await guardarUnidadProveedor(id, u)
       onSaved(id); onClose()
@@ -190,6 +219,13 @@ function EditarProveedor({ open, p, lista, onClose, onSaved }: {
           <FormRow label="Nombre *"><Input className="h-7" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} autoFocus /></FormRow>
           <FormRow label="Teléfono"><Input className="h-7" type="tel" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></FormRow>
           <FormRow label="Correo"><Input className="h-7" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="Para contactar (no da acceso)" /></FormRow>
+          {matAj.activo && <FormRow label="Qué hace" ayuda={`A quien hace ${min(vocab.encargos)} se le pueden asignar; a quien vende ${min(vocab.material)}, pedírselo.`}>
+            <Select className="w-[240px]" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value as TipoProveedor })}>
+              <option value="ENCARGOS">Hace {min(vocab.encargos)} ({min(vocab.proveedor)})</option>
+              <option value="MATERIAL">Vende {min(vocab.material)}</option>
+              <option value="AMBOS">Las dos cosas</option>
+            </Select>
+          </FormRow>}
           {matAj.activo && <FormRow label={`Unidad de pedido (${matAj.unidad})`} ayuda={`Lo que vende de una vez (un rollo de 50…). Se usa para redondear los pedidos de ${min(vocab.material)}.`}>
             <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="Opcional" /></FormRow>}
           {p && <FormRow label="Estado"><Interruptor checked={f.activo} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('proveedor')}` : `Inactiv${gr.o('proveedor')}: no se le asigna nada ni entra`} /></FormRow>}

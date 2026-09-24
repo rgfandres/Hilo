@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
-import { listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
+import { haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
 import { LlegadasMaterial } from '@/pages/Logistica'
 import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
@@ -227,7 +227,7 @@ export function Encargos() {
   }, [defActual, base, etProd, vocab.producto])
   // Proveedores para elegirlo en la fila (bandejas tipo «asignar»)
   const [provsCat, setProvsCat] = React.useState<ProveedorFila[]>([])
-  React.useEffect(() => { if (tienda && defActual?.elegir_proveedor) listarProveedoresCat(tienda.id).then(setProvsCat).catch(() => {}) }, [tienda, defActual?.elegir_proveedor])
+  React.useEffect(() => { if (tienda && defActual?.elegir_proveedor) listarProveedoresCat(tienda.id).then((l) => setProvsCat(l.filter(haceEncargos))).catch(() => {}) }, [tienda, defActual?.elegir_proveedor])
   async function elegirProv(e: EncargoEstado, v: string) {
     if (!v) return
     const antes = e.proveedor_id

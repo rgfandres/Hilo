@@ -213,7 +213,7 @@ export async function siguienteNumero(tipoId: string, periodoId: string | null):
 }
 
 export async function listarProveedores(tiendaId: string) {
-  const { data, error } = await supabase.from('proveedor').select('id,nombre,activo').eq('tienda_id', tiendaId).order('nombre')
+  const { data, error } = await supabase.from('proveedor').select('id,nombre,activo').eq('tienda_id', tiendaId).neq('tipo', 'MATERIAL').order('nombre')
   if (error) throw error
   return (data ?? []) as { id: string; nombre: string; activo: boolean }[]
 }
