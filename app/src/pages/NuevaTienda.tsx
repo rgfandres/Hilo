@@ -15,17 +15,22 @@ export function NuevaTienda() {
   const [ejemplos, setEjemplos] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [creando, setCreando] = React.useState(false)
+  // Alta solo con invitación: quien aún no administra ninguna tienda necesita un código
+  const [conCodigo, setConCodigo] = React.useState(false)
+  const [codigo, setCodigo] = React.useState('')
+  React.useEffect(() => { supabase.rpc('puedo_crear_tienda').then(({ data }) => setConCodigo(data !== true)) }, [])
   const tieneEjemplos = !!(sel.productos?.length || sel.proveedores?.length || sel.materiales?.length)
 
   async function crear() {
     if (creando) return
     if (!nombre.trim()) { setError('Ponle un nombre a la tienda'); return }
+    if (conCodigo && !codigo.trim()) { setError('Escribe tu código de invitación'); return }
     setCreando(true); setError(null)
     const datos = datosPlantilla(sel)
     if (!ejemplos) { delete datos.productos; delete datos.proveedores; delete datos.materiales }
     // La tienda nueva empieza con el asistente de configuración pendiente
     datos.ajustes = { ...(datos.ajustes ?? {}), asistente: { hecho: false, paso: 0 } }
-    const { data, error } = await supabase.rpc('crear_tienda', { p_nombre: nombre.trim(), p_plantilla: datos })
+    const { data, error } = await supabase.rpc('crear_tienda', { p_nombre: nombre.trim(), p_plantilla: datos, p_codigo: codigo.trim() || null })
     if (error) { setError(mensajeError(error)); setCreando(false); return }
     setTiendaPorId(data as string)
     // Recarga completa: la tienda nueva entra con su vocabulario, flujos y permisos desde cero
@@ -44,6 +49,14 @@ export function NuevaTienda() {
             ? <Button variant="ghost" onClick={() => window.location.assign('/')}>Cancelar</Button>
             : <Button variant="ghost" onClick={signOut}>Salir</Button>}
         </div>
+
+        {conCodigo && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-border bg-bg p-3">
+            <SectionLabel>Código de invitación</SectionLabel>
+            <p className="text-sm text-fg-2">Hilo está en acceso anticipado: para crear tu tienda necesitas un código. Si te han invitado a una tienda que ya existe, abre el enlace de la invitación en lugar de crear una.</p>
+            <Input value={codigo} maxLength={40} placeholder="HILO-…" onChange={(e) => setCodigo(e.target.value.toUpperCase())} className="max-w-[240px] font-mono" />
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <SectionLabel>Nombre</SectionLabel>
