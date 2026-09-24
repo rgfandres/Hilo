@@ -55,6 +55,8 @@ function useFormTienda() {
     materiales: ((aj.modulos as Record<string, boolean> | undefined)?.materiales) === true,
     unidadMat: String(aj.material_unidad ?? 'uds'),
     umbralMat: String(aj.umbral_material_defecto ?? 0),
+    menuPedidos: aj.material_menu_pedidos === true,
+    contadorMat: String(aj.material_contador ?? 'pedir'),
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
     usaComp: ajustesFicha(aj).usaComplementos,
     construcciones: (aj.tipos_construccion as string[] | undefined) ?? [],
@@ -143,6 +145,8 @@ function useFormTienda() {
         hoja_curva: f.hojaCol ? limpia(f.hojaCurva) : [],
         material_unidad: f.unidadMat.trim() || 'uds',
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
+        material_menu_pedidos: f.menuPedidos,
+        material_contador: f.contadorMat === 'pedir' ? null : f.contadorMat,
         etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
         usar_complementos: f.usaComp,
         tipos_construccion: limpia(f.construcciones),
@@ -363,6 +367,16 @@ export function AjustesMateriales() {
             <FormRow label="Unidad habitual" ayuda="La que más usáis. Cada uno puede tener la suya."><Input className="h-7 w-24" list="unidades-habituales" value={f.unidadMat} maxLength={12} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
             <datalist id="unidades-habituales">{['uds', 'm', 'cm', 'g', 'kg', 'ml', 'l', 'ct'].map((x) => <option key={x} value={x} />)}</datalist>
             <FormRow label="Aviso de pedir" ayuda="Para los que no tengan uno propio: avisa cuando quede esto o menos."><Input className="h-7 w-24" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
+            <FormRow label="Número del menú" ayuda={`Lo que cuenta el número rojo junto a ${f.vocab.materiales} en el menú.`}>
+              <Select className="w-[260px]" value={f.contadorMat} onChange={(e) => setF({ ...f, contadorMat: e.target.value })}>
+                <option value="pedir">Los que hay que pedir</option>
+                <option value="restos">Los que tienen un resto por guardar</option>
+                <option value="ninguno">Ninguno</option>
+              </Select>
+            </FormRow>
+            <FormRow label="Pedidos en el menú" ayuda="Una entrada propia «Pedidos» para recibir lo que llega, con el número de pedidos abiertos. Quién la ve se elige en Qué ve cada papel.">
+              <Interruptor checked={f.menuPedidos} onChange={(v) => setF({ ...f, menuPedidos: v })} label={f.menuPedidos ? 'Sí' : 'No'} />
+            </FormRow>
           </>}
         </div>
       <Pie t={t} />

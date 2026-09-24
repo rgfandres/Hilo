@@ -5,10 +5,11 @@ import { useAuth } from '@/auth/AuthProvider'
 import {
   ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, avanzarPorMaterial, lineasDeTienda, listarMateriales,
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
-  avisoStock, bajoUmbral, cerrarLineaPedido, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
+  avisoStock, bajoUmbral, cerrarLineaPedido, pedidoAbierto, restosPendientes, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
 } from '@/data/materiales'
 import { listarProveedoresCat, vendeMaterial, type ProveedorFila } from '@/data/catalogos'
 import { mensajeError } from '@/data/encargos'
+import { listarEquipo } from '@/data/ajustes'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/layout/AppShell'
 import { DialogoResto } from '@/components/Material'
@@ -22,12 +23,15 @@ type Vista = 'catalogo' | 'pedidos' | 'movimientos' | 'restos'
 const n = (x: string) => Number(String(x).replace(',', '.'))
 const fecha = (s: string) => fechaCorta(s)
 
-/** Materiales: catálogo con stock, pedidos a proveedor, libro de movimientos y restos. */
-export function Materiales() {
+/**
+ * Materiales: catálogo con stock, pedidos a proveedor, libro de movimientos y restos.
+ * Con «soloPedidos» es la pantalla Pedidos del menú: solo lo pedido, para recibirlo.
+ */
+export function Materiales({ soloPedidos = false }: { soloPedidos?: boolean }) {
   const { tienda, vocab, rol } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [sp, setSp] = useSearchParams()
-  const vista = (sp.get('v') as Vista) || 'catalogo'
+  const vista: Vista = soloPedidos ? 'pedidos' : (sp.get('v') as Vista) || 'catalogo'
   const [mats, setMats] = React.useState<MaterialEstado[] | null>(null)
   const [lineas, setLineas] = React.useState<LineaMaterial[]>([])
   const [pedidos, setPedidos] = React.useState<LineaPedido[]>([])
@@ -55,12 +59,13 @@ export function Materiales() {
 
   const lista = mats ?? []
   const nPedir = lista.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length
-  const nCamino = pedidos.filter((p) => p.estado === 'PENDIENTE' || p.estado === 'PARCIAL').length
+  const nCamino = pedidos.filter(pedidoAbierto).length
+  const rp = restosPendientes(lista)
   const tabs = [
     { key: 'catalogo', label: 'Catálogo', count: lista.filter((m) => m.activo).length },
     { key: 'pedidos', label: 'Pedidos', count: nPedir || undefined, aviso: nPedir > 0, title: `${nPedir} por pedir · ${nCamino} en camino` },
     { key: 'movimientos', label: 'Movimientos' },
-    { key: 'restos', label: 'Restos', count: restos.length || undefined },
+    { key: 'restos', label: 'Restos', count: (rp.length || restos.length) || undefined, aviso: rp.length > 0, title: rp.length ? `${rp.length} con resto por guardar` : undefined },
   ]
 
   if (!aj.activo) {
@@ -77,19 +82,47 @@ export function Materiales() {
 
   return (
     <>
-      <PageHeader title={vocab.materiales} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined}>
-        <Button variant="ghost" asChild><Link to="/proveedores?t=material">Proveedores</Link></Button>
-      </PageHeader>
-      <Tabs items={tabs} value={vista} onChange={(k) => setSp((s) => { s.set('v', k); return s }, { replace: true })} />
+      {soloPedidos
+        ? <PageHeader title={`Pedidos de ${min(vocab.material)}`} subtitle={mats ? `${nCamino} en camino` : undefined}>
+            <Button variant="ghost" asChild><Link to="/materiales">{vocab.materiales}</Link></Button>
+          </PageHeader>
+        : <PageHeader title={vocab.materiales} subtitle={mats ? `${lista.filter((m) => m.activo).length} en el catálogo` : undefined}>
+            <Button variant="ghost" asChild><Link to="/proveedores?t=material">Proveedores</Link></Button>
+          </PageHeader>}
+      {!soloPedidos && <Tabs items={tabs} value={vista} onChange={(k) => setSp((s) => { s.set('v', k); return s }, { replace: true })} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err} <button className="font-medium underline" onClick={() => { setErr(null); cargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></div>}
       <div className="min-h-0 flex-1 overflow-auto">
+        {mats && !soloPedidos && (vista === 'catalogo' || vista === 'restos') && <RestosPorGuardar rp={rp} unidad={aj.unidad} onCambio={cargar} />}
         {mats === null ? <p className="p-4 text-fg-3">Cargando…</p>
           : vista === 'catalogo' ? <Catalogo mats={lista} provs={provs} puedeEditar={puedeEditar} unidad={aj.unidad} onCambio={cargar} />
-          : vista === 'pedidos' ? <Pedidos mats={lista} lineas={lineas} pedidos={pedidos} provs={provs} puedeEditar={puedeEditar} onCambio={cargar} />
+          : vista === 'pedidos' ? <Pedidos mats={lista} lineas={lineas} pedidos={pedidos} provs={provs} puedeEditar={puedeEditar} onCambio={cargar} soloRecibir={soloPedidos} />
           : vista === 'movimientos' ? <Movimientos mats={lista} puedeEditar={puedeEditar} unidad={aj.unidad} onCambio={cargar} />
           : <Restos mats={lista} restos={restos} unidad={aj.unidad} onCambio={cargar} />}
       </div>
     </>
+  )
+}
+
+/** Aviso fijo: materiales con un resto por apartar, con un botón para cada uno (se va al guardarlo) */
+function RestosPorGuardar({ rp, unidad, onCambio }: { rp: { m: MaterialEstado; cantidad: number }[]; unidad: string; onCambio: () => Promise<void> }) {
+  const { vocab } = useAuth()
+  const [resto, setResto] = React.useState<{ m: MaterialEstado; cantidad: number } | null>(null)
+  if (!rp.length) return null
+  const hasta = Math.max(...rp.map((x) => Number(x.m.resto_hasta ?? 0)))
+  return (
+    <div className="m-3 flex flex-col gap-1 rounded-sm border-l-4 border-warn-fg bg-warn-bg px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-warn-fg">
+        <b>🧶 {rp.length} {rp.length === 1 ? min(vocab.material) : min(vocab.materiales)} con resto por guardar</b>
+        <span className="text-xs">lo que queda ya no llega a una unidad de pedido (≤ {cant(hasta, unidad)})</span>
+      </div>
+      {rp.map((x) => (
+        <div key={x.m.id} className="flex flex-wrap items-center gap-2 rounded-sm bg-bg px-2 py-1">
+          <span className="flex-1"><b>{nombreMaterial(x.m)}</b> <span className="text-fg-3">stock {cant(x.m.stock, unidadDe(x.m, unidad))}</span></span>
+          <Button size="sm" variant="primary" onClick={() => setResto(x)}>Guardar resto {cant(x.cantidad, unidadDe(x.m, unidad))}</Button>
+        </div>
+      ))}
+      <DialogoResto resto={resto} unidad={unidadDe(resto?.m, unidad)} onCerrar={() => setResto(null)} onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, 'Guardado desde el aviso'); await onCambio() }} />
+    </div>
   )
 }
 
@@ -99,12 +132,16 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
 }) {
   const { vocab, gr } = useAuth()
   const [q, setQ] = React.useState('')
-  const [filtro, setFiltro] = React.useState<'todos' | 'bajo' | 'inactivos'>('todos')
+  const [filtro, setFiltro] = React.useState<'todos' | 'bajo' | 'sin' | 'inactivos'>('todos')
+  const [fTipo, setFTipo] = React.useState('')
+  const [fProv, setFProv] = React.useState('')
   const [editar, setEditar] = React.useState<MaterialEstado | 'nuevo' | null>(null)
   const [stock, setStock] = React.useState<MaterialEstado | null>(null)
   const t = q.trim().toLowerCase()
   const bajo = bajoUmbral
-  const vis = mats.filter((m) => (filtro === 'inactivos' ? !m.activo : m.activo) && (filtro !== 'bajo' || bajo(m))
+  const sinStock = (m: MaterialEstado) => Number(m.stock) <= 0
+  const vis = mats.filter((m) => (filtro === 'inactivos' ? !m.activo : m.activo) && (filtro !== 'bajo' || bajo(m)) && (filtro !== 'sin' || sinStock(m))
+    && (!fTipo || m.tipo === fTipo) && (!fProv || (fProv === '-' ? !m.proveedor_id : m.proveedor_id === fProv))
     && (!t || `${m.tipo} ${m.variante} ${m.proveedor_nombre ?? ''} ${m.ubicacion ?? ''}`.toLowerCase().includes(t)))
   const tipos = [...new Set(vis.map((m) => m.tipo))]
   return (
@@ -117,8 +154,18 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
         <Segmented value={filtro} onChange={(k) => setFiltro(k as typeof filtro)} items={[
           { key: 'todos', label: 'Todos', count: mats.filter((m) => m.activo).length },
           { key: 'bajo', label: 'Bajo umbral', count: mats.filter((m) => m.activo && bajo(m)).length },
+          { key: 'sin', label: 'Sin stock', count: mats.filter((m) => m.activo && sinStock(m)).length },
           { key: 'inactivos', label: 'Inactivos', count: mats.filter((m) => !m.activo).length },
         ]} />
+        <Select className="w-[170px]" value={fTipo} onChange={(e) => setFTipo(e.target.value)} aria-label="Tipo">
+          <option value="">Todos los tipos</option>
+          {[...new Set(mats.map((m) => m.tipo))].sort((a, b) => a.localeCompare(b)).map((x) => <option key={x} value={x}>{x}</option>)}
+        </Select>
+        <Select className="w-[190px]" value={fProv} onChange={(e) => setFProv(e.target.value)} aria-label={vocab.proveedor}>
+          <option value="">{`${vocab.proveedores}: todos`}</option>
+          {provs.filter((p) => mats.some((m) => m.proveedor_id === p.id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          {mats.some((m) => !m.proveedor_id) && <option value="-">Sin {min(vocab.proveedor)}</option>}
+        </Select>
         <span className="text-sm text-fg-3">{vis.length} de {mats.length}</span>
         <div className="flex-1" />
         {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.material}</Button>}
@@ -275,14 +322,22 @@ function FichaMaterial({ m, mats, provs, soloLectura, onClose, onSaved }: {
 /* ------------------------------ Pedidos ------------------------------ */
 interface Propuesta { m: MaterialEstado; pedir: string; incluir: boolean; lineas: LineaMaterial[] }
 
-function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
-  mats: MaterialEstado[]; lineas: LineaMaterial[]; pedidos: LineaPedido[]; provs: ProveedorFila[]; puedeEditar: boolean; onCambio: () => Promise<void>
+type FiltroPedidos = 'pendientes' | 'parciales' | 'recibidos' | 'todos'
+const FILTRO_PEDIDOS: { key: FiltroPedidos; label: string; sub: string; entra: (p: LineaPedido) => boolean }[] = [
+  { key: 'pendientes', label: '⏳ Pendientes', sub: 'Pedidos hechos al proveedor sin recibir nada todavía.', entra: (p) => p.estado === 'PENDIENTE' },
+  { key: 'parciales', label: '🟡 Parciales', sub: 'Pedidos con recepción parcial: falta una parte por llegar.', entra: (p) => p.estado === 'PARCIAL' },
+  { key: 'recibidos', label: '✅ Recibidos', sub: 'Pedidos completos (y los cerrados sin completar).', entra: (p) => p.estado === 'RECIBIDO' || p.estado === 'CERRADA' },
+  { key: 'todos', label: '📋 Todos', sub: 'Todos los pedidos del histórico.', entra: () => true },
+]
+
+function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio, soloRecibir = false }: {
+  mats: MaterialEstado[]; lineas: LineaMaterial[]; pedidos: LineaPedido[]; provs: ProveedorFila[]; puedeEditar: boolean; onCambio: () => Promise<void>; soloRecibir?: boolean
 }) {
   const { tienda, vocab, gr } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const avisar = useAvisos()
   const [prop, setProp] = React.useState<Record<string, Propuesta>>({})
-  const [filtro, setFiltro] = React.useState<'camino' | 'todos'>('camino')
+  const [filtro, setFiltro] = React.useState<FiltroPedidos>(() => pedidos.some((p) => p.estado === 'PENDIENTE') || !pedidos.some((p) => p.estado === 'PARCIAL') ? 'pendientes' : 'parciales')
   const [recibir, setRecibir] = React.useState<LineaPedido | null>(null)
   const [cerrar, setCerrar] = React.useState<LineaPedido | null>(null)
   const [motivoCerrar, setMotivoCerrar] = React.useState('')
@@ -338,10 +393,19 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
     } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) } finally { setBusy(null) }
   }
 
-  const visibles = pedidos.filter((p) => filtro === 'todos' || p.estado === 'PENDIENTE' || p.estado === 'PARCIAL')
+  const fp = FILTRO_PEDIDOS.find((x) => x.key === filtro) ?? FILTRO_PEDIDOS[0]
+  const visibles = pedidos.filter(fp.entra)
+  // Agrupados por proveedor, como en la hoja de pedidos
+  const grupos = new Map<string, LineaPedido[]>()
+  for (const p of visibles) { const k = p.proveedor_nombre ?? 'Sin proveedor'; grupos.set(k, [...(grupos.get(k) ?? []), p]) }
+  const nPedir = Object.keys(prop).length
   return (
-    <div className="flex flex-col gap-5 p-4">
-      <section className="flex flex-col gap-2">
+    <div className={cn('flex gap-5 p-4', soloRecibir ? 'flex-col-reverse justify-end' : 'flex-col')}>
+      {soloRecibir ? (nPedir > 0 && (
+        <p className="m-0 rounded-sm bg-bg-3 px-3 py-2 text-sm text-fg-2">
+          {nPedir} {nPedir === 1 ? min(vocab.material) : min(vocab.materiales)} por pedir. <Link to="/materiales?v=pedidos" className="font-medium underline">Preparar el pedido</Link>
+        </p>
+      )) : <section className="flex flex-col gap-2">
         <h2 className="m-0 text-md font-semibold">Por pedir</h2>
         {porProv.size === 0 && <p className="m-0 text-fg-3">Nada que pedir: el stock y lo que está en camino cubren lo pedido por {gr.con('encargo', 'los')} y el umbral.</p>}
         {[...porProv.entries()].map(([provId, xs]) => (
@@ -376,23 +440,31 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
             </Table>
           </div>
         ))}
-      </section>
+      </section>}
 
       <section className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="m-0 text-md font-semibold">Pedidos hechos</h2>
-          <Segmented value={filtro} onChange={(k) => setFiltro(k as typeof filtro)} items={[{ key: 'camino', label: 'En camino', count: pedidos.filter((p) => p.estado === 'PENDIENTE' || p.estado === 'PARCIAL').length }, { key: 'todos', label: 'Todos', count: pedidos.length }]} />
+          {!soloRecibir && <h2 className="m-0 text-md font-semibold">Pedidos hechos</h2>}
+          <Segmented value={filtro} onChange={(k) => setFiltro(k as FiltroPedidos)} items={FILTRO_PEDIDOS.map((x) => ({ key: x.key, label: x.label, count: pedidos.filter(x.entra).length }))} />
         </div>
-        {visibles.length === 0 ? <p className="m-0 text-fg-3">{filtro === 'camino' ? 'Nada en camino.' : 'Aún no hay pedidos.'}</p> : (
+        <p className="m-0 text-sm text-fg-3">{fp.sub}</p>
+        {visibles.length === 0 ? <p className="m-0 text-fg-3">No hay pedidos en esta vista.</p> : (
           <Table>
-            <thead><Tr><Th>Fecha</Th><Th>Proveedor</Th><Th>{vocab.material}</Th><Th className="text-right">Recibido</Th><Th>Estado</Th><Th>Para</Th><Th /></Tr></thead>
+            <thead><Tr><Th>Fecha</Th><Th>{vocab.material}</Th><Th className="text-right">Recibido</Th><Th>Estado</Th><Th>Para</Th><Th /></Tr></thead>
             <tbody>
-              {visibles.map((p) => (
+              {[...grupos.entries()].map(([prov, ps]) => <React.Fragment key={prov}>
+                <tr><td colSpan={6} className="bg-bg-2 px-3 py-1 text-xs font-medium uppercase tracking-wide text-fg-3">{prov} · {ps.length}</td></tr>
+                {ps.map((p) => {
+                const pct = Number(p.cantidad) > 0 ? Math.min(100, Math.round(Number(p.recibido) / Number(p.cantidad) * 100)) : 0
+                return (
                 <Tr key={p.id}>
                   <Td className="text-fg-2">{fecha(p.fecha)}</Td>
-                  <Td className="text-fg-2">{p.proveedor_nombre ?? '—'}</Td>
                   <Td className="font-medium">{nombreMaterial(p)}</Td>
-                  <Td className="text-right tabular">{Number(p.recibido).toLocaleString(locale())} / {cant(p.cantidad, p.unidad)}</Td>
+                  <Td className="text-right tabular">
+                    {Number(p.recibido).toLocaleString(locale())} / {cant(p.cantidad, p.unidad)}
+                    {pedidoAbierto(p) && Number(p.pendiente) > 0 && <span className="text-fg-3"> · falta {cant(p.pendiente, p.unidad)}</span>}
+                    <div className="ml-auto mt-0.5 h-1 w-[120px] overflow-hidden rounded-full bg-bg-4"><div className={cn('h-full', pct >= 100 ? 'bg-ok' : pct > 0 ? 'bg-warn-fg' : 'bg-gray-8')} style={{ width: `${Math.max(pct, 3)}%` }} /></div>
+                  </Td>
                   <Td><Tag color={p.estado === 'RECIBIDO' ? 'green' : p.estado === 'CERRADA' ? 'gray' : p.estado === 'PARCIAL' ? 'amber' : 'blue'}>{p.estado === 'RECIBIDO' ? 'Recibido' : p.estado === 'CERRADA' ? 'Cerrado' : p.estado === 'PARCIAL' ? 'Parcial' : 'En camino'}</Tag>
                     {p.estado === 'CERRADA' && p.cerrada_motivo && <div className="text-xs text-fg-3">{p.cerrada_motivo}</div>}</Td>
                   <Td className="text-sm text-fg-2">{p.encargos.map((e) => <Link key={e.id} to={`/encargos/${e.id}`} className="mr-1.5 hover:underline">{num3(e)} {e.cliente}</Link>)}</Td>
@@ -401,7 +473,8 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
                     {puedeEditar && <Button size="sm" variant="ghost" onClick={() => { setCerrar(p); setMotivoCerrar('') }} title="El proveedor no servirá lo que falta: deja de contar como «en camino»">Cerrar</Button>}
                   </>}</Td>
                 </Tr>
-              ))}
+                )})}
+              </React.Fragment>)}
             </tbody>
           </Table>
         )}
@@ -475,7 +548,9 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
   const avisar = useAvisos()
   const [mat, setMat] = React.useState('')
   const [movs, setMovs] = React.useState<Movimiento[] | null>(null)
+  const [quien, setQuien] = React.useState<Record<string, string>>({})
   const cargar = React.useCallback(async () => { if (tienda) setMovs(await listarMovimientos(tienda.id, mat || undefined)) }, [tienda, mat])
+  React.useEffect(() => { if (tienda) listarEquipo(tienda.id).then((eq) => setQuien(Object.fromEntries(eq.map((m) => [m.user_id, m.email.split('@')[0]])))).catch(() => {}) }, [tienda])
   React.useEffect(() => { cargar().catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) }, [cargar, avisar])
   async function revertir(m: Movimiento) {
     try { await revertirMovimiento(m.id); await Promise.all([cargar(), onCambio()]); avisar({ tipo: 'ok', texto: 'Movimiento revertido' }) } catch (e) { avisar({ tipo: 'error', texto: mensajeError(e) }) }
@@ -492,7 +567,7 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
       </div>
       {movs === null ? <p className="p-4 text-fg-3">Cargando…</p> : movs.length === 0 ? <p className="p-6 text-center text-fg-3">Sin movimientos.</p> : (
         <Table>
-          <thead><Tr><Th>Fecha</Th><Th>{vocab.material}</Th><Th>Tipo</Th><Th className="text-right">Cantidad</Th><Th className="text-right">Efecto en stock</Th><Th>Nota</Th><Th /></Tr></thead>
+          <thead><Tr><Th>Fecha</Th><Th>{vocab.material}</Th><Th>Tipo</Th><Th className="text-right">Cantidad</Th><Th className="text-right">Efecto en stock</Th><Th>Quién</Th><Th>Nota</Th><Th /></Tr></thead>
           <tbody>
             {movs.map((m) => (
               <Tr key={m.id} className={cn(m.revertido && 'opacity-55')}>
@@ -501,6 +576,7 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
                 <Td><Tag color={m.tipo === 'CONSUMO' ? 'blue' : m.tipo === 'RECEPCION' ? 'green' : m.tipo === 'REVERSO' ? 'gray' : 'amber'}>{TIPO_MOV[m.tipo]}</Tag>{m.revertido && <span className="ml-1 text-xs text-fg-3">revertido</span>}</Td>
                 <Td className="text-right tabular">{cant(m.cantidad, unidadDe(mats.find((x) => x.id === m.material_id), unidad))}</Td>
                 <Td className={cn('text-right tabular', Number(m.delta) > 0 ? 'text-ok-fg' : Number(m.delta) < 0 ? 'text-danger-fg' : 'text-fg-3')}>{Number(m.delta) === 0 ? '—' : `${Number(m.delta) > 0 ? '+' : ''}${Number(m.delta).toLocaleString('es-ES')}`}</Td>
+                <Td className="text-sm text-fg-2">{m.usuario_id ? quien[m.usuario_id] ?? '—' : '—'}</Td>
                 <Td className="text-sm text-fg-2">{m.encargo_id && <Link to={`/encargos/${m.encargo_id}`} className="mr-1 underline">{min(vocab.encargo)}</Link>}{m.notas}</Td>
                 <Td>{puedeEditar && !m.revertido && (m.tipo === 'RECEPCION' || m.tipo === 'AJUSTE') && <Button size="sm" variant="ghost" onClick={() => revertir(m)}>Revertir</Button>}</Td>
               </Tr>
@@ -528,7 +604,7 @@ function Restos({ mats, restos, unidad, onCambio }: { mats: MaterialEstado[]; re
         Los restos son sobrantes que ya no llegan a una unidad de pedido. <b>No cuentan en el stock</b> ni en los avisos: úsalos para arreglos o trabajos pequeños y dalos por usados cuando se acaben.
       </p>
       <div className="flex items-center gap-2">
-        <span className="flex-1 text-sm text-fg-3">{restos.length} restos</span>
+        <span className="flex-1 text-sm text-fg-3">{restos.length} restos{restos.length > 0 && ` · ${[...new Set(restos.map((r) => unidadDe(mats.find((m) => m.id === r.material_id), unidad)))].map((u) => cant(restos.filter((r) => unidadDe(mats.find((m) => m.id === r.material_id), unidad) === u).reduce((s, r) => s + Number(r.cantidad), 0), u)).join(' + ')} guardados`}</span>
         <Button size="sm" onClick={() => setNuevo({ mat: '', cant: '', origen: '' })}>+ Apuntar resto</Button>
       </div>
       {restos.length === 0 ? <p className="m-0 text-fg-3">No hay restos guardados.</p> : (

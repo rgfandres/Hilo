@@ -5,7 +5,7 @@ import type { Rol } from '@/lib/types'
  * siempre. Configurado, el menú, la barra del móvil y las direcciones se limitan a lo marcado.
  * Administración lo ve siempre todo.
  */
-export type Pantalla = 'parahoy' | 'encargos' | 'nuevo' | 'clientes' | 'productos' | 'proveedores' | 'logistica' | 'produccion' | 'materiales' | 'informes'
+export type Pantalla = 'parahoy' | 'encargos' | 'nuevo' | 'clientes' | 'productos' | 'proveedores' | 'logistica' | 'produccion' | 'materiales' | 'pedidos' | 'informes'
 
 export const PANTALLAS: { k: Pantalla; ruta: string }[] = [
   { k: 'parahoy', ruta: '/' },
@@ -17,6 +17,7 @@ export const PANTALLAS: { k: Pantalla; ruta: string }[] = [
   { k: 'proveedores', ruta: '/proveedores' },
   { k: 'produccion', ruta: '/produccion' },
   { k: 'materiales', ruta: '/materiales' },
+  { k: 'pedidos', ruta: '/pedidos' },
   { k: 'informes', ruta: '/informes' },
 ]
 

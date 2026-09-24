@@ -3,12 +3,12 @@ import { GuardaSalida, confirmarSalida } from '@/lib/salir'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   IconClock, IconLayoutList, IconUser, IconBox, IconBuildingWarehouse,
-  IconChartBar, IconSettings, IconSearch, IconChevronDown, IconMenu2, IconPlus, IconDots, IconListCheck, IconRuler2, IconPrinter, IconTruck,
+  IconChartBar, IconSettings, IconSearch, IconChevronDown, IconMenu2, IconPlus, IconDots, IconListCheck, IconRuler2, IconPrinter, IconTruck, IconInbox,
 } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { BuscadorGlobal } from '@/components/BuscadorGlobal'
 import { listarEncargos } from '@/data/encargos'
-import { ajustesMaterial, listarMateriales, propuestaPedido } from '@/data/materiales'
+import { ajustesMaterial, listarMateriales, listarPedidos, pedidoAbierto, propuestaPedido, restosPendientes } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica } from '@/data/logistica'
 import { activo, bloqueado, enRevisar, miTrabajo, pendientesDe, tope99 } from '@/lib/bandejas'
@@ -58,8 +58,10 @@ export function AppShell() {
     if (!tienda || !aparteKey) { setTiposMenu([]); return }
     listarTipos(tienda.id).then((ts) => setTiposMenu(ts.filter((t) => aparteKey.split(',').includes(t.id)).map((t) => ({ id: t.id, nombre: t.nombre })))).catch(() => {})
   }, [tienda, aparteKey])
-  const conMateriales = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && rol !== 'LOGISTICA'
+  const ajMat = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
+  const conMateriales = ajMat.activo && rol !== 'LOGISTICA'
   const [porPedir, setPorPedir] = React.useState(0)
+  const [enCamino, setEnCamino] = React.useState(0)
   const conexion = useConexion()
   const hoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>)
   const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
@@ -93,7 +95,10 @@ export function AppShell() {
           logistica: todos.filter((r) => activo(r) && r.etapa_siguiente_rol === 'LOGISTICA').length,
           porTipo: Object.fromEntries(ap.map((t) => [t, cuentaDe(todos.filter((r) => r.tipo_encargo_id === t), t)])) })
       }).catch(() => {})
-      if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')) listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})
+      // Número de materiales: por pedir o restos por guardar, según la tienda
+      const cMat = ajustesMaterial(tienda.ajustes as Record<string, unknown>)
+      if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO') && cMat.contador !== 'ninguno') listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(cMat.contador === 'restos' ? restosPendientes(ms).length : ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})
+      if (conMateriales && cMat.menuPedidos) listarPedidos(tienda.id).then((ps) => { if (vivo) setEnCamino(ps.filter(pedidoAbierto).length) }).catch(() => {})
     }
     leer()
     const t = setInterval(leer, 60_000)
@@ -214,7 +219,9 @@ export function AppShell() {
         {ve('proveedores') && <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en manos de un proveedor">{vocab.proveedores}</Item>}
         {conLogistica && rol !== 'ATENCION' && ve('logistica') && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' || rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.logistica : 0}>{nombresRol.LOGISTICA}</Item>}
         {hoja.activo && rol !== 'LOGISTICA' && ve('produccion') && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
-        {conMateriales && ve('materiales') && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
+        {conMateriales && ve('materiales') && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={ajMat.contador === 'ninguno' ? 0 : porPedir}
+          title={ajMat.contador === 'restos' ? 'Con resto por guardar: lo que queda ya no llega a una unidad de pedido' : 'Por pedir: el stock no cubre lo pedido por los encargos más el umbral'}>{vocab.materiales}</Item>}
+        {conMateriales && ajMat.menuPedidos && ve('pedidos') && <Item to="/pedidos" icon={<IconInbox size={14} />} count={enCamino} title="Pedidos abiertos: sin recibir o a medias">Pedidos</Item>}
         {rol === 'ADMIN' && <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>}
         {rol === 'ADMIN' && <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>}
         <div className="flex-1" />

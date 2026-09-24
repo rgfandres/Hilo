@@ -86,6 +86,7 @@ function Pantallas() {
         <Route path="proveedores" element={<Proveedores />} />
         <Route path="proveedores/:id" element={<Proveedor />} />
         <Route path="materiales" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Materiales />} />
+        <Route path="pedidos" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Materiales soloPedidos />} />
         <Route path="produccion" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Produccion />} />
         <Route path="informes" element={rol === 'ADMIN' ? <Informes /> : <Navigate to="/" replace />} />
         <Route path="ajustes" element={<Ajustes />}>

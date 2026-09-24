@@ -143,8 +143,19 @@ export function ajustesMaterial(aj: Record<string, unknown> | null | undefined) 
     activo: ((aj?.modulos as Record<string, boolean> | undefined)?.materiales) === true,
     /** Unidad que se propone al crear un material nuevo (cada material tiene la suya) */
     unidad: String(aj?.material_unidad ?? 'uds'),
+    /** «Pedidos» como entrada propia del menú (para recibir lo que llega) */
+    menuPedidos: aj?.material_menu_pedidos === true,
+    /** Qué cuenta el número del menú de materiales */
+    contador: ((['pedir', 'restos', 'ninguno'] as const).find((x) => x === aj?.material_contador) ?? 'pedir') as 'pedir' | 'restos' | 'ninguno',
   }
 }
+
+/** Materiales con un resto por apartar (lo que queda ya no llega a una unidad de pedido): se avisa hasta que se guarda */
+export function restosPendientes(mats: MaterialEstado[]): { m: MaterialEstado; cantidad: number }[] {
+  return mats.filter((m) => m.activo).map((m) => ({ m, cantidad: restoCandidato(Number(m.stock), m.unidad_efectiva, Number(m.resto_hasta ?? 0)) })).filter((x) => x.cantidad > 0)
+}
+/** Pedidos abiertos: sin recibir nada o a medias */
+export const pedidoAbierto = (p: { estado: string }) => p.estado === 'PENDIENTE' || p.estado === 'PARCIAL'
 /** Unidad de un material; si aún no se sabe, la habitual de la tienda */
 export const unidadDe = (m: { unidad?: string | null } | null | undefined, porDefecto: string) => m?.unidad || porDefecto
 

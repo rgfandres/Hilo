@@ -5,6 +5,7 @@ import { mensajeError } from '@/data/encargos'
 import { ajustesHoja } from '@/data/produccion'
 import { PANTALLAS, PAPELES_CONFIGURABLES, type Pantalla } from '@/lib/pantallas'
 import type { Rol } from '@/lib/types'
+import { min } from '@/lib/vocab'
 import { BarraGuardar, Interruptor, Pagina } from './Ajustes'
 
 /** Ajustes → Qué ve cada papel: pantallas del menú (y de la barra del móvil) por papel. */
@@ -20,12 +21,12 @@ export function AjustesPantallas() {
   const sucio = JSON.stringify(cfg) !== JSON.stringify(inicial)
   const nombre: Record<Pantalla, string> = {
     parahoy: 'Para hoy', encargos: `${vocab.encargos} (la lista)`, nuevo: `${vocab.encargo} nuevo`, clientes: vocab.clientes, productos: vocab.productos,
-    proveedores: vocab.proveedores, logistica: `Pantalla de ${nombresRol.LOGISTICA}`, produccion: ajustesHoja(aj).nombre, materiales: vocab.materiales, informes: 'Informes',
+    proveedores: vocab.proveedores, logistica: `Pantalla de ${nombresRol.LOGISTICA}`, produccion: ajustesHoja(aj).nombre, materiales: vocab.materiales, pedidos: `Pedidos de ${min(vocab.material)}`, informes: 'Informes',
   }
   // Lo de siempre para cada papel, como punto de partida al personalizar
   const deSiempre = (r: Rol): Pantalla[] => r === 'LOGISTICA' ? ['logistica', 'parahoy', 'encargos', 'clientes', 'productos', 'proveedores']
-    : r === 'ATENCION' ? ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos', 'proveedores', 'produccion', 'materiales']
-    : ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos', 'proveedores', 'logistica', 'produccion', 'materiales']
+    : r === 'ATENCION' ? ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos', 'proveedores', 'produccion', 'materiales', 'pedidos']
+    : ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos', 'proveedores', 'logistica', 'produccion', 'materiales', 'pedidos']
   const toggle = (r: Rol, k: Pantalla, v: boolean) => setCfg((c) => { const l = c[r] ?? []; return { ...c, [r]: v ? [...l, k] : l.filter((x) => x !== k) } })
 
   async function guardar() {
