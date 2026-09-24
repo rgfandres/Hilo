@@ -38,7 +38,7 @@ const MAS: { titulo: string; items: Sec[] }[] = [
     { to: 'guia', label: () => 'Guía de medidas', quien: 'admin', buscar: 'guia medidas tallas tabla' },
     { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin', buscar: 'ficha tecnica escandallo consumo receta' },
     { to: 'periodos', label: () => 'Periodos', quien: 'admin', buscar: 'periodo temporada año numeracion' },
-    { to: 'importar', label: () => 'Importar datos', quien: 'admin', buscar: 'importar excel csv hoja datos' },
+    { to: 'exportar', label: () => 'Exportar datos', quien: 'admin', buscar: 'exportar descargar excel csv copia datos guardar' },
   ] },
   { titulo: 'Módulos', items: [
     { to: 'materiales', label: ({ vocab }) => vocab.materiales, quien: 'admin', si: mod('materiales'), buscar: 'material stock umbral pedir resto unidad' },

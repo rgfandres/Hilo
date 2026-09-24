@@ -109,7 +109,7 @@ export function AjustesAsistente() {
       } else {
         await guardar({}, sig)
       }
-      if (sig >= PASOS.length) nav('/ajustes/importar')
+      if (sig >= PASOS.length) nav('/')
       else setPaso(sig)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }

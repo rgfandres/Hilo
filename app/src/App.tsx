@@ -24,6 +24,7 @@ import { Logistica } from '@/pages/Logistica'
 import { AjustesGuia } from '@/pages/ajustes/AjustesGuia'
 import { ajustesLogistica } from '@/data/logistica'
 import { Ajustes, AjustesInicio } from '@/pages/ajustes/Ajustes'
+import { AjustesExportar } from '@/pages/ajustes/AjustesExportar'
 import { AjustesTienda, AjustesRegion, AjustesNombres, AjustesReglas, AjustesModulos, AjustesMateriales, AjustesHoja, AjustesLogistica, AjustesFichaTecnica } from '@/pages/ajustes/AjustesTienda'
 import { AjustesEquipo } from '@/pages/ajustes/AjustesEquipo'
 import { AjustesProveedores } from '@/pages/ajustes/AjustesProveedores'
@@ -35,7 +36,6 @@ import { AjustesCampos } from '@/pages/ajustes/AjustesCampos'
 import { AjustesPeriodos } from '@/pages/ajustes/AjustesPeriodos'
 import { AjustesMensajes } from '@/pages/ajustes/AjustesMensajes'
 import { AjustesFicha } from '@/pages/ajustes/AjustesFicha'
-import { AjustesImportar } from '@/pages/ajustes/AjustesImportar'
 import { AjustesAsistente } from '@/pages/ajustes/AjustesAsistente'
 
 function Gate() {
@@ -99,7 +99,8 @@ function Pantallas() {
           <Route path="papeles" element={<Navigate to="/ajustes/nombres" replace />} />
           <Route path="reglas" element={<AjustesReglas />} />
           <Route path="modulos" element={<AjustesModulos />} />
-          <Route path="importar" element={<AjustesImportar />} />
+          <Route path="exportar" element={<AjustesExportar />} />
+          <Route path="importar" element={<Navigate to="/ajustes/exportar" replace />} />
           <Route path="asistente" element={rol === 'ADMIN' ? <AjustesAsistente /> : <Navigate to="/ajustes" replace />} />
           <Route path="materiales" element={<AjustesMateriales />} />
           <Route path="hoja" element={<AjustesHoja />} />
