@@ -206,8 +206,8 @@ export function AjustesCampos() {
           const clave = campos[quitar].clave
           // Las condiciones que exigen este campo bloquearían para siempre: se quitan con él (si se elige)
           if (quitarPuertas) setPuertasPorBorrar((xs) => [...xs, ...puertas.filter((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === clave).map((p) => p.id)])
+          // Sin recargar: recargar desde el servidor borraba los cambios aún sin guardar (y el propio «Quitar»)
           setCampos((cs) => cs.filter((_, j) => j !== quitar)); setQuitar(null)
-          if (quitarPuertas) await cargar().catch(() => {})
         } }]}>
         {quitar !== null && usos(campos[quitar]?.clave).length > 0 && (
           <div className="flex flex-col gap-1 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">
