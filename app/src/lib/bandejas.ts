@@ -19,7 +19,9 @@ export function motivosRevision(e: EncargoEstado, ajustes: Record<string, unknow
   if (e.en_revision) m.push('Incidencia abierta')
   const o = generosDe(ajustes, vocabDe(ajustes)).encargo === 'f' ? 'a' : 'o'
   if (e.revisar_manual) m.push(`Marcad${o} a mano` + (e.revisar_nota ? `: ${e.revisar_nota}` : ''))
-  if (e.estancado) m.push(`Sin cambios desde hace más de ${Number(ajustes.dias_estancado ?? 10)} días`)
+  if (e.estancado) m.push(ajustes.estancado_por === 'pasos'
+    ? `${e.dias_en_etapa} días sin marcar ningún paso (más de ${Number(ajustes.dias_estancado ?? 10)})`
+    : `Sin cambios desde hace más de ${Number(ajustes.dias_estancado ?? 10)} días`)
   if (e.atascado) m.push(`${e.dias_en_etapa} días en «${e.etapa_actual_nombre}» (más de ${Number(ajustes.dias_atasco_proveedor ?? 15)})`)
   return m
 }

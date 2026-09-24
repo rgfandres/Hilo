@@ -148,7 +148,7 @@ export function Encargos() {
   const etapasTab = [...new Map(etapas.filter((e) => !e.es_final).map((e) => [e.nombre, e])).values()]
   const hayGrupos = etapasTab.some((e) => e.grupo)
   const finGrupo = hayGrupos ? ' ' : null
-  const CRITERIO_REVISAR = `Incidencias abiertas, marcad${gr.o('encargo', true)} a mano, más de ${Number(aj.dias_estancado ?? 10)} días sin cambios y más de ${Number(aj.dias_atasco_proveedor ?? 15)} días en una etapa de espera`
+  const CRITERIO_REVISAR = `Incidencias abiertas, marcad${gr.o('encargo', true)} a mano, más de ${Number(aj.dias_estancado ?? 10)} días ${aj.estancado_por === 'pasos' ? 'sin marcar ningún paso' : 'sin cambios'}${aj.estancado_en_espera ? ' (en cualquier etapa)' : ''} y más de ${Number(aj.dias_atasco_proveedor ?? 15)} días en una etapa de espera`
   const fin = textosFin(etapas, gr)
   const EXTRA: Record<string, string> = { listos: fin.listos, proveedor: `En ${min(vocab.proveedor)}` }
   const pideYa = (r: EncargoEstado) => lineasMat.some((l) => l.encargo_id === r.id && l.estado === 'PENDIENTE' && !!avisoStock(matsEst.find((m) => m.id === l.material_id)).nivel)

@@ -40,6 +40,8 @@ function useFormTienda() {
     generosFijados: ((aj.vocab_generos ?? {}) as Partial<Record<ClaveVocab, Genero>>),
     roles: rolesDe(aj),
     dias: String(aj.dias_estancado ?? 10),
+    estPasos: aj.estancado_por === 'pasos',
+    estEspera: aj.estancado_en_espera === true,
     atasco: String(aj.dias_atasco_proveedor ?? 15),
     deshacer: String(aj.segundos_deshacer ?? 8),
     toque: String(aj.segundos_doble_toque ?? 3.5),
@@ -120,6 +122,8 @@ function useFormTienda() {
         vocab_generos: f.generosFijados,
         roles: Object.fromEntries(Object.entries(f.roles).map(([k, v]) => [k, v.trim() || k])),
         dias_estancado: dias,
+        estancado_por: f.estPasos ? 'pasos' : null,
+        estancado_en_espera: f.estEspera || null,
         dias_atasco_proveedor: atasco,
         segundos_deshacer: deshacer,
         segundos_doble_toque: toque,
@@ -299,7 +303,13 @@ export function AjustesReglas() {
           <FormRow label="Estancado">
             <div className="flex flex-wrap items-center gap-2">
               <Input className="h-7 w-20" type="number" min={1} max={365} value={f.dias} onChange={(e) => setF({ ...f, dias: e.target.value })} />
-              <span className="text-fg-3">días sin cambios → pasa a «Revisar»</span>
+              <span className="text-fg-3">días {f.estPasos ? 'sin marcar ningún paso' : 'sin cambios'} → pasa a «Revisar»</span>
+            </div>
+          </FormRow>
+          <FormRow label="" ayuda="«Desde el último paso» cuenta desde la fecha del último paso marcado, aunque se haya editado después (útil si pasas datos de antes).">
+            <div className="flex flex-col gap-1">
+              <Interruptor checked={f.estPasos} onChange={(v) => setF({ ...f, estPasos: v })} label="Contar desde el último paso (no desde el último cambio)" />
+              <Interruptor checked={f.estEspera} onChange={(v) => setF({ ...f, estEspera: v })} label="También en las etapas de espera" />
             </div>
           </FormRow>
           <FormRow label="Atascado">
