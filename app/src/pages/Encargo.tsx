@@ -198,6 +198,8 @@ export function Encargo() {
   const anulado = e.estado === 'ANULADO'
   const gestion = rol === 'ADMIN' || rol === 'OPERATIVO'
   const puedeRevisar = rol === 'ADMIN' || rol === 'OPERATIVO' || rol === 'ATENCION'
+  // Escribir al cliente (y dejarlo anotado) es cosa de administración, operativo y atención
+  const puedeAvisar = puedeRevisar
   const motivos = motivosRevision(e, (tienda?.ajustes ?? {}) as Record<string, unknown>).filter((m) => !m.startsWith('Incidencia'))
   const puedeEditar = !anulado && (gestion || rol === 'ATENCION' || rol === 'LOGISTICA')
   const datos = e.datos ?? {}
@@ -231,7 +233,7 @@ export function Encargo() {
   return (
     <>
       <PageHeader title={<span><Link to="/encargos" className="text-fg-3">{vocab.encargos}</Link><span className="mx-2 text-border-strong">/</span>{num3(e)} · {e.cliente_nombre}</span>}>
-        {!anulado && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
+        {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
           <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}`}>+ {vocab.encargo} para {gr.con('cliente', 'este')}</Link></Button>
@@ -260,7 +262,7 @@ export function Encargo() {
             </div>
           )}
 
-          {!anulado && sugerencia && (
+          {!anulado && puedeAvisar && sugerencia && (
             <div className="flex flex-col gap-2 rounded-md border border-border p-3">
               <span className="text-sm text-fg-2">¿Avisar a {e.cliente_nombre}?</span>
               <span className="font-medium">{sugerencia.nombre}</span>
@@ -327,7 +329,7 @@ export function Encargo() {
             <Field label={vocab.proveedor}>{e.proveedor_id ? <Link to={`/proveedores/${e.proveedor_id}`} className="hover:underline">{e.proveedor_nombre}</Link> : '—'}</Field>
             {din.usa && (
               <Field label="Importe">
-                {e.importe == null ? <span className="text-fg-3">Sin importe</span> : <>
+                {e.importe == null ? <span className="text-fg-3">Sin importe{Number(e.a_cuenta) > 0 && <span className="text-warn-fg"> · {dinero(e.a_cuenta, din.moneda)} entregados a cuenta</span>}</span> : <>
                   {dinero(e.importe, din.moneda)}
                   {Number(e.a_cuenta) > 0 && <span className="text-fg-3"> · {dinero(e.a_cuenta, din.moneda)} a cuenta</span>}
                   {pendiente(e)! > 0 ? <span className="text-warn-fg"> · faltan {dinero(pendiente(e), din.moneda)}</span> : <span className="text-ok-fg"> · pagado</span>}
@@ -447,7 +449,7 @@ export function Encargo() {
               ))}
             </RTabs.Content>
             <RTabs.Content value="mensajes" className="flex max-w-[640px] flex-col gap-3 overflow-auto p-5">
-              {!anulado && <div><Button onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Nuevo mensaje</Button></div>}
+              {!anulado && puedeAvisar && <div><Button onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Nuevo mensaje</Button></div>}
               {envios.length === 0 && <span className="text-fg-3">Todavía no se ha avisado {gr.con('cliente', 'al')} desde aquí.</span>}
               {envios.map((m) => (
                 <div key={m.id} className="flex flex-col gap-1 rounded-md border border-border p-3">

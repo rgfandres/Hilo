@@ -1,9 +1,13 @@
 import * as React from 'react'
 import { IconArrowDown, IconArrowUp, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
-import { claveDe, claveUnica, guardarCampos, listarTipos, type TipoEncargo } from '@/data/ajustes'
+import { borrarPuerta, claveDe, claveUnica, guardarCampos, listarPuertas, listarTipos, type PuertaDef, type TipoEncargo } from '@/data/ajustes'
+import { listarEtapas, mensajeError } from '@/data/encargos'
+import { listarPlantillas, MARCADORES } from '@/data/mensajes'
+import { MARCADORES_FICHA, obtenerPlantillaFicha } from '@/data/ficha'
+import { guiaDe } from '@/data/guia'
+import { ajustesHoja } from '@/data/produccion'
 import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
-import { mensajeError } from '@/data/encargos'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
 import { Bloque, Estado, Interruptor } from './Ajustes'
@@ -32,11 +36,29 @@ export function AjustesCampos() {
   const [ok, setOk] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
 
+  // Dónde se usa cada campo (condiciones de etapa, guía, hoja, mensajes, ficha), para avisar antes de quitarlo o cambiarlo
+  const [puertas, setPuertas] = React.useState<(PuertaDef & { etapa: string })[]>([])
+  const [textos, setTextos] = React.useState<{ donde: string; texto: string }[]>([])
   const cargar = React.useCallback(async () => {
     if (!tienda) return
-    const [p, t] = await Promise.all([plantillas(tienda.id), listarTipos(tienda.id)])
+    const [p, t, et, msgs, ficha] = await Promise.all([plantillas(tienda.id), listarTipos(tienda.id), listarEtapas(tienda.id), listarPlantillas(tienda.id).catch(() => []), obtenerPlantillaFicha(tienda.id).catch(() => null)])
     setPs(p); setTipos(t)
+    const pu = await listarPuertas(et.map((e) => e.id))
+    setPuertas(pu.map((x) => ({ ...x, etapa: et.find((e) => e.id === x.etapa_destino_id)?.nombre ?? '' })))
+    setTextos([...msgs.map((m) => ({ donde: `el mensaje «${m.nombre}»`, texto: m.texto })), ...(ficha ? [{ donde: 'la ficha imprimible', texto: ficha }] : [])])
   }, [tienda])
+  const usos = (clave: string): string[] => {
+    const aj = tienda?.ajustes as Record<string, unknown>
+    const g = guiaDe(aj)
+    const out: string[] = []
+    for (const p of puertas.filter((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === clave)) out.push(`la condición para entrar en «${p.etapa}»${p.dura ? ' (bloquea)' : ''}`)
+    if (g.principal === clave) out.push('la guía de medidas (medida principal)')
+    if (g.validan.includes(clave)) out.push('la guía de medidas (medida que valida)')
+    if (g.destino === clave) out.push('la guía de medidas (donde se guarda el valor)')
+    if (ajustesHoja(aj).campoCol === clave) out.push('las columnas de la hoja de producción')
+    for (const t of textos) if (t.texto.includes(`{${clave}}`)) out.push(t.donde)
+    return out
+  }
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
   // Al cambiar de destino, cargar su lista (sin mezclar con otros destinos)
@@ -62,15 +84,26 @@ export function AjustesCampos() {
   function anadir(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nuevo.trim()) return
-    const clave = claveUnica(claveDe(nuevo, true), [...usadas, 'producto_id', 'proveedor_id', 'nombre', 'telefono', 'email'])
+    // Claves reservadas: las de serie y las de los marcadores de mensajes y ficha ({numero}, {importe}…)
+    const reservadas = ['producto_id', 'proveedor_id', 'nombre', 'telefono', 'email', ...MARCADORES.map((m) => m.k), ...MARCADORES_FICHA.map((m) => m.k)]
+    const clave = claveUnica(claveDe(nuevo, true), [...usadas, ...reservadas])
     setCampos((cs) => [...cs, { clave, etiqueta: nuevo.trim(), tipo: nuevoTipo, ...(nuevoTipo === 'opcion' ? { opciones: [] } : {}) }])
     setNuevo('')
   }
-  async function guardar() {
+  const [avisoTipo, setAvisoTipo] = React.useState<string[] | null>(null)
+  const [quitarPuertas, setQuitarPuertas] = React.useState(true)
+  async function guardar(confirmarTipo = false) {
     if (!tienda) return
     const sinOpciones = campos.find((c) => c.tipo === 'opcion' && !(c.opciones ?? []).length)
     if (sinOpciones) { setErr(`«${sinOpciones.etiqueta}» necesita al menos una opción`); return }
     if (campos.some((c) => !c.etiqueta.trim())) { setErr('Hay un campo sin nombre'); return }
+    const rep = campos.map((c) => c.etiqueta.trim().toLowerCase()).find((x, i, a) => a.indexOf(x) !== i)
+    if (rep) { setErr(`Hay dos campos con el mismo nombre: «${rep}»`); return }
+    // Cambiar el tipo de un campo que se usa en otros sitios: se avisa
+    const antes = JSON.parse(original) as CampoExt[]
+    const cambiados = campos.filter((c) => { const a = antes.find((x) => x.clave === c.clave); return a && a.tipo !== c.tipo && usos(c.clave).length })
+    if (cambiados.length && !confirmarTipo) { setAvisoTipo(cambiados.map((c) => `«${c.etiqueta}» se usa en ${usos(c.clave).join(', ')}`)); return }
+    setAvisoTipo(null)
     setBusy(true); setErr(null); setOk(null)
     try { await guardarCampos(tienda.id, dest.entidad, dest.tipoId, campos); await cargar(); setOk('Guardado') }
     catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
@@ -125,14 +158,16 @@ export function AjustesCampos() {
               <Opciones value={c.opciones ?? []} onChange={(o) => set(i, { opciones: o })} />
             )}
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 pl-6 text-sm">
-              <Interruptor checked={!!c.obligatorio} label="Obligatorio" onChange={(v) => set(i, { obligatorio: v })} />
+              <Interruptor checked={!!c.obligatorio} label="Obligatorio" onChange={(v) => set(i, { obligatorio: v, ...(v ? { secundario: false } : {}) })} />
+              {c.tipo === 'numero' && dest.entidad !== 'PRODUCTO' && <Interruptor checked={!!c.medida} label="Es una medida" onChange={(v) => set(i, { medida: v })} />}
+              {c.tipo === 'numero' && c.medida && <Input className="h-6 w-20 text-sm" placeholder="Unidad" value={c.unidad ?? ''} onChange={(e) => set(i, { unidad: e.target.value || undefined })} aria-label="Unidad de la medida" />}
               {esEncargo && <Interruptor checked={!!c.en_tabla} label="Columna en la lista" onChange={(v) => set(i, { en_tabla: v })} />}
               {verProveedor && <Interruptor checked={!!c.visible_proveedor} label={`Lo ve ${gr.con('proveedor', 'el')}`} onChange={(v) => set(i, { visible_proveedor: v })} />}
               <Interruptor checked={!!c.destacado} label="Destacado" onChange={(v) => set(i, { destacado: v, ...(v ? { secundario: false } : {}) })} />
-              <Interruptor checked={!!c.secundario} label="Plegado en «Más datos»" onChange={(v) => set(i, { secundario: v, ...(v ? { destacado: false } : {}) })} />
+              <Interruptor checked={!!c.secundario} disabled={!!c.obligatorio} label="Plegado en «Más datos»" onChange={(v) => set(i, { secundario: v, ...(v ? { destacado: false } : {}) })} />
             </div>
             <div className="pl-6">
-              <Input className="h-7 text-sm" placeholder="Ayuda bajo el campo (opcional): p. ej. «En cm, con la cinta sin apretar»" value={c.ayuda ?? ''}
+              <Input className="h-7 text-sm" placeholder="Ayuda bajo el campo (opcional): cómo se toma o qué poner" value={c.ayuda ?? ''}
                 onChange={(e) => set(i, { ayuda: e.target.value || undefined })} aria-label="Ayuda del campo" />
             </div>
           </div>
@@ -150,12 +185,35 @@ export function AjustesCampos() {
         <Estado ok={ok} err={err} />
         <div className="flex-1" />
         <Button variant="ghost" disabled={!sucio || busy} onClick={() => { setCampos(JSON.parse(original)); setErr(null) }}>Descartar</Button>
-        <Button variant="primary" disabled={!sucio || busy} onClick={guardar}>{busy ? 'Guardando…' : 'Guardar'}</Button>
+        <Button variant="primary" disabled={!sucio || busy} onClick={() => guardar()}>{busy ? 'Guardando…' : 'Guardar'}</Button>
       </div>
 
       <Dialog open={quitar !== null} onOpenChange={() => setQuitar(null)} title={`Quitar «${quitar !== null ? campos[quitar]?.etiqueta : ''}»`}
         description="Deja de pedirse y de mostrarse. Los datos ya guardados no se borran: si vuelves a crear un campo con la misma clave, reaparecen."
-        actions={[{ label: 'Quitar', variant: 'danger', onClick: () => { if (quitar !== null) setCampos((cs) => cs.filter((_, j) => j !== quitar)); setQuitar(null) } }]} />
+        actions={[{ label: 'Quitar', variant: 'danger', onClick: async () => {
+          if (quitar === null) return
+          const clave = campos[quitar].clave
+          // Las condiciones que exigen este campo bloquearían para siempre: se quitan con él (si se elige)
+          if (quitarPuertas) for (const p of puertas.filter((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === clave)) await borrarPuerta(p.id)
+          setCampos((cs) => cs.filter((_, j) => j !== quitar)); setQuitar(null)
+          if (quitarPuertas) await cargar().catch(() => {})
+        } }]}>
+        {quitar !== null && usos(campos[quitar]?.clave).length > 0 && (
+          <div className="flex flex-col gap-1 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">
+            <b>Se usa en:</b>
+            <ul className="m-0 pl-4">{usos(campos[quitar].clave).map((u) => <li key={u}>{u}</li>)}</ul>
+            {puertas.some((x) => x.tipo === 'CAMPO_NO_VACIO' && x.referencia === campos[quitar].clave) && (
+              <label className="flex items-center gap-2"><input type="checkbox" checked={quitarPuertas} onChange={(e) => setQuitarPuertas(e.target.checked)} /> Quitar también esas condiciones (si no, bloquearían para siempre)</label>
+            )}
+            <span>Revisa lo demás después (guía, hoja, textos).</span>
+          </div>
+        )}
+      </Dialog>
+      <Dialog open={!!avisoTipo} onOpenChange={(o) => !o && setAvisoTipo(null)} title="Has cambiado el tipo de campos que se usan"
+        description="Puede que dejen de funcionar donde se usan. ¿Guardar igualmente?"
+        actions={[{ label: 'Guardar igualmente', onClick: () => guardar(true) }]}>
+        <ul className="m-0 pl-4 text-sm">{(avisoTipo ?? []).map((x) => <li key={x}>{x}</li>)}</ul>
+      </Dialog>
     </>
   )
 }

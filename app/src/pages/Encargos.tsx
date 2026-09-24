@@ -367,8 +367,8 @@ export function Encargos() {
             <thead className="sticky top-0 z-20 bg-bg">
               <tr>
                 <Th className="sticky left-0 z-20 w-10 bg-bg">{sel ? (
-                  <input type="checkbox" aria-label="Seleccionar todos los visibles" checked={visibles.length > 0 && visibles.every((v) => sel.has(v.id))}
-                    onChange={(x) => setSel(x.target.checked ? new Set(visibles.map((v) => v.id)) : new Set())} />
+                  <input type="checkbox" aria-label="Seleccionar todos los visibles" checked={enPagina.length > 0 && enPagina.every((v) => sel.has(v.id))}
+                    onChange={(x) => setSel(x.target.checked ? new Set(enPagina.map((v) => v.id)) : new Set())} />
                 ) : 'Nº'}</Th>
                 <Th className="sticky left-10 z-20 w-[190px] bg-bg">{vocab.cliente}</Th>
                 {ver('producto') && <Th className="w-[140px]">{vocab.producto}</Th>}
@@ -453,8 +453,8 @@ export function Encargos() {
         </div>
       )}
       {sel && vista === 'lista' && (
-        <AccionLote seleccion={base.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
-          onTodos={() => setSel(new Set(visibles.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
+        <AccionLote seleccion={visibles.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
+          onTodos={() => setSel(new Set(enPagina.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
       )}
     </>
   )

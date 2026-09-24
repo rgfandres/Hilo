@@ -268,7 +268,7 @@ export function AjustesTienda() {
 
       <Bloque titulo={f.vocab.materiales} ayuda={`Catálogo de ${f.vocab.materiales.toLowerCase()} con stock, pedidos a ${f.vocab.proveedores.toLowerCase()}, consumo por ${f.vocab.encargo.toLowerCase()} y restos.`}>
         <div className="flex flex-col gap-1">
-          <FormRow label="Módulo"><Interruptor checked={f.materiales} onChange={(v) => setF({ ...f, materiales: v })} label={`Usar ${f.vocab.materiales.toLowerCase()} y compras`} /></FormRow>
+          <FormRow label="Módulo" ayuda={!f.materiales && inicial.materiales ? `Al apagarlo, las condiciones de etapa «Tener ${f.vocab.material.toLowerCase()} recibido» dejan de exigirse (se conservan por si lo vuelves a encender).` : undefined}><Interruptor checked={f.materiales} onChange={(v) => setF({ ...f, materiales: v })} label={`Usar ${f.vocab.materiales.toLowerCase()} y compras`} /></FormRow>
           {f.materiales && <>
             <FormRow label="Unidad" ayuda="Cómo se cuenta: m, uds, kg…"><Input className="h-7 w-20" value={f.unidadMat} maxLength={6} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
             <FormRow label="Umbral por defecto" ayuda="Por debajo de esto se avisa de pedir (cada material puede tener el suyo)."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>

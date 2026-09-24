@@ -11,6 +11,10 @@ export interface Campo {
   secundario?: boolean
   /** Destacado: se ve arriba y en grande (p. ej. la medida principal) */
   destacado?: boolean
+  /** Es una medida (de la persona o de la pieza): la puede usar la guía de medidas */
+  medida?: boolean
+  /** Unidad de la medida (cm, mm…) */
+  unidad?: string
 }
 export interface PlantillaCampos { entidad: 'CLIENTE' | 'ENCARGO' | 'PRODUCTO'; tipo_encargo_id: string | null; campos: Campo[] }
 export interface CheckDef { clave: string; etiqueta: string; dura: boolean; etapa_destino_id: string }

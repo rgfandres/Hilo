@@ -97,10 +97,15 @@ export function mensajeError(e: unknown): string {
   const m = (e as { message?: string })?.message ?? String(e)
   if (/row-level security|permission denied/i.test(m)) return 'No tienes permiso para hacer esto.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión. Revisa internet y vuelve a intentarlo.'
+  if (/El rol \w+ no puede marcar la etapa/.test(m)) return 'Tu rol no puede marcar esa etapa. Lo marca otra persona del equipo.'
   if (/timeout|timed out|canceling statement/i.test(m)) return 'El servidor tarda demasiado en responder. Comprueba la conexión y pulsa «Reintentar» o recarga la página.'
   if (/JWT expired|invalid JWT|refresh token/i.test(m)) return 'Tu sesión ha caducado. Vuelve a entrar.'
   if (/Proveedor no válido o inactivo/i.test(m)) return 'Tu cuenta no está asociada a ningún proveedor activo de esta tienda. Pide a la tienda que te añada.'
   if (/duplicate key|unique constraint/i.test(m)) return 'Ya existe uno igual (mismo nombre o número).'
+  if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
+  if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Flujos.'
+  const rol = m.match(/ROL_NO_MARCA:[^:]*:(.*)$/)
+  if (rol) return `Tu rol no puede marcar «${rol[1]}». Lo marca otra persona del equipo.`
   return m.replace(/^.*?Bloqueado:\s*/, 'No se puede: ')
 }
 

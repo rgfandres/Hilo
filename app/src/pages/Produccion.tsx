@@ -102,7 +102,7 @@ export function Produccion() {
     const mal: string[] = []
     let bien = 0
     for (const e of xs) {
-      try { await crearHito(e.id, e.etapa_siguiente_clave!); bien++ } catch (x) { mal.push(`${num3(e)}: ${mensajeError(x)}`) }
+      try { await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: true }); bien++ } catch (x) { mal.push(`${num3(e)}: ${mensajeError(x)}`) }
     }
     setBusy(null); setSelListos(new Set())
     await cargar()
@@ -175,19 +175,22 @@ export function Produccion() {
               <section className="flex flex-col gap-1 rounded-md border border-border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">Listos para enviar a producción</span>
-                  <button className="text-sm text-fg-3 hover:text-fg hover:underline" onClick={() => setSelListos(new Set(listos.filter((e) => !(e.puertas_pendientes ?? []).some((p) => p.dura)).map((e) => e.id)))}>Marcar todos</button>
+                  <button className="text-sm text-fg-3 hover:text-fg hover:underline" onClick={() => setSelListos(new Set(listos.filter((e) => !(e.puertas_pendientes ?? []).some((p) => p.dura) && (rol === 'ADMIN' || rol === 'OPERATIVO' || rol === e.etapa_siguiente_rol)).map((e) => e.id)))}>Marcar todos</button>
                   <div className="flex-1" />
                   <Button size="sm" variant="primary" disabled={!selListos.size} cargando={busy === 'enviar'} onClick={enviarListos}>Enviar {selListos.size || ''}</Button>
                 </div>
                 {listos.map((e) => {
                   const duras = (e.puertas_pendientes ?? []).filter((p) => p.dura)
+                  const avisos = (e.puertas_pendientes ?? []).filter((p) => !p.dura)
+                  const puede = rol === 'ADMIN' || rol === 'OPERATIVO' || rol === e.etapa_siguiente_rol
                   return (
                     <label key={e.id} className={cn('flex items-center gap-2 text-sm', duras.length && 'opacity-70')}>
-                      <input type="checkbox" disabled={!!duras.length} checked={selListos.has(e.id)} onChange={(x) => setSelListos((s) => { const n = new Set(s); if (x.target.checked) n.add(e.id); else n.delete(e.id); return n })} />
+                      <input type="checkbox" disabled={!!duras.length || !puede} title={!puede ? 'Tu rol no marca ese paso' : undefined} checked={selListos.has(e.id)} onChange={(x) => setSelListos((s) => { const n = new Set(s); if (x.target.checked) n.add(e.id); else n.delete(e.id); return n })} />
                       <Link to={`/encargos/${e.id}`} className="font-medium hover:underline">{num3(e)}</Link>
                       <span>{e.cliente_nombre}</span>
                       <span className="text-fg-3">→ {e.etapa_siguiente_nombre}</span>
                       {duras.length > 0 && <span className="text-danger-fg">bloqueado: {duras.map((p) => p.mensaje).join(' · ')}</span>}
+                      {avisos.length > 0 && !duras.length && <span className="text-warn-fg">aviso: {avisos.map((p) => p.mensaje).join(' · ')}</span>}
                       {duras.map((p) => <ArregloPuerta key={p.mensaje} e={e} p={p} compacto onHecho={() => cargar().catch(() => {})} />)}
                     </label>
                   )

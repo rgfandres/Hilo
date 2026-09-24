@@ -41,16 +41,30 @@ export function limpiar(d: Record<string, string>, base: Record<string, unknown>
   return out
 }
 
-/** Número con coma decimal: se escribe libre y al salir se guarda normalizado (1234.5) y se ve «1234,5». */
+/**
+ * Número con coma decimal: el valor se actualiza mientras se escribe (así «Guardar» se activa y
+ * Intro guarda lo escrito) y al salir se normaliza (1234.5) y se ve «1234,5».
+ */
 export function NumeroInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const aVista = (v: string) => (v === '' ? '' : v.replace('.', ','))
   const [txt, setTxt] = React.useState(aVista(value))
   const [mal, setMal] = React.useState(false)
-  React.useEffect(() => { setTxt(aVista(value)) }, [value])
+  // Solo se reescribe el texto si el valor cambia desde fuera (no al teclear «12,» por ejemplo)
+  React.useEffect(() => {
+    const n = txt.trim() === '' ? '' : leerNumero(txt)
+    if (String(n ?? '') !== value) setTxt(aVista(value))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
   return (
     <Input className={mal ? 'h-7 border-danger' : 'h-7'} inputMode="decimal" value={txt} aria-invalid={mal || undefined}
       title={mal ? 'No es un número' : undefined}
-      onChange={(e) => { setTxt(e.target.value); setMal(false) }}
+      onChange={(e) => {
+        const t = e.target.value
+        setTxt(t); setMal(false)
+        if (t.trim() === '') { if (value !== '') onChange(''); return }
+        const n = leerNumero(t)
+        if (n != null && String(n) !== value) onChange(String(n))
+      }}
       onBlur={() => {
         if (txt.trim() === '') { onChange(''); return }
         const n = leerNumero(txt)

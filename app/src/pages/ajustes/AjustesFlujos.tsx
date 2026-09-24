@@ -32,6 +32,7 @@ export function AjustesFlujos() {
   const { tienda, vocab, nombresRol, recargar, gr } = useAuth()
   const conMaterial = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo
   const nombreHoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>).nombre
+  const conHoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>).activo
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [tipoId, setTipoId] = React.useState<string>('')
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
@@ -81,7 +82,11 @@ export function AjustesFlujos() {
     if (j < 0 || j >= ids.length) return
     ;[ids[i], ids[j]] = [ids[j], ids[i]]
     setEtapas((es) => { const c = [...es]; [c[i], c[j]] = [c[j], c[i]]; return c })
-    hacer(() => reordenarEtapas(tipoId, ids), 'Orden guardado')
+    hacer(async () => {
+      await reordenarEtapas(tipoId, ids)
+      // La que queda la primera no puede tener condiciones que bloqueen (no se podría crear nada)
+      for (const p of puertas.filter((x) => x.etapa_destino_id === ids[0] && x.dura)) await actualizarPuerta(p.id, { dura: false })
+    }, 'Orden guardado')
   }
 
   return (
@@ -100,7 +105,11 @@ export function AjustesFlujos() {
           <div className="flex flex-wrap items-center gap-3 text-sm text-fg-3">
             <button className="hover:text-fg" onClick={() => { setDlgTipo('renombrar'); setNombreTipo(tipo.nombre); setDErr(null) }}>Renombrar</button>
             <Interruptor checked={tipo.activo} label="Se puede elegir al crear"
-              onChange={async (v) => { try { await actualizarTipo(tipo.id, { activo: v }); await cargarTipos() } catch (x) { setErr(mensajeError(x)) } }} />
+              onChange={async (v) => {
+                if (!v && tipos.filter((t) => t.activo).length <= 1) { setErr(`Es el único tipo que se puede elegir: sin él no se podrían crear ${min(vocab.encargos)}`); return }
+                if (v && !etapas.some((x) => x.es_final)) { setErr('Antes de poder elegirlo, marca una etapa como final'); return }
+                try { await actualizarTipo(tipo.id, { activo: v }); await cargarTipos() } catch (x) { setErr(mensajeError(x)) }
+              }} />
             <label className="flex items-center gap-1.5" title="Letras delante del número y contador propio: «S» → S001, S002…">
               Serie
               <input key={tipo.id} defaultValue={tipo.serie ?? ''} maxLength={4} placeholder="—"
@@ -120,6 +129,8 @@ export function AjustesFlujos() {
       {tipo && (
         <Bloque titulo={`Etapas de «${tipo.nombre}»`}
           ayuda={<>Pulsa una etapa para ver sus condiciones. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa.</>}>
+          {etapas.length > 0 && !etapas.some((x) => x.es_final) && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa es final: {gr.con('encargo', 'los')} de este tipo nunca terminarían. Abre la última y activa «Es el final».</p>}
+          {etapas.length === 0 && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Este tipo aún no tiene etapas: hasta que las tenga no se podrá usar.</p>}
           <Lista>
             {etapas.map((e, i) => {
               const ps = puertas.filter((p) => p.etapa_destino_id === e.id)
@@ -137,6 +148,9 @@ export function AjustesFlujos() {
                     {ps.some((p) => p.dura) && <IconLock size={13} className="text-danger-fg" />}
                     {ps.some((p) => !p.dura) && <IconAlertTriangle size={13} className="text-warn-fg" />}
                     {e.es_final && <Tag color="green">final</Tag>}
+                    {ps.some((p) => p.tipo === 'HITO_PREVIO' && !etapas.slice(0, i).some((x) => x.clave === p.referencia)) && (
+                      <Tag color="red" title="Pide haber pasado por una etapa que ya no está antes: bloquearía para siempre. Abre «Detalles» y corrígela.">condición imposible</Tag>
+                    )}
                     <Select className="w-[140px]" value={e.rol_ejecuta} title="Quién marca esta etapa"
                       onChange={(ev) => hacer(() => actualizarEtapa(e.id, { rol_ejecuta: ev.target.value as Rol }))}>
                       {ROLES.map((r) => <option key={r} value={r}>{nombresRol[r]}</option>)}
@@ -147,15 +161,19 @@ export function AjustesFlujos() {
                     <div className="flex flex-col gap-4 bg-bg-2 px-4 py-3">
                       <div className="flex flex-wrap gap-x-6 gap-y-2">
                         <Interruptor checked={e.visible_para_proveedor} label={`La ve ${gr.con('proveedor', 'el')}`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { visible_para_proveedor: v }))} />
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { visible_para_proveedor: v, ...(v ? {} : { marca_proveedor: false }) }))} />
                         <Interruptor checked={!!e.marca_proveedor} disabled={!e.visible_para_proveedor} label={`La marca ${gr.con('proveedor', 'el')} desde su portal`}
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { marca_proveedor: v }))} />
                         <Interruptor checked={e.es_espera} label="Es una espera (no cuenta como estancado)"
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_espera: v }))} />
-                        <Interruptor checked={!!e.es_produccion} label={`Envía a la ${min(nombreHoja)}`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />
+                        {(conHoja || e.es_produccion) && <Interruptor checked={!!e.es_produccion} label={`Envía a la ${min(nombreHoja)}`}
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />}
                         <Interruptor checked={e.es_final} label={`Es el final (${min(vocab.encargo)} terminad${gr.o('encargo')})`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_final: v }))} />
+                          onChange={(v) => hacer(async () => {
+                            // Una sola etapa final por tipo
+                            if (v) for (const x of etapas.filter((x) => x.es_final && x.id !== e.id)) await actualizarEtapa(x.id, { es_final: false })
+                            await actualizarEtapa(e.id, { es_final: v })
+                          }, v && i < etapas.length - 1 ? `Guardado. Ojo: las etapas que hay detrás de «${e.nombre}» ya no se alcanzarán` : 'Guardado')} />
                       </div>
                       <label className="flex items-center gap-2 text-sm text-fg-2">
                         Grupo de bandejas
@@ -166,8 +184,14 @@ export function AjustesFlujos() {
                       <div className="flex flex-col gap-1.5">
                         <span className="text-sm font-medium text-fg-2">Para entrar en «{e.nombre}» hace falta…</span>
                         {ps.length === 0 && <span className="text-sm text-fg-3">Nada: se puede pasar siempre.</span>}
+                        {i === 0 && <span className="text-sm text-fg-3">Es la primera etapa: sus condiciones solo pueden avisar (si bloquearan, no se podría crear ningún {min(vocab.encargo)}).</span>}
+                        {e.marca_proveedor && ps.some((p) => p.dura && p.tipo !== 'HITO_PREVIO') && (
+                          <span className="rounded-sm bg-warn-bg px-2 py-1 text-sm text-warn-fg">
+                            La marca {gr.con('proveedor', 'el')} desde su portal, pero no puede cumplir {ps.filter((p) => p.dura && p.tipo !== 'HITO_PREVIO').map((p) => `«${p.mensaje}»`).join(', ')}: hasta que la tienda lo resuelva, no podrá marcarla.
+                          </span>
+                        )}
                         {ps.map((p) => (
-                          <Condicion key={p.id} p={p} previas={etapas.slice(0, i)} campos={opcionesCampo}
+                          <Condicion key={p.id} p={p} primera={i === 0} previas={etapas.slice(0, i)} campos={opcionesCampo}
                             onSave={(patch) => hacer(() => actualizarPuerta(p.id, patch))}
                             onDelete={() => hacer(() => borrarPuerta(p.id), 'Condición quitada')} />
                         ))}
@@ -182,7 +206,7 @@ export function AjustesFlujos() {
                                   : claveUnica('comprobacion', checksUsados)
                                 const nombreRef = t.v === 'HITO_PREVIO' ? etapas[i - 1].nombre : t.v === 'CAMPO_NO_VACIO' ? opcionesCampo[0].l : 'Comprobación'
                                 hacer(() => crearPuerta(tienda.id, {
-                                  etapa_destino_id: e.id, tipo: t.v, referencia: ref, dura: true,
+                                  etapa_destino_id: e.id, tipo: t.v, referencia: ref, dura: i !== 0,
                                   etiqueta: t.v === 'CHECK' ? 'Comprobación' : null,
                                   mensaje: t.v === 'HITO_PREVIO' ? `Antes tiene que pasar por ${nombreRef}` : t.v === 'CAMPO_NO_VACIO' ? `Falta ${nombreRef.toLowerCase()}` : t.v === 'MATERIAL' ? `Falta recibir el ${min(vocab.material)}` : 'Falta marcar la comprobación',
                                 }), 'Condición añadida')
@@ -234,8 +258,8 @@ export function AjustesFlujos() {
 }
 
 /** Una condición (puerta) editable en línea. */
-function Condicion({ p, previas, campos, onSave, onDelete }: {
-  p: PuertaDef; previas: Etapa[]; campos: { v: string; l: string }[]
+function Condicion({ p, previas, campos, onSave, onDelete, primera }: {
+  p: PuertaDef; previas: Etapa[]; campos: { v: string; l: string }[]; primera?: boolean
   onSave: (patch: Partial<PuertaDef>) => void; onDelete: () => void
 }) {
   const [mensaje, setMensaje] = React.useState(p.mensaje)
@@ -279,7 +303,7 @@ function Condicion({ p, previas, campos, onSave, onDelete }: {
             })} />
         )}
         <Select className="w-[110px] shrink-0" value={p.dura ? 'dura' : 'blanda'} onChange={(e) => onSave({ dura: e.target.value === 'dura' })}>
-          <option value="dura">Bloquea</option>
+          <option value="dura" disabled={primera}>Bloquea</option>
           <option value="blanda">Solo avisa</option>
         </Select>
         <button aria-label="Quitar condición" onClick={onDelete} className="text-fg-3 hover:text-danger-fg"><IconTrash size={14} /></button>

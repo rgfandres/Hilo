@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { PageHeader } from '@/layout/AppShell'
 import { cn } from '@/lib/utils'
@@ -24,14 +24,10 @@ const puedeVer = (q: Quien, rol: string | null) => q === 'todos' || rol === 'ADM
 export function Ajustes() {
   const { rol, vocab } = useAuth()
   const visibles = SECCIONES.filter((s) => puedeVer(s.quien, rol))
-  if (visibles.length === 0) {
-    return (
-      <>
-        <PageHeader title="Ajustes" />
-        <div className="p-8 text-fg-3">Solo administración puede cambiar los ajustes de la tienda.</div>
-      </>
-    )
-  }
+  // Una sección a la que el rol no tiene acceso (p. ej. escrita a mano en la dirección) no se abre
+  const loc = useLocation()
+  const seccion = SECCIONES.find((x) => loc.pathname.split('/')[2] === x.to)
+  if (seccion && !puedeVer(seccion.quien, rol)) return <Navigate to="/ajustes/cuenta" replace />
   return (
     <>
       <PageHeader title="Ajustes" />

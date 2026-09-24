@@ -143,7 +143,7 @@ export function AppShell() {
         <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>
         <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>
         <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en una etapa de espera">{vocab.proveedores}</Item>
-        {conLogistica && <Item to="/logistica" icon={<IconTruck size={14} />}>{nombresRol.LOGISTICA}</Item>}
+        {conLogistica && rol !== 'ATENCION' && <Item to="/logistica" icon={<IconTruck size={14} />}>{nombresRol.LOGISTICA}</Item>}
         {hoja.activo && rol !== 'LOGISTICA' && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
         {conMateriales && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
         <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>

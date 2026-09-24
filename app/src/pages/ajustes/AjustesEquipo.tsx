@@ -50,6 +50,7 @@ export function AjustesEquipo() {
     const e = email.trim()
     if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { setDErr('Ese correo no parece válido'); return }
     if (e && equipo.some((m) => m.email.toLowerCase() === e.toLowerCase())) { setDErr('Esa persona ya está en el equipo'); return }
+    if (!e && rol === 'ADMIN') { setDErr(`Con enlace abierto no se puede dar ${nombresRol.ADMIN.toLowerCase()}: pon el correo`); return }
     try {
       const inv = await crearInvitacion(tienda.id, rol, e || null)
       setInvitar(false); setNueva(inv); await cargar()
@@ -130,8 +131,10 @@ export function AjustesEquipo() {
         actions={[{ label: 'Crear invitación', onClick: crear }]}>
         <Input autoFocus type="email" placeholder="correo@ejemplo.com (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
-          {ROLES.map((r) => <option key={r} value={r}>{nombresRol[r]} — {AYUDA[r].toLowerCase()}</option>)}
+          {/* Un enlace abierto lo puede usar cualquiera: nunca con rol de administración */}
+          {ROLES.filter((r) => r !== 'ADMIN' || email.trim()).map((r) => <option key={r} value={r}>{nombresRol[r]} — {AYUDA[r].toLowerCase()}</option>)}
         </Select>
+        {!email.trim() && <span className="text-sm text-fg-3">Con enlace abierto no se puede dar {nombresRol.ADMIN.toLowerCase()}: pon el correo de esa persona.</span>}
       </Dialog>
 
       <Dialog open={!!nueva} onOpenChange={() => setNueva(null)} title="Invitación creada"

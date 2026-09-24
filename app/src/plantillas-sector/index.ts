@@ -4,7 +4,7 @@
  * (Esta carpeta está excluida del detector de fugas: aquí sí van palabras de cada sector.)
  */
 
-type Campo = { clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion'; opciones?: string[]; obligatorio?: boolean; en_tabla?: boolean; visible_proveedor?: boolean }
+type Campo = { clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion'; opciones?: string[]; obligatorio?: boolean; en_tabla?: boolean; visible_proveedor?: boolean; medida?: boolean; unidad?: string }
 type Puerta = { tipo: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK'; ref: string; mensaje: string; dura?: boolean; etiqueta?: string }
 type Etapa = { clave: string; nombre: string; rol?: 'ADMIN' | 'OPERATIVO' | 'ATENCION' | 'LOGISTICA'; color?: string; visible?: boolean; marca?: boolean; espera?: boolean; final?: boolean; puertas?: Puerta[] }
 export interface PlantillaSector {
@@ -50,8 +50,8 @@ export const PLANTILLAS: PlantillaSector[] = [
     ajustes: { dias_estancado: 7, color_primario: '#8A5A00' },
     campos: {
       CLIENTE: [
-        { clave: 'talla_anillo', etiqueta: 'Talla de anillo', tipo: 'numero', visible_proveedor: true },
-        { clave: 'muneca_cm', etiqueta: 'Contorno de muñeca (cm)', tipo: 'numero', visible_proveedor: true },
+        { clave: 'talla_anillo', etiqueta: 'Talla de anillo', tipo: 'numero', visible_proveedor: true, medida: true },
+        { clave: 'muneca_cm', etiqueta: 'Contorno de muñeca', tipo: 'numero', visible_proveedor: true, medida: true, unidad: 'cm' },
         { clave: 'preferencias', etiqueta: 'Preferencias', tipo: 'texto' },
       ],
       ENCARGO: [
@@ -105,7 +105,7 @@ export const PLANTILLAS: PlantillaSector[] = [
     vocab_generos: { producto: 'f', proveedor: 'f' },
     campos: {
       CLIENTE: ['Cuello', 'Pecho', 'Cintura', 'Cadera', 'Hombros', 'Largo manga', 'Largo chaqueta', 'Entrepierna'].map((e) => ({
-        clave: e.toLowerCase().replace(/ /g, '_'), etiqueta: e, tipo: 'numero' as const, visible_proveedor: true })),
+        clave: e.toLowerCase().replace(/ /g, '_'), etiqueta: e, tipo: 'numero' as const, visible_proveedor: true, medida: true, unidad: 'cm' })),
       ENCARGO: [
         { clave: 'tejido', etiqueta: 'Tejido', tipo: 'texto', en_tabla: true, visible_proveedor: true },
         { clave: 'forro', etiqueta: 'Forro', tipo: 'texto', visible_proveedor: true },

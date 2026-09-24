@@ -9,7 +9,7 @@ import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
 import { Bloque, Estado, Interruptor } from './Ajustes'
 
-type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string }
+type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string; medida?: boolean; unidad?: string }
 
 /** Ajustes → Guía de medidas: tabla de referencia, reglas de sugerencia e importación. */
 export function AjustesGuia() {
@@ -31,12 +31,13 @@ export function AjustesGuia() {
     if (!tienda) return
     plantillas(tienda.id).then((ps) => {
       const m = new Map<string, CampoMini>()
-      for (const p of ps) for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, { clave: c.clave, etiqueta: c.etiqueta, entidad: p.entidad, tipo: c.tipo })
+      for (const p of ps) for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, { clave: c.clave, etiqueta: c.etiqueta + (c.medida && c.unidad ? ` (${c.unidad})` : ''), entidad: p.entidad, tipo: c.tipo, medida: c.medida, unidad: c.unidad })
       setCampos([...m.values()])
     }).catch(() => {})
   }, [tienda])
 
-  const medidas = campos.filter((c) => (c.entidad === 'CLIENTE' || c.entidad === 'ENCARGO') && c.tipo === 'numero')
+  // Solo los campos marcados como medida en Ajustes → Campos (nunca importes ni cantidades)
+  const medidas = campos.filter((c) => (c.entidad === 'CLIENTE' || c.entidad === 'ENCARGO') && c.tipo === 'numero' && c.medida)
   const cols = [...new Set([...(g.principal ? [g.principal] : []), ...g.validan])]
   const et = Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta]))
   const sucio = JSON.stringify(g) !== JSON.stringify(inicial) || (!!amb.periodo && amb.propio == null && g.activa)
@@ -46,6 +47,8 @@ export function AjustesGuia() {
   async function guardar() {
     if (!tienda) return
     if (g.activa && (!g.destino || !g.principal)) { setErr('Elige el campo donde se guarda y la medida principal'); return }
+    const [t1, t2] = g.tolerancias
+    if (!(t1 >= 0 && t2 > t1)) { setErr('Tolerancias: la primera cifra debe ser 0 o más y la segunda, mayor que la primera'); return }
     const dup = g.filas.map((f) => f.etiqueta.trim()).filter((x, i, a) => x && a.indexOf(x) !== i)
     if (dup.length) { setErr(`Hay valores repetidos: ${dup.join(', ')}`); return }
     setBusy(true); setErr(null); setOk(null)
@@ -72,7 +75,7 @@ export function AjustesGuia() {
           <FormRow label="Se guarda en" ayuda={`Campo ${gr.con('encargo', 'del')} donde queda el valor elegido; sus opciones pasan a ser las de la guía.`}>
             <Select className="w-[260px]" value={g.destino ?? ''} onChange={(e) => setG({ ...g, destino: e.target.value || null })}>
               <option value="">— elegir —</option>
-              {campos.filter((c) => c.entidad === 'ENCARGO' && c.tipo !== 'fecha' && c.tipo !== 'lista').map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
+              {campos.filter((c) => c.entidad === 'ENCARGO' && (c.tipo === 'opcion' || c.tipo === 'texto') && c.clave !== g.principal && !g.validan.includes(c.clave)).map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
             </Select>
           </FormRow>
           <FormRow label="Medida principal" ayuda="La que manda.">
@@ -88,12 +91,12 @@ export function AjustesGuia() {
                   <input type="checkbox" checked={g.validan.includes(c.clave)} onChange={(e) => setG({ ...g, validan: e.target.checked ? [...g.validan, c.clave] : g.validan.filter((x) => x !== c.clave) })} />{c.etiqueta}
                 </label>
               ))}
-              {medidas.length === 0 && <span className="text-sm text-fg-3">Crea antes campos de número en Ajustes → Campos.</span>}
+              {medidas.length === 0 && <span className="text-sm text-fg-3">Ningún campo está marcado como medida. En Ajustes → Campos, en cada campo de número que sea una medida, activa «Es una medida».</span>}
             </div>
           </FormRow>
-          <FormRow label="Tolerancias" ayuda="Diferencia en filas entre principal y validación: hasta la 1ª se usa la principal; hasta la 2ª, la de en medio con aviso; desde la 3ª, la mayor y se marca para revisar.">
+          <FormRow label="Tolerancias" ayuda="Diferencia en filas entre la principal y las que validan: hasta la primera cifra se usa la principal; hasta la segunda, la de en medio con aviso; por encima, la mayor y se marca para revisar.">
             <div className="flex gap-1.5">
-              {[0, 1, 2].map((i) => <Input key={i} className="h-7 w-14" inputMode="numeric" value={String(g.tolerancias[i])}
+              {[0, 1].map((i) => <Input key={i} className="h-7 w-14" inputMode="numeric" value={String(g.tolerancias[i])}
                 onChange={(e) => { const t = [...g.tolerancias] as [number, number, number]; t[i] = parseInt(e.target.value, 10) || 0; setG({ ...g, tolerancias: t }) }} />)}
             </div>
           </FormRow>

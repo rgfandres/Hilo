@@ -127,15 +127,15 @@ export function NuevoEncargo() {
     try { const b = localStorage.getItem(claveBorrador); if (b) setBorrador(JSON.parse(b)) } catch { /* sin almacenamiento */ }
   }, [claveBorrador])
   React.useEffect(() => {
-    if (!claveBorrador || borrador || guardadoRef.current) return
+    if (!claveBorrador || guardadoRef.current) return
     const t = setTimeout(() => {
       try {
         if (hayDatos) localStorage.setItem(claveBorrador, JSON.stringify({ fecha: new Date().toISOString(), d: { nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas } }))
-        else localStorage.removeItem(claveBorrador)
+        else if (!borrador) localStorage.removeItem(claveBorrador)
       } catch { /* sin almacenamiento */ }
     }, 400)
     return () => clearTimeout(t)
-  }, [claveBorrador, borrador, hayDatos, nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas])
+  }, [claveBorrador, hayDatos, nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas])
   React.useEffect(() => {
     const h = (ev: BeforeUnloadEvent) => { if (hayDatos && !guardadoRef.current) { ev.preventDefault(); ev.returnValue = '' } }
     window.addEventListener('beforeunload', h)
@@ -167,23 +167,24 @@ export function NuevoEncargo() {
     if (falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
     setBusy(true); setErr(null)
     try {
+      if (din.usa && aCuenta !== '' && Number(aCuenta) > 0 && importe === '') throw new Error('Si hay algo entregado a cuenta, pon también el importe')
       if (din.usa && importe !== '' && aCuenta !== '' && Number(aCuenta) > Number(importe)) throw new Error('Lo entregado a cuenta no puede ser mayor que el importe')
-      let clienteId = existente?.id
-      if (!clienteId) {
-        const { data: cli, error: e1 } = await supabase.from('cliente')
-          .insert({ tienda_id: tienda.id, nombre: nombre.trim(), telefono: tel.trim() || null, email: email.trim() || null, datos: limpiar(dCli) })
-          .select('id').single()
-        if (e1) throw e1
-        clienteId = cli.id
-      }
-      const { data: enc, error: e2 } = await supabase.from('encargo')
-        .insert({ tienda_id: tienda.id, periodo_id: periodo?.id ?? null, tipo_encargo_id: tipo, cliente_id: clienteId, producto_id: producto || null, datos: limpiar(dEnc), complementos: comp.trim() || null,
-          ...(din.usa ? { importe: importe === '' ? null : Number(importe), a_cuenta: aCuenta === '' ? 0 : Number(aCuenta) } : {}) })
-        .select('id').single()
+      const malas = mLineas.filter((l) => l.tipo && !l.material_id)
+      if (malas.length) throw new Error(`Elige la variante de ${min(vocab.material)} (o quita la línea)`)
+      // Cliente, encargo y primer paso en una sola operación: o se crea todo o nada
+      const { data: encId, error: e2 } = await supabase.rpc('crear_encargo', {
+        p_tienda: tienda.id, p_periodo: periodo?.id ?? null, p_tipo: tipo, p_cliente_id: existente?.id ?? null,
+        p_cliente: existente ? null : { nombre: nombre.trim(), telefono: tel.trim(), email: email.trim(), datos: limpiar(dCli) },
+        p_encargo: { producto_id: producto || null, datos: limpiar(dEnc), complementos: comp.trim() || null,
+          ...(din.usa ? { importe: importe === '' ? null : Number(importe), a_cuenta: aCuenta === '' ? 0 : Number(aCuenta) } : {}) },
+      })
       if (e2) throw e2
-      // Primera etapa del flujo: se marca al crear
+      const enc = { id: encId as string }
+      guardadoRef.current = true
+      try { localStorage.removeItem(claveBorrador) } catch { /* sin almacenamiento */ }
       const { data: primera } = await supabase.from('etapa').select('clave').eq('tipo_encargo_id', tipo).order('orden').limit(1).maybeSingle()
-      if (primera?.clave) await crearHito(enc.id, primera.clave, { forzarBlandas: true })
+      // Lo que sigue ya no puede duplicar el encargo: si algo falla, se avisa y se abre su ficha
+      try {
       for (const l of mLineas) if (l.material_id) await anadirLinea(tienda.id, enc.id, l.material_id, Number(String(l.cantidad).replace(',', '.')) || 0)
       if (comentario.trim()) await comentar(enc.id, comentario.trim())
       // Caso dudoso de la guía: incidencia y comentario automático (aparte del del usuario)
@@ -192,9 +193,8 @@ export function NuevoEncargo() {
         await crearHito(enc.id, primera.clave, { tipo: 'INCIDENCIA', nota: guia.sug.motivo })
         await comentar(enc.id, `Guía de medidas: ${guia.sug.motivo}.`)
       }
+      } catch (x) { avisar({ tipo: 'aviso', persistente: true, texto: `${vocab.encargo} cread${gr.o('encargo')}, pero algo no se guardó: ${mensajeError(x)}` }) }
       avisar({ tipo: 'ok', texto: `${vocab.encargo} cread${gr.o("encargo")} para ${nombre.trim() || existente?.nombre}` })
-      guardadoRef.current = true
-      try { localStorage.removeItem(claveBorrador) } catch { /* sin almacenamiento */ }
       nav(`/encargos/${enc.id}`)
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }

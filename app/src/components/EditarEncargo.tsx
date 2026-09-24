@@ -77,6 +77,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     if (!soloProveedor && !f.nombre.trim()) { setErr(`El nombre ${gr.con('cliente', 'del')} es obligatorio`); return }
     const falta = [...camposEnc.filter((c) => c.obligatorio && !f.dEnc[c.clave]), ...camposCli.filter((c) => c.obligatorio && !f.dCli[c.clave])]
     if (!soloProveedor && falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
+    if (f.aCuenta !== '' && Number(f.aCuenta) > 0 && f.importe === '') { setErr('Si hay algo entregado a cuenta, pon también el importe'); return }
     if (f.importe !== '' && f.aCuenta !== '' && Number(f.aCuenta) > Number(f.importe)) { setErr('Lo entregado a cuenta no puede ser mayor que el importe'); return }
     setBusy(true); setErr(null)
     try {
@@ -126,15 +127,17 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
                 } : undefined} />
             </FormRow>
           )}
-          <FormRow label={vocab.proveedor}>
+          {rol === 'ATENCION' ? (
+            <FormRow label={vocab.proveedor}><span className="text-fg-2">{encargo.proveedor_nombre ?? '—'} <span className="text-sm text-fg-3">(lo asigna administración u operativo)</span></span></FormRow>
+          ) : <FormRow label={vocab.proveedor}>
             <Combobox value={f.proveedor} onChange={set('proveedor')} vacio="— sin asignar —" ariaLabel={vocab.proveedor} etiquetaCrear="Añadir"
               opciones={[...proveedores.filter((p) => p.activo), ...(provActual && !provActual.activo ? [provActual] : [])].map((p) => ({ id: p.id, nombre: p.nombre, nota: p.activo ? undefined : 'inactivo' }))}
-              crear={rol === 'ADMIN' ? async (n) => {
+              crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? async (n) => {
                 const id = await altaRapidaProveedor(encargo.tienda_id, n)
                 setProveedores((l) => l.some((x) => x.id === id) ? l : [...l, { id, nombre: n, activo: true }])
                 return id
               } : undefined} />
-          </FormRow>
+          </FormRow>}
           {!soloProveedor && <CamposForm campos={guia.adaptar(camposEnc)} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
           {!soloProveedor && camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(f.dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setF((s) => ({ ...s, dEnc: { ...s.dEnc, [destinoGuia]: guia.sug!.valor } })) }} />}
           {!soloProveedor && (

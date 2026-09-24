@@ -88,7 +88,7 @@ export function AjustesSeguridad() {
           <Button onClick={anadirDominio}>Añadir</Button>
         </div>
         <label className="flex flex-wrap items-center gap-2 text-fg-2">
-          Rol por defecto (dominio y enlaces de invitación abiertos)
+          Rol por defecto de quien entra por dominio aprobado
           <Select className="h-7 w-[200px]" value={f.rol_por_defecto} onChange={(e) => setF({ ...f, rol_por_defecto: e.target.value as Seguridad['rol_por_defecto'] })}>
             {(['ATENCION', 'OPERATIVO', 'LOGISTICA'] as const).map((r) => <option key={r} value={r}>{nombresRol[r]}</option>)}
           </Select>

@@ -55,7 +55,7 @@ function Gate() {
       <Route path="portal" element={<Portal />} />
       <Route element={<AppShell />}>
         <Route index element={rol === 'LOGISTICA' ? <Navigate to={conLogistica ? '/logistica' : '/encargos?b=mio'} replace /> : <ParaHoy />} />
-        <Route path="logistica" element={<Logistica />} />
+        <Route path="logistica" element={rol === 'ATENCION' ? <Navigate to="/" replace /> : <Logistica />} />
         <Route path="para-hoy" element={<ParaHoy />} />
         <Route path="encargos" element={<Encargos />} />
         <Route path="encargos/nuevo" element={rol === 'LOGISTICA' ? <Navigate to="/encargos" replace /> : <NuevoEncargo />} />
