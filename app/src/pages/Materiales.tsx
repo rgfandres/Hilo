@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { IconBrandWhatsapp, IconSearch } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, avanzarPorMaterial, lineasDeTienda, listarMateriales,
+  ajustarStock, ajustesMaterial, cambiarMaterialesEnBloque, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, avanzarPorMaterial, lineasDeTienda, listarMateriales,
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
   avisoStock, bajoUmbral, cerrarLineaPedido, encargoDelSobrante, pedidoAbierto, restosPendientes, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
 } from '@/data/materiales'
@@ -137,6 +137,7 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
   const [fProv, setFProv] = React.useState('')
   const [editar, setEditar] = React.useState<MaterialEstado | 'nuevo' | null>(null)
   const [stock, setStock] = React.useState<MaterialEstado | null>(null)
+  const [bloque, setBloque] = React.useState(false)
   const t = q.trim().toLowerCase()
   const bajo = bajoUmbral
   const sinStock = (m: MaterialEstado) => Number(m.stock) <= 0
@@ -168,6 +169,7 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
         </Select>
         <span className="text-sm text-fg-3">{vis.length} de {mats.length}</span>
         <div className="flex-1" />
+        {puedeEditar && vis.length > 1 && <Button variant="ghost" onClick={() => setBloque(true)} title="Cambiar umbral, unidad de pedido, restos o «por encargo» de todo lo que se ve ahora">Cambiar en bloque ({vis.length})</Button>}
         {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.material}</Button>}
       </div>
       {vis.length === 0 ? <p className="p-6 text-center text-fg-3">{mats.length ? 'Nada coincide.' : `Todavía no hay ${min(vocab.materiales)}. Añade ${gr.genero.material === 'f' ? 'la primera' : 'el primero'} o cré${gr.genero.material === 'f' ? 'ala' : 'alo'} al asignarl${gr.o('material')} a ${gr.con('encargo', 'un')}.`}</p> : (
@@ -202,7 +204,58 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
       )}
       <FichaMaterial m={editar} mats={mats} provs={provs} soloLectura={!puedeEditar} onClose={() => setEditar(null)} onSaved={onCambio} />
       <DialogoStock m={stock} unidad={unidad} onClose={() => setStock(null)} onSaved={onCambio} />
+      <DialogoBloque abierto={bloque} mats={vis} onClose={() => setBloque(false)} onSaved={onCambio} />
     </>
+  )
+}
+
+/** Cambiar en bloque lo que se ve en el catálogo (filtra antes por proveedor o tipo para acotarlo) */
+function DialogoBloque({ abierto, mats, onClose, onSaved }: { abierto: boolean; mats: MaterialEstado[]; onClose: () => void; onSaved: () => Promise<void> }) {
+  const { vocab } = useAuth()
+  const avisar = useAvisos()
+  type Campo = 'umbral' | 'unidad_pedido' | 'resto_hasta'
+  const vacio = { umbral: null as string | null, unidad_pedido: null as string | null, resto_hasta: null as string | null, por_encargo: null as boolean | null }
+  const [f, setF] = React.useState(vacio)
+  const [err, setErr] = React.useState<string | null>(null)
+  React.useEffect(() => { if (abierto) { setF(vacio); setErr(null) } }, [abierto]) // eslint-disable-line react-hooks/exhaustive-deps
+  const unidades = [...new Set(mats.map((m) => m.unidad))]
+  const u = unidades.length === 1 ? unidades[0] : ''
+  const filas: { k: Campo; l: string; ayuda: string }[] = [
+    { k: 'umbral', l: 'Umbral de aviso', ayuda: 'Vacío = el de la tienda' },
+    { k: 'unidad_pedido', l: 'Unidad de pedido', ayuda: 'Vacío = la del proveedor' },
+    { k: 'resto_hasta', l: 'Guardar como resto hasta', ayuda: 'Vacío = no preguntar por restos' },
+  ]
+  return (
+    <Dialog open={abierto} onOpenChange={(o) => !o && onClose()} title={`Cambiar en bloque · ${mats.length} ${min(vocab.materiales)}`} error={err}
+      description="Se aplica a todo lo que se ve ahora en el catálogo (usa los filtros para acotarlo). Solo cambia lo que marques; el stock no se toca."
+      actions={[{ label: 'Aplicar', onClick: async () => {
+        const patch: Record<string, number | boolean | null> = {}
+        for (const { k, l } of filas) {
+          const v = f[k]; if (v == null) continue
+          if (!v.trim()) { patch[k] = null; continue }
+          const x = n(v); if (!(x >= 0)) { setErr(`${l}: cantidad no válida`); return }
+          patch[k] = x
+        }
+        if (f.por_encargo != null) patch.por_encargo = f.por_encargo
+        if (!Object.keys(patch).length) { setErr('Marca al menos una cosa para cambiar'); return }
+        try { await cambiarMaterialesEnBloque(mats.map((m) => m.id), patch); await onSaved(); avisar({ tipo: 'ok', texto: `${mats.length} ${min(vocab.materiales)} cambiados` }); onClose() } catch (e) { setErr(mensajeError(e)) }
+      } }]}>
+      {filas.map(({ k, l, ayuda }) => (
+        <FormRow key={k} label={l}>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" className="accent-gray-12" aria-label={`Cambiar ${l}`} checked={f[k] != null} onChange={(e) => setF({ ...f, [k]: e.target.checked ? '' : null })} />
+            <Input className="h-7 w-[110px]" inputMode="decimal" disabled={f[k] == null} value={f[k] ?? ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+            {u && <span className="text-fg-3">{u}</span>}
+            <span className="text-xs text-fg-3">{ayuda}</span>
+          </div>
+        </FormRow>
+      ))}
+      <FormRow label="Se pide por encargo">
+        <Select className="w-[200px]" value={f.por_encargo == null ? '' : f.por_encargo ? 'si' : 'no'} onChange={(e) => setF({ ...f, por_encargo: e.target.value === '' ? null : e.target.value === 'si' })}>
+          <option value="">No cambiar</option><option value="si">Sí, por encargo</option><option value="no">No, va al stock</option>
+        </Select>
+      </FormRow>
+    </Dialog>
   )
 }
 

@@ -15,14 +15,14 @@ export function NuevaTienda() {
   const [ejemplos, setEjemplos] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [creando, setCreando] = React.useState(false)
-  const tieneEjemplos = !!(sel.productos?.length || sel.proveedores?.length)
+  const tieneEjemplos = !!(sel.productos?.length || sel.proveedores?.length || sel.materiales?.length)
 
   async function crear() {
     if (creando) return
     if (!nombre.trim()) { setError('Ponle un nombre a la tienda'); return }
     setCreando(true); setError(null)
     const datos = datosPlantilla(sel)
-    if (!ejemplos) { delete datos.productos; delete datos.proveedores }
+    if (!ejemplos) { delete datos.productos; delete datos.proveedores; delete datos.materiales }
     // La tienda nueva empieza con el asistente de configuración pendiente
     datos.ajustes = { ...(datos.ajustes ?? {}), asistente: { hecho: false, paso: 0 } }
     const { data, error } = await supabase.rpc('crear_tienda', { p_nombre: nombre.trim(), p_plantilla: datos })

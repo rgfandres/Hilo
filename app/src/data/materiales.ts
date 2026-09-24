@@ -54,6 +54,11 @@ export async function guardarMaterial(tiendaId: string, id: string | null, m: {
   const r = ok(await supabase.from('material').insert({ ...fila, tienda_id: tiendaId }).select('id').single()) as { id: string }
   return r.id
 }
+/** Cambia a la vez umbral, unidad de pedido, restos o «por encargo» de varios materiales (el stock no se toca) */
+export async function cambiarMaterialesEnBloque(ids: string[], patch: { umbral?: number | null; unidad_pedido?: number | null; resto_hasta?: number | null; por_encargo?: boolean }) {
+  if (!ids.length || !Object.keys(patch).length) return
+  ok(await supabase.from('material').update(patch).in('id', ids))
+}
 export async function ajustarStock(materialId: string, nuevo: number, motivo: string) {
   ok(await supabase.rpc('ajustar_stock', { p_material: materialId, p_nuevo: nuevo, p_motivo: motivo }))
 }
