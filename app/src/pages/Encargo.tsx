@@ -253,7 +253,7 @@ export function Encargo() {
         {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
-          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>+ {vocab.encargo} para {gr.con('cliente', 'este')}</Link></Button>
+          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otro ${min(vocab.encargo)} (ficha nueva con sus datos)` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
         )}
         <Button variant="ghost" onClick={abrirFicha}>Imprimir ficha</Button>
       </PageHeader>

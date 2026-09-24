@@ -9,7 +9,7 @@ import { PageHeader } from '@/layout/AppShell'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
 import { ajustesFicha, altaRapidaProducto, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
-import { CamposForm, NumeroInput, limpiar } from '@/components/CampoInput'
+import { CamposForm, NumeroInput, aTexto, limpiar } from '@/components/CampoInput'
 import { ajustesDinero, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { SelectorMaterial } from '@/components/Material'
@@ -35,6 +35,9 @@ export function NuevoEncargo() {
   const [tipo, setTipo] = React.useState('')
   const [producto, setProducto] = React.useState('')
   const [existente, setExistente] = React.useState<ClienteLite | null>(null)
+  // Una ficha por encargo (Ajustes): elegir a alguien que ya existe copia sus datos en una ficha nueva
+  const fichaPorEncargo = (tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true
+  const [copiaDe, setCopiaDe] = React.useState<string | null>(null)
   const [nombre, setNombre] = React.useState(''); const [tel, setTel] = React.useState(''); const [email, setEmail] = React.useState('')
   const [sugeridos, setSugeridos] = React.useState<ClienteLite[]>([])
   const [mismoTel, setMismoTel] = React.useState<ClienteLite[]>([])
@@ -108,7 +111,8 @@ export function NuevoEncargo() {
       const cid = params.get('cliente')
       if (cid) {
         const { data } = await supabase.from('cliente').select('id,nombre,telefono,email').eq('id', cid).maybeSingle()
-        if (data) { setDeParam(true); setExistente(data as ClienteLite) }
+        if (data && fichaPorEncargo) { await copiarCliente(data as ClienteLite); setDeParam(true) }
+        else if (data) { setDeParam(true); setExistente(data as ClienteLite) }
       }
     })().catch((x) => setErr(mensajeError(x)))
   }, [tienda?.id, params]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -145,11 +149,19 @@ export function NuevoEncargo() {
   // Mismo teléfono que alguien que ya existe (compara solo los dígitos)
   React.useEffect(() => {
     const dig = tel.replace(/\D/g, '')
-    if (!tienda || existente || dig.length < 6) { setMismoTel([]); return }
+    if (!tienda || existente || copiaDe || dig.length < 6) { setMismoTel([]); return }
     const t = setTimeout(() => { buscarClientes(tienda.id, dig).then((cs) => setMismoTel(cs.filter((c) => (c.telefono ?? '').replace(/\D/g, '').includes(dig)))).catch(() => setMismoTel([])) }, 250)
     return () => clearTimeout(t)
-  }, [tel, tienda, existente])
+  }, [tel, tienda, existente, copiaDe])
+  /** Ficha nueva con los datos de otra (nombre, teléfono, correo y medidas) */
+  async function copiarCliente(s: ClienteLite) {
+    const { data } = await supabase.from('cliente').select('datos').eq('id', s.id).maybeSingle()
+    setExistente(null); setNombre(s.nombre); setTel(s.telefono ?? ''); setEmail(s.email ?? '')
+    setDCli(aTexto((data?.datos as Record<string, unknown>) ?? {})); setSugeridos([]); setMismoTel([]); setAvisoElegido(null)
+    setCopiaDe(s.nombre)
+  }
   function elegirCliente(s: ClienteLite) {
+    if (fichaPorEncargo) { copiarCliente(s).catch((x) => setErr(mensajeError(x))); return }
     const escrito = [tel.trim() && 'el teléfono', email.trim() && 'el correo', Object.values(dCli).some(Boolean) && 'los datos'].filter(Boolean)
     setAvisoElegido(escrito.length ? `Has elegido a ${s.nombre}: ${escrito.join(', ')} que habías escrito no se guarda${escrito.length > 1 ? 'n' : ''}. Si ha cambiado, actualízalo en su ficha.` : null)
     setDeParam(false)
@@ -158,10 +170,10 @@ export function NuevoEncargo() {
 
   // Sugerencias de clientes existentes al escribir el nombre (desde 2 letras)
   React.useEffect(() => {
-    if (!tienda || existente || nombre.trim().length < 2) { setSugeridos([]); return }
+    if (!tienda || existente || copiaDe || nombre.trim().length < 2) { setSugeridos([]); return }
     const t = setTimeout(() => { buscarClientes(tienda.id, nombre.trim()).then(setSugeridos).catch(() => setSugeridos([])) }, 200)
     return () => clearTimeout(t)
-  }, [nombre, tienda, existente])
+  }, [nombre, tienda, existente, copiaDe])
 
   // Borrador autoguardado (solo en este dispositivo): se recupera si se cierra sin guardar
   const claveBorrador = tienda ? `hilo.borrador.${tienda.id}` : ''
@@ -275,6 +287,12 @@ export function NuevoEncargo() {
             </div>
           ) : null}
           {existente && avisoElegido && <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">{avisoElegido}</p>}
+          {!existente && copiaDe && (
+            <p className="m-0 flex items-center gap-2 rounded-sm bg-bg-3 px-2.5 py-1.5 text-sm text-fg-2">
+              <span className="flex-1">Ficha nueva con los datos de {copiaDe}. Puedes cambiarlos: la otra ficha no se toca.</span>
+              <button type="button" className="underline" onClick={() => { setCopiaDe(null); setNombre(''); setTel(''); setEmail(''); setDCli({}) }}>Empezar en blanco</button>
+            </p>
+          )}
           {!existente && (
             <>
               <FormRow label="Nombre *">
@@ -282,7 +300,7 @@ export function NuevoEncargo() {
                   <Input className="h-7" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus autoComplete="off" />
                   {sugeridos.length > 0 && (
                     <div className="absolute left-0 right-0 top-8 z-10 rounded-md border border-border bg-bg p-1 shadow-light">
-                      <div className="px-2 py-1 text-xs text-fg-3">{vocab.clientes} existentes</div>
+                      <div className="px-2 py-1 text-xs text-fg-3">{fichaPorEncargo ? `Copiar los datos de una ficha` : `${vocab.clientes} existentes`}</div>
                       {sugeridos.map((s) => (
                         <button type="button" key={s.id} onClick={() => elegirCliente(s)}
                           className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-bg-4">
@@ -298,7 +316,7 @@ export function NuevoEncargo() {
               {mismoTel.length > 0 && (
                 <div className="flex flex-col gap-1 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg md:ml-[128px]">
                   {mismoTel.slice(0, 3).map((c) => (
-                    <span key={c.id}>Ya existe con ese teléfono: <b>{c.nombre}</b> · <button type="button" className="underline" onClick={() => elegirCliente(c)}>Usar</button></span>
+                    <span key={c.id}>Ya existe con ese teléfono: <b>{c.nombre}</b> · <button type="button" className="underline" onClick={() => elegirCliente(c)}>{fichaPorEncargo ? 'Copiar sus datos' : 'Usar'}</button></span>
                   ))}
                 </div>
               )}

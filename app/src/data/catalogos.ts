@@ -132,12 +132,6 @@ async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nom
 export const altaRapidaProducto = (tiendaId: string, nombre: string) => altaRapida('producto', tiendaId, nombre)
 export const altaRapidaProveedor = (tiendaId: string, nombre: string) => altaRapida('proveedor', tiendaId, nombre)
 
-/** Une dos clientes: el segundo pasa sus encargos, medidas y datos que falten al primero, y se borra */
-export async function fusionarClientes(queda: string, sobra: string): Promise<number> {
-  const { data, error } = await supabase.rpc('fusionar_clientes', { p_queda: queda, p_sobra: sobra })
-  if (error) throw error
-  return Number(data ?? 0)
-}
 /** Borra un cliente sin encargos */
 export async function borrarCliente(id: string) {
   const { error } = await supabase.rpc('borrar_cliente', { p_cliente: id })

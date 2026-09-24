@@ -52,6 +52,7 @@ function useFormTienda() {
     moneda: (aj.moneda as string) ?? 'EUR',
     importe: aj.usar_importe !== false,
     normalizar: aj.normalizar_nombres === true,
+    fichaPorEncargo: aj.cliente_por_encargo === true,
     materiales: ((aj.modulos as Record<string, boolean> | undefined)?.materiales) === true,
     unidadMat: String(aj.material_unidad ?? 'uds'),
     umbralMat: String(aj.umbral_material_defecto ?? 0),
@@ -141,6 +142,7 @@ function useFormTienda() {
         moneda: mon || 'EUR',
         usar_importe: f.importe,
         normalizar_nombres: f.normalizar,
+        cliente_por_encargo: f.fichaPorEncargo || null,
         modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion, logistica: f.logistica },
         logistica_dias_historico: Math.max(1, parseInt(f.diasHist, 10) || 30),
         logistica: limpiaLogis(f.logis),
@@ -337,6 +339,9 @@ export function AjustesReglas() {
           </FormRow>
           <FormRow label="Nombres" ayuda="Se aplica a lo nuevo y a lo que se edite. Buscar ignora las tildes siempre.">
             <Interruptor checked={f.normalizar} onChange={(v) => setF({ ...f, normalizar: v })} label="Guardar en mayúsculas y sin tildes" />
+          </FormRow>
+          <FormRow label={`Fichas de ${f.vocab.clientes.toLowerCase()}`} ayuda={`Con «una por ${f.vocab.encargo.toLowerCase()}», cada ${f.vocab.encargo.toLowerCase()} tiene su propia ficha aunque sea de la misma persona: al hacer otro se crea una ficha nueva copiando sus datos (nombre, teléfono, correo y medidas).`}>
+            <Interruptor checked={f.fichaPorEncargo} onChange={(v) => setF({ ...f, fichaPorEncargo: v })} label={`Una ficha por ${f.vocab.encargo.toLowerCase()}`} />
           </FormRow>
       </div>
       <Avanzado resumen="Deshacer, doble toque y filas por página">
