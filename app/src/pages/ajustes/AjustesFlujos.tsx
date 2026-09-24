@@ -6,7 +6,7 @@ import { IconArrowDown, IconArrowUp, IconLock, IconAlertTriangle, IconTrash } fr
 import { useAuth } from '@/auth/AuthProvider'
 import {
   actualizarEtapa, actualizarPuerta, marcarFinal, actualizarTipo, borrarEtapa, borrarPuerta, claveUnica, crearEtapa, crearPuerta,
-  crearTipo, listarEtapasDe, listarPuertas, listarTipos, reordenarEtapas, type PuertaDef, type TipoEncargo,
+  crearTipo, listarEtapasDe, listarPuertas, listarTipos, renombrarEtapa, reordenarEtapas, type PuertaDef, type TipoEncargo,
 } from '@/data/ajustes'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
@@ -161,7 +161,7 @@ export function AjustesFlujos() {
                     </div>
                     <span className="w-5 text-right text-sm text-fg-3 tabular">{i + 1}</span>
                     <ColorEtapa value={e.color} onChange={(c) => hacer(() => actualizarEtapa(e.id, { color: c }))} />
-                    <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(() => actualizarEtapa(e.id, { nombre: v })).then(async (hecho) => {
+                    <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(async () => { await renombrarEtapa(tienda!.id, e.id, v); await recargar() }).then(async (hecho) => {
                       // Lo que traía la etapa (de la plantilla de sector o de antes) puede no encajar con el nombre nuevo
                       if (!hecho || !tienda) return
                       const msgs = (await listarPlantillas(tienda.id).catch(() => [])).filter((m) => m.etapa_id === e.id)

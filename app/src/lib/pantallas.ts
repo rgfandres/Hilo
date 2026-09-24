@@ -27,6 +27,12 @@ export function nombreMenu(aj: Record<string, unknown> | null | undefined, k: Pa
   return typeof n === 'string' && n.trim() ? n.trim() : defecto
 }
 
+/** Nombre que sale en el menú para cada pantalla cuando la tienda no le ha puesto uno propio */
+export function menuPorDefecto(v: { encargos: string; clientes: string; productos: string; proveedores: string; materiales: string; logistica: string; hoja: string }): Record<Pantalla, string> {
+  return { parahoy: 'Para hoy', encargos: v.encargos, nuevo: '', clientes: v.clientes, productos: v.productos, proveedores: v.proveedores,
+    logistica: v.logistica, produccion: v.hoja, materiales: v.materiales, pedidos: 'Pedidos', informes: 'Informes' }
+}
+
 export const PAPELES_CONFIGURABLES: Rol[] = ['OPERATIVO', 'ATENCION', 'LOGISTICA']
 
 /** Pantallas visibles para este papel, o null si usa las de siempre */

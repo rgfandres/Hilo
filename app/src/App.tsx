@@ -24,7 +24,7 @@ import { Logistica } from '@/pages/Logistica'
 import { AjustesGuia } from '@/pages/ajustes/AjustesGuia'
 import { ajustesLogistica } from '@/data/logistica'
 import { Ajustes, AjustesInicio } from '@/pages/ajustes/Ajustes'
-import { AjustesTienda, AjustesRegion, AjustesPalabras, AjustesPapeles, AjustesReglas, AjustesModulos, AjustesMateriales, AjustesHoja, AjustesLogistica, AjustesFichaTecnica } from '@/pages/ajustes/AjustesTienda'
+import { AjustesTienda, AjustesRegion, AjustesNombres, AjustesReglas, AjustesModulos, AjustesMateriales, AjustesHoja, AjustesLogistica, AjustesFichaTecnica } from '@/pages/ajustes/AjustesTienda'
 import { AjustesEquipo } from '@/pages/ajustes/AjustesEquipo'
 import { AjustesProveedores } from '@/pages/ajustes/AjustesProveedores'
 import { AjustesFlujos } from '@/pages/ajustes/AjustesFlujos'
@@ -94,8 +94,9 @@ function Pantallas() {
           <Route index element={<AjustesInicio />} />
           <Route path="tienda" element={<AjustesTienda />} />
           <Route path="region" element={<AjustesRegion />} />
-          <Route path="palabras" element={<AjustesPalabras />} />
-          <Route path="papeles" element={<AjustesPapeles />} />
+          <Route path="nombres" element={<AjustesNombres />} />
+          <Route path="palabras" element={<Navigate to="/ajustes/nombres" replace />} />
+          <Route path="papeles" element={<Navigate to="/ajustes/nombres" replace />} />
           <Route path="reglas" element={<AjustesReglas />} />
           <Route path="modulos" element={<AjustesModulos />} />
           <Route path="importar" element={<AjustesImportar />} />

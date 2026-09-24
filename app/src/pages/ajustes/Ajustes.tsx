@@ -9,50 +9,54 @@ import { AvisoAsistente } from './AjustesAsistente'
 
 type Quien = 'admin' | 'gestion' | 'todos'
 type Aj = Record<string, unknown>
-type Sec = { to: string; label: (v: Etiquetas) => string; quien: Quien; si?: (aj: Aj) => boolean }
+type Sec = { to: string; label: (v: Etiquetas) => string; quien: Quien; si?: (aj: Aj) => boolean; buscar?: string }
 type Etiquetas = { vocab: ReturnType<typeof useAuth>['vocab']; roles: Record<string, string>; aj: Aj }
 const mod = (k: string) => (aj: Aj) => (aj.modulos as Record<string, boolean> | undefined)?.[k] === true
-/** Menú de ajustes agrupado por lo que el usuario quiere hacer (no por cómo está hecho por dentro). */
-const GRUPOS: { titulo: string; items: Sec[] }[] = [
-  { titulo: 'Tu tienda', items: [
-    { to: 'tienda', label: () => 'Datos de la tienda', quien: 'admin' },
-    { to: 'region', label: () => 'Idioma y región', quien: 'admin' },
-    { to: 'palabras', label: () => 'Cómo lo llamáis', quien: 'admin' },
-    { to: 'importar', label: () => 'Importar datos', quien: 'admin' },
-  ] },
-  { titulo: 'Cómo trabajáis', items: [
-    { to: 'flujos', label: () => 'Tipos y etapas', quien: 'admin' },
-    { to: 'bandejas', label: () => 'Bandejas de la lista', quien: 'admin' },
-    { to: 'tarjetas', label: () => 'Tarjetas de Para hoy', quien: 'admin' },
-    { to: 'campos', label: () => 'Datos que guardáis', quien: 'admin' },
-    { to: 'periodos', label: () => 'Periodos', quien: 'admin' },
-    { to: 'reglas', label: () => 'Avisos y reglas', quien: 'admin' },
-  ] },
-  { titulo: 'Módulos', items: [
-    { to: 'modulos', label: () => 'Activar módulos', quien: 'admin' },
-    { to: 'materiales', label: ({ vocab }) => vocab.materiales, quien: 'admin', si: mod('materiales') },
-    { to: 'hoja', label: ({ aj }) => String(aj.hoja_nombre ?? 'Hoja de producción'), quien: 'admin', si: mod('produccion') },
-    { to: 'logistica', label: () => 'Pantalla de logística', quien: 'admin', si: mod('logistica') },
-    { to: 'guia', label: () => 'Guía de medidas', quien: 'admin' },
-    { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin' },
-  ] },
-  { titulo: 'Clientes y proveedores', items: [
-    { to: 'mensajes', label: () => 'Mensajes al cliente', quien: 'admin' },
-    { to: 'ficha', label: ({ vocab }) => `Hoja de ${vocab.encargo.toLowerCase()}`, quien: 'admin' },
-    { to: 'proveedores', label: ({ vocab }) => `Portal de ${vocab.proveedores.toLowerCase()}`, quien: 'gestion' },
-  ] },
-  { titulo: 'Personas y acceso', items: [
-    { to: 'equipo', label: () => 'Equipo', quien: 'admin' },
-    { to: 'papeles', label: () => 'Nombres de los papeles', quien: 'admin' },
-    { to: 'pantallas', label: () => 'Qué ve cada papel', quien: 'admin' },
-    { to: 'seguridad', label: () => 'Seguridad', quien: 'admin' },
-  ] },
-  { titulo: 'Mi cuenta', items: [
-    { to: 'cuenta', label: () => 'Mi cuenta', quien: 'todos' },
+/**
+ * Menú de ajustes. Arriba, lo que se toca de verdad (6 apartados); el resto, en «Más ajustes».
+ * Cada apartado lleva palabras para el buscador («¿Qué quieres cambiar?»).
+ */
+const BASICOS: { titulo: string; items: Sec[] }[] = [
+  { titulo: 'Lo principal', items: [
+    { to: 'tienda', label: () => 'Tu tienda', quien: 'admin', buscar: 'nombre tienda logo color enlace reseña google prefijo telefono whatsapp' },
+    { to: 'nombres', label: () => 'Nombres', quien: 'admin', buscar: 'nombre palabra vocabulario renombrar cambiar nombre tipo etapa paso papel rol menu encargo pedido cliente producto proveedor material' },
+    { to: 'flujos', label: () => 'Tipos y etapas', quien: 'admin', buscar: 'etapa paso flujo orden tipo añadir quitar condicion puerta cobro final color serie numeracion' },
+    { to: 'mensajes', label: () => 'Mensajes al cliente', quien: 'admin', buscar: 'mensaje whatsapp correo email plantilla aviso texto asunto gmail frase' },
+    { to: 'equipo', label: () => 'Equipo', quien: 'admin', buscar: 'equipo invitar persona usuario acceso quitar papel rol' },
+    { to: 'modulos', label: () => 'Módulos', quien: 'admin', buscar: 'modulo activar apagar telas materiales stock logistica reparto hoja produccion corte' },
   ] },
 ]
-const SECCIONES = GRUPOS.flatMap((g) => g.items)
+const MAS: { titulo: string; items: Sec[] }[] = [
+  { titulo: 'Lista y Para hoy', items: [
+    { to: 'bandejas', label: () => 'Bandejas de la lista', quien: 'admin', buscar: 'bandeja pestaña lista filtro juntar etapas rojo' },
+    { to: 'tarjetas', label: () => 'Tarjetas de Para hoy', quien: 'admin', buscar: 'tarjeta inicio para hoy contador' },
+    { to: 'pantallas', label: () => 'Qué ve cada papel', quien: 'admin', buscar: 'pantalla ver ocultar menu papel rol movil' },
+  ] },
+  { titulo: 'Datos y fichas', items: [
+    { to: 'campos', label: () => 'Datos que guardáis', quien: 'admin', buscar: 'campo dato medida fecha opcion ficha copiar repetir' },
+    { to: 'ficha', label: ({ vocab }) => `Hoja de ${vocab.encargo.toLowerCase()}`, quien: 'admin', buscar: 'hoja ficha imprimir pdf' },
+    { to: 'guia', label: () => 'Guía de medidas', quien: 'admin', buscar: 'guia medidas tallas tabla' },
+    { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin', buscar: 'ficha tecnica escandallo consumo receta' },
+    { to: 'periodos', label: () => 'Periodos', quien: 'admin', buscar: 'periodo temporada año numeracion' },
+    { to: 'importar', label: () => 'Importar datos', quien: 'admin', buscar: 'importar excel csv hoja datos' },
+  ] },
+  { titulo: 'Módulos', items: [
+    { to: 'materiales', label: ({ vocab }) => vocab.materiales, quien: 'admin', si: mod('materiales'), buscar: 'material stock umbral pedir resto unidad' },
+    { to: 'hoja', label: ({ aj }) => String(aj.hoja_nombre ?? 'Hoja de producción'), quien: 'admin', si: mod('produccion'), buscar: 'orden de corte hoja produccion imprimir columnas' },
+    { to: 'logistica', label: () => 'Pantalla de logística', quien: 'admin', si: mod('logistica'), buscar: 'logistica reparto jose bandeja recoger llevar coche' },
+    { to: 'proveedores', label: ({ vocab }) => `Portal de ${vocab.proveedores.toLowerCase()}`, quien: 'gestion', buscar: 'portal proveedor acceso correo' },
+  ] },
+  { titulo: 'Tienda', items: [
+    { to: 'region', label: () => 'Idioma y región', quien: 'admin', buscar: 'idioma region moneda zona horaria' },
+    { to: 'reglas', label: () => 'Avisos y reglas', quien: 'admin', buscar: 'aviso regla estancado atascado dias deshacer' },
+    { to: 'seguridad', label: () => 'Seguridad', quien: 'admin', buscar: 'seguridad sesion contraseña dispositivo' },
+  ] },
+]
+const CUENTA: Sec = { to: 'cuenta', label: () => 'Mi cuenta', quien: 'todos', buscar: 'mi cuenta nombre salir cerrar sesion' }
+const SECCIONES = [...BASICOS, ...MAS].flatMap((g) => g.items).concat(CUENTA)
 const puedeVer = (q: Quien, rol: string | null) => q === 'todos' || rol === 'ADMIN' || (q === 'gestion' && rol === 'OPERATIVO')
+const plano = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const leerMas = () => { try { return localStorage.getItem('hilo_ajustes_mas') === '1' } catch { return false } }
 
 /** Ajustes: menú agrupado a la izquierda y la sección a la derecha. */
 export function Ajustes() {
@@ -62,24 +66,57 @@ export function Ajustes() {
   // Una sección a la que el rol no tiene acceso (p. ej. escrita a mano en la dirección) no se abre
   const loc = useLocation()
   const seccion = SECCIONES.find((x) => loc.pathname.split('/')[2] === x.to)
+  const filtra = (gs: { titulo: string; items: Sec[] }[]) => gs.map((g) => ({ ...g, items: g.items.filter((s) => puedeVer(s.quien, rol) && (!s.si || s.si(aj) || s === seccion)) })).filter((g) => g.items.length)
+  const basicos = filtra(BASICOS), mas = filtra(MAS)
+  const enMas = mas.some((g) => g.items.includes(seccion as Sec))
+  const [verMas, setVerMas] = React.useState(() => leerMas())
+  const abrirMas = verMas || enMas
+  const [q, setQ] = React.useState('')
+  // En «Nombres» también se encuentra por las palabras y papeles de esta tienda («traje», «Jose»…)
+  const extraNombres = plano([...Object.values(vocab), ...Object.values(nombresRol)].join(' '))
+  const pal = plano(q.trim()).split(/\s+/).filter(Boolean)
+  const resultados = pal.length ? [...basicos, ...mas].flatMap((g) => g.items).concat(CUENTA)
+    .filter((s) => { const t = plano(`${s.label(et)} ${s.buscar ?? ''}`); return pal.every((p) => t.includes(p) || (s.to === 'nombres' && extraNombres.includes(p))) }) : []
+  const enlace = (s: Sec) => (
+    <NavLink key={s.to} to={s.to} onClick={() => setQ('')}
+      className={({ isActive }) => cn('flex h-7 shrink-0 items-center rounded-sm px-2 text-fg-2 hover:bg-bg-4 max-md:h-9', isActive && 'bg-gray-5 font-medium text-fg')}>
+      {s.label(et)}
+    </NavLink>
+  )
   if (seccion && !puedeVer(seccion.quien, rol)) return <Navigate to="/ajustes/cuenta" replace />
-  const grupos = GRUPOS.map((g) => ({ ...g, items: g.items.filter((s) => puedeVer(s.quien, rol) && (!s.si || s.si(aj) || s === seccion)) })).filter((g) => g.items.length)
   return (
     <>
       <PageHeader title="Ajustes" />
       <div className="flex min-h-0 flex-1 max-md:flex-col">
-        <nav aria-label="Ajustes" className="flex w-[220px] shrink-0 flex-col gap-4 overflow-auto border-r border-border p-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-r-0 max-md:p-2">
-          {grupos.map((g) => (
-            <div key={g.titulo} className="flex flex-col gap-0.5 max-md:contents">
-              <span className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-fg-3 max-md:hidden">{g.titulo}</span>
-              {g.items.map((s) => (
-                <NavLink key={s.to} to={s.to}
-                  className={({ isActive }) => cn('flex h-7 shrink-0 items-center rounded-sm px-2 text-fg-2 hover:bg-bg-4 max-md:h-9', isActive && 'bg-gray-5 font-medium text-fg')}>
-                  {s.label(et)}
-                </NavLink>
-              ))}
+        <nav aria-label="Ajustes" className="flex w-[220px] shrink-0 flex-col gap-3 overflow-auto border-r border-border p-3 max-md:w-full max-md:gap-2 max-md:border-b max-md:border-r-0 max-md:p-2">
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="¿Qué quieres cambiar?" aria-label="Buscar en ajustes"
+            className="h-8 w-full rounded-sm border border-border bg-bg px-2 outline-none focus:border-gray-8" />
+          {pal.length > 0 ? (
+            <div className="flex flex-col gap-0.5">
+              {resultados.length ? resultados.map(enlace) : <span className="px-2 text-sm text-fg-3">Nada con «{q.trim()}». Prueba con otra palabra.</span>}
             </div>
-          ))}
+          ) : (
+            <div className="flex flex-col gap-3 max-md:flex-row max-md:flex-wrap max-md:gap-1">
+              {basicos.map((g) => (
+                <div key={g.titulo} className="flex flex-col gap-0.5 max-md:contents">
+                  {g.items.map(enlace)}
+                </div>
+              ))}
+              {mas.length > 0 && (
+                <button type="button" aria-expanded={abrirMas} onClick={() => { const v = !abrirMas; setVerMas(v); try { localStorage.setItem('hilo_ajustes_mas', v ? '1' : '0') } catch { /* sin almacenamiento */ } }}
+                  className="flex h-7 items-center gap-1.5 rounded-sm px-2 text-left text-sm text-fg-3 hover:bg-bg-4 hover:text-fg max-md:h-9">
+                  <span className="w-3">{abrirMas ? '▾' : '▸'}</span>Más ajustes
+                </button>
+              )}
+              {abrirMas && mas.map((g) => (
+                <div key={g.titulo} className="flex flex-col gap-0.5 max-md:contents">
+                  <span className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-fg-3 max-md:hidden">{g.titulo}</span>
+                  {g.items.map(enlace)}
+                </div>
+              ))}
+              <div className="flex flex-col gap-0.5 border-t border-border-light pt-2 max-md:contents">{enlace(CUENTA)}</div>
+            </div>
+          )}
         </nav>
         <div className="min-w-0 flex-1 overflow-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-8 px-8 py-6 max-md:px-4 max-md:py-4">

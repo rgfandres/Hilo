@@ -2,7 +2,9 @@ import { plantillas } from '@/data/config'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, subirFoto } from '@/data/catalogos'
-import { guardarTienda, listarPuertas, type PuertaDef } from '@/data/ajustes'
+import { actualizarTipo, guardarTienda, listarEtapasDe, listarPuertas, listarTipos, renombrarEtapa, type PuertaDef, type TipoEncargo } from '@/data/ajustes'
+import { PANTALLAS, menuPorDefecto, type Pantalla } from '@/lib/pantallas'
+import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica, bandejasLogistica, type ConfigBandeja, type ConfigLogistica } from '@/data/logistica'
 import { listarEtapas } from '@/data/encargos'
 import type { Etapa } from '@/lib/types'
@@ -10,7 +12,7 @@ import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
 import { Link } from 'react-router-dom'
-import { Avanzado, BarraGuardar, FilaForm, Info, Interruptor, ListaTextos, Pagina } from './Ajustes'
+import { Avanzado, BarraGuardar, Bloque, FilaForm, Info, Interruptor, ListaTextos, Pagina } from './Ajustes'
 
 const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'encargo', kp: 'encargos', ayuda: 'Lo que la tienda hace por encargo' },
@@ -77,6 +79,7 @@ function useFormTienda() {
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
+    menu: ((aj.nombres_menu ?? {}) as Partial<Record<Pantalla, string>>),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [tienda])
   const [f, setF] = React.useState(inicial)
@@ -97,7 +100,7 @@ function useFormTienda() {
     }).catch(() => {})
   }, [tienda])
 
-  async function guardar() {
+  async function guardar(despues?: () => Promise<void>) {
     if (!tienda) return
     if (!f.nombre.trim()) { setErr('La tienda necesita un nombre'); return }
     const dias = parseInt(f.dias, 10)
@@ -167,7 +170,9 @@ function useFormTienda() {
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
         proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: f.verCliente },
+        nombres_menu: (() => { const m = Object.fromEntries(Object.entries(f.menu).map(([k, v]) => [k, (v ?? '').trim()]).filter(([, v]) => v)); return Object.keys(m).length ? m : null })(),
       })
+      if (despues) await despues()
       await recargar()
       setOk('Guardado')
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
@@ -178,10 +183,10 @@ function useFormTienda() {
     return { ...s, vocab, generos: { ...s.generos, ...(k in s.generos && !s.generosFijados[k as ClaveVocab] ? { [k]: generoAuto(v) } : {}) } }
   })
   const setGenero = (k: ClaveVocab, g: Genero) => setF((s) => ({ ...s, generos: { ...s.generos, [k]: g }, generosFijados: { ...s.generosFijados, [k]: g } }))
-  return { tienda, aj, inicial, f, setF, ok, err, setErr, busy, subiendo, setSubiendo, sucio, AYUDA, camposEnc, guardar, setVocab, setGenero }
+  return { tienda, aj, inicial, f, setF, ok, setOk, recargar, err, setErr, busy, subiendo, setSubiendo, sucio, AYUDA, camposEnc, guardar, setVocab, setGenero }
 }
 type FT = ReturnType<typeof useFormTienda>
-const Pie = ({ t }: { t: FT }) => <BarraGuardar sucio={t.sucio} busy={t.busy} ok={t.ok} err={t.err} onGuardar={t.guardar} onDescartar={() => { t.setF(t.inicial); t.setErr(null) }} />
+const Pie = ({ t }: { t: FT }) => <BarraGuardar sucio={t.sucio} busy={t.busy} ok={t.ok} err={t.err} onGuardar={() => t.guardar()} onDescartar={() => { t.setF(t.inicial); t.setErr(null) }} />
 
 /** Ajustes → Datos de la tienda */
 export function AjustesTienda() {
@@ -263,49 +268,123 @@ export function AjustesRegion() {
   )
 }
 
-/** Ajustes → Cómo lo llamáis (vocabulario) */
-export function AjustesPalabras() {
+/**
+ * Ajustes → Nombres: TODO lo que tiene nombre, en una página (palabras, tipos y etapas, papeles y menú).
+ * Se cambia escribiendo encima y se guarda de una vez. Al renombrar una etapa, sus bandejas, tarjetas,
+ * frases y la pantalla de logística la siguen.
+ */
+export function AjustesNombres() {
   const t = useFormTienda()
-  const { f, setVocab, setGenero } = t
+  const { f, setF, setVocab, setGenero, AYUDA, tienda, aj } = t
+  const [tipos, setTipos] = React.useState<(TipoEncargo & { etapas: Etapa[] })[]>([])
+  const [nomT, setNomT] = React.useState<Record<string, string>>({})
+  const [nomE, setNomE] = React.useState<Record<string, string>>({})
+  const [busy, setBusy] = React.useState(false)
+  const cargar = React.useCallback(async () => {
+    if (!tienda) return
+    const ts = (await listarTipos(tienda.id)).filter((x) => x.activo)
+    const conEt = await Promise.all(ts.map(async (x) => ({ ...x, etapas: await listarEtapasDe(x.id) })))
+    setTipos(conEt); setNomT({}); setNomE({})
+  }, [tienda])
+  React.useEffect(() => { cargar().catch(() => {}) }, [cargar])
+  const cambiosFlujo = Object.keys(nomT).length + Object.keys(nomE).length
+  const sucio = t.sucio || cambiosFlujo > 0
+  const mod = (k: string) => ((aj.modulos as Record<string, boolean> | undefined)?.[k]) === true
+  const defecto = menuPorDefecto({ encargos: f.vocab.encargos, clientes: f.vocab.clientes, productos: f.vocab.productos, proveedores: f.vocab.proveedores,
+    materiales: f.vocab.materiales, logistica: f.roles.LOGISTICA, hoja: ajustesHoja(aj).nombre })
+  const menuVisible = PANTALLAS.filter((p) => p.k !== 'nuevo' && (p.k !== 'logistica' || mod('logistica')) && (p.k !== 'produccion' || mod('produccion'))
+    && ((p.k !== 'materiales' && p.k !== 'pedidos') || mod('materiales')))
+  const art = (k: ClaveVocab) => (f.generos[k] === 'f' ? 'la' : 'el')
+
+  async function guardarTodo() {
+    // Nombres repetidos dentro de un mismo tipo: no
+    for (const tp of tipos) {
+      const ns = tp.etapas.map((e) => (nomE[e.id] ?? e.nombre).trim().toLowerCase())
+      if (ns.some((x) => !x)) { t.setErr(`Hay una etapa sin nombre en «${tp.nombre}»`); return }
+      if (new Set(ns).size !== ns.length) { t.setErr(`Dos etapas de «${nomT[tp.id] ?? tp.nombre}» se llaman igual`); return }
+      if (nomT[tp.id] != null && !nomT[tp.id].trim()) { t.setErr('Un tipo no puede quedar sin nombre'); return }
+    }
+    setBusy(true)
+    const flujo = async () => {
+      if (!tienda) return
+      for (const [id, v] of Object.entries(nomT)) await actualizarTipo(id, { nombre: v.trim() })
+      for (const [id, v] of Object.entries(nomE)) await renombrarEtapa(tienda.id, id, v)
+      await cargar()
+    }
+    try {
+      if (t.sucio) await t.guardar(flujo)
+      else { await flujo(); await t.recargar(); t.setOk('Guardado') }
+    } catch (x) { t.setErr(mensajeError(x)) } finally { setBusy(false) }
+  }
+
   return (
     <>
-      <Pagina titulo="Cómo lo llamáis" ayuda="Las palabras de tu negocio: la app las usa en menús, botones y mensajes." mas="Si en tu tienda decís «pedido» en vez de «encargo», cámbialo aquí y toda la app lo dirá así. «Se dice» sirve para que las frases salgan bien (el / la)." />
-        <div className="grid grid-cols-[1fr_1fr_1fr_80px] items-center gap-x-3 gap-y-1.5">
-          <span className="text-sm text-fg-3">Qué es</span><span className="text-sm text-fg-3">Singular</span><span className="text-sm text-fg-3">Plural</span><span className="text-sm text-fg-3">Se dice</span>
-          {PALABRAS.map((p) => (
+      <Pagina titulo="Nombres" ayuda="Todo lo que tiene nombre en la app, en un solo sitio. Escribe encima y pulsa Guardar." />
+
+      <Bloque titulo="Las palabras de tu negocio" ayuda={`Así se verá: «${f.vocab.encargo} nuevo», «3 ${f.vocab.encargos.toLowerCase()}», «${art('cliente')} ${f.vocab.cliente.toLowerCase()}», «${art('proveedor')} ${f.vocab.proveedor.toLowerCase()}».`}>
+        <div className="grid grid-cols-[1fr_1fr_1fr_70px] items-center gap-x-3 gap-y-1.5 max-md:grid-cols-[1fr_1fr_60px]">
+          <span className="text-sm text-fg-3 max-md:hidden">Qué es</span><span className="text-sm text-fg-3">Uno</span><span className="text-sm text-fg-3">Varios</span><span className="text-sm text-fg-3">Se dice</span>
+          {PALABRAS.filter((p) => p.k !== 'material' || mod('materiales')).map((p) => (
             <React.Fragment key={p.k}>
-              <span className="text-fg-2">{p.ayuda}</span>
-              <Input className="h-7" value={f.vocab[p.k]} placeholder={VOCAB_DEFECTO[p.k]} onChange={(e) => setVocab(p.k, e.target.value)} />
-              <Input className="h-7" value={f.vocab[p.kp]} placeholder={VOCAB_DEFECTO[p.kp]} onChange={(e) => setVocab(p.kp, e.target.value)} />
+              <span className="text-fg-2 max-md:col-span-3 max-md:pt-1 max-md:text-sm">{p.ayuda}</span>
+              <Input className="h-7" aria-label={`${p.ayuda}: singular`} value={f.vocab[p.k]} placeholder={VOCAB_DEFECTO[p.k]} onChange={(e) => setVocab(p.k, e.target.value)} />
+              <Input className="h-7" aria-label={`${p.ayuda}: plural`} value={f.vocab[p.kp]} placeholder={VOCAB_DEFECTO[p.kp]} onChange={(e) => setVocab(p.kp, e.target.value)} />
               <Select value={f.generos[p.k]} onChange={(e) => setGenero(p.k, e.target.value as Genero)} aria-label={`Género de ${f.vocab[p.k]}`}>
                 <option value="m">el</option><option value="f">la</option>
               </Select>
             </React.Fragment>
           ))}
         </div>
-      <Pie t={t} />
-    </>
-  )
-}
+      </Bloque>
 
-/** Ajustes → Nombres de los papeles (roles) */
-export function AjustesPapeles() {
-  const t = useFormTienda()
-  const { f, setF, AYUDA } = t
-  return (
-    <>
-      <Pagina titulo="Nombres de los papeles" ayuda="Cómo llamáis a cada papel del equipo. Cambiar el nombre no cambia lo que puede hacer." />
+      <Bloque titulo={`Tipos de ${f.vocab.encargo.toLowerCase()} y sus etapas`} ayuda="El nombre de cada tipo (sale en el menú si tiene menú propio) y el de cada paso. Para añadir, quitar u ordenar etapas: Tipos y etapas.">
+        {tipos.map((tp) => (
+          <div key={tp.id} className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+            <div className="flex items-center gap-2">
+              <span className="w-[70px] shrink-0 text-sm text-fg-3">Tipo</span>
+              <Input className="h-7 max-w-[280px] font-medium" aria-label={`Nombre del tipo ${tp.nombre}`} value={nomT[tp.id] ?? tp.nombre}
+                onChange={(e) => setNomT((s) => { const n = { ...s }; if (e.target.value === tp.nombre) delete n[tp.id]; else n[tp.id] = e.target.value; return n })} />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 pl-[78px] max-md:pl-0">
+              {tp.etapas.map((e, i) => (
+                <React.Fragment key={e.id}>
+                  {i > 0 && <span className="text-fg-3">→</span>}
+                  <Input className="h-7 w-[170px]" aria-label={`Etapa ${i + 1} de ${tp.nombre}`} value={nomE[e.id] ?? e.nombre}
+                    onChange={(ev) => setNomE((s) => { const n = { ...s }; if (ev.target.value === e.nombre) delete n[e.id]; else n[e.id] = ev.target.value; return n })} />
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+        <Link to="/ajustes/flujos" className="self-start text-sm text-fg-3 underline underline-offset-2 hover:text-fg">Añadir o quitar etapas, colores y condiciones →</Link>
+      </Bloque>
+
+      <Bloque titulo="Los papeles del equipo" ayuda="Cómo llamáis a cada papel. Cambiar el nombre no cambia lo que puede hacer.">
         <div className="flex flex-col gap-1">
           {ROLES.map((r) => (
-            <FormRow key={r} label={r === 'ADMIN' ? 'Administración' : r === 'OPERATIVO' ? 'Operativo' : r === 'ATENCION' ? 'Atención' : 'Logística'}>
+            <FormRow key={r} label={r === 'ADMIN' ? 'Administración' : r === 'OPERATIVO' ? 'Producción' : r === 'ATENCION' ? 'Atención' : 'Logística'}>
               <div className="flex items-center gap-3">
                 <Input className="h-7 w-[200px]" value={f.roles[r]} onChange={(e) => setF({ ...f, roles: { ...f.roles, [r]: e.target.value } })} />
-                <span className="truncate text-sm text-fg-3">{AYUDA[r]}</span>
+                <span className="truncate text-sm text-fg-3 max-md:hidden">{AYUDA[r]}</span>
               </div>
             </FormRow>
           ))}
         </div>
-      <Pie t={t} />
+      </Bloque>
+
+      <Bloque titulo="El menú" ayuda="Si quieres que una pantalla salga con otro nombre en el menú y en la barra del móvil. Vacío = el de siempre.">
+        <div className="flex flex-col gap-1">
+          {menuVisible.map((p) => (
+            <FormRow key={p.k} label={defecto[p.k]}>
+              <Input className="h-7 w-[220px]" placeholder={defecto[p.k]} aria-label={`Nombre en el menú de ${defecto[p.k]}`} maxLength={40} value={f.menu[p.k] ?? ''}
+                onChange={(e) => setF({ ...f, menu: { ...f.menu, [p.k]: e.target.value } })} />
+            </FormRow>
+          ))}
+        </div>
+      </Bloque>
+
+      <BarraGuardar sucio={sucio} busy={busy || t.busy} ok={t.ok} err={t.err} onGuardar={guardarTodo}
+        onDescartar={() => { t.setF(t.inicial); setNomT({}); setNomE({}); t.setErr(null) }} />
     </>
   )
 }

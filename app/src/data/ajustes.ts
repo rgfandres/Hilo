@@ -30,6 +30,34 @@ export async function guardarTienda(id: string, nombre: string, ajustes: Record<
   okFila(await supabase.from('tienda').update({ nombre, ajustes }).eq('id', id).select('id'))
 }
 
+/**
+ * Las bandejas, tarjetas, frases y la pantalla de logística apuntan a las etapas por su NOMBRE.
+ * Al renombrar una etapa, se cambian también ahí (si ninguna otra etapa de la tienda sigue llamándose igual).
+ */
+export function ajustesConEtapaRenombrada(aj: Record<string, unknown>, viejo: string, nuevo: string): Record<string, unknown> {
+  if (!viejo || viejo === nuevo) return aj
+  const n = structuredClone(aj) as Record<string, unknown>
+  const bandejas = (l: unknown) => Array.isArray(l) && l.forEach((b: { etapas?: { etapa: string }[] }) => b.etapas?.forEach((x) => { if (x.etapa === viejo) x.etapa = nuevo }))
+  bandejas(n.lista_bandejas)
+  Object.values((n.lista_bandejas_tipo ?? {}) as Record<string, unknown>).forEach(bandejas)
+  if (Array.isArray(n.inicio_tarjetas)) (n.inicio_tarjetas as { etapas?: string[] }[]).forEach((t) => { if (t.etapas) t.etapas = t.etapas.map((x) => (x === viejo ? nuevo : x)) })
+  const frases = n.frases_etapa as Record<string, string> | undefined
+  if (frases && viejo in frases && !(nuevo in frases)) { frases[nuevo] = frases[viejo]; delete frases[viejo] }
+  const lb = (n.logistica as { bandejas?: Record<string, unknown> } | undefined)?.bandejas
+  if (lb && ('e:' + viejo) in lb && !(('e:' + nuevo) in lb)) { lb['e:' + nuevo] = lb['e:' + viejo]; delete lb['e:' + viejo] }
+  return n
+}
+/** Renombra una etapa y arrastra el nombre nuevo a los ajustes que la usan */
+export async function renombrarEtapa(tiendaId: string, etapaId: string, nuevo: string) {
+  const et = ok(await supabase.from('etapa').select('id,nombre').eq('tienda_id', tiendaId)) as { id: string; nombre: string }[]
+  const viejo = et.find((x) => x.id === etapaId)?.nombre ?? ''
+  await actualizarEtapa(etapaId, { nombre: nuevo.trim() })
+  if (!viejo || et.some((x) => x.id !== etapaId && x.nombre === viejo)) return
+  const t = ok(await supabase.from('tienda').select('nombre,ajustes').eq('id', tiendaId).single()) as { nombre: string; ajustes: Record<string, unknown> }
+  const n = ajustesConEtapaRenombrada(t.ajustes ?? {}, viejo, nuevo.trim())
+  if (JSON.stringify(n) !== JSON.stringify(t.ajustes)) await guardarTienda(tiendaId, t.nombre, n)
+}
+
 // ---------- Equipo
 export interface MiembroEquipo { tienda_id: string; user_id: string; email: string; rol: Rol; activo: boolean; creado_en: string; soy_yo: boolean }
 export interface Invitacion { id: string; email: string | null; rol: Rol; token: string; creado_en: string; caduca_en: string; aceptada_en: string | null; revocada_en: string | null }

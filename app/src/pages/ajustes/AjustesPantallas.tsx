@@ -6,7 +6,6 @@ import { ajustesHoja } from '@/data/produccion'
 import { PANTALLAS, PAPELES_CONFIGURABLES, type Pantalla } from '@/lib/pantallas'
 import type { Rol } from '@/lib/types'
 import { min } from '@/lib/vocab'
-import { Input } from '@/ui'
 import { BarraGuardar, Interruptor, Pagina } from './Ajustes'
 
 /** Ajustes → Qué ve cada papel: pantallas del menú (y de la barra del móvil) por papel. */
@@ -15,20 +14,15 @@ export function AjustesPantallas() {
   const aj = React.useMemo(() => (tienda?.ajustes ?? {}) as Record<string, unknown>, [tienda?.ajustes])
   const inicial = React.useMemo(() => ((aj.pantallas ?? {}) as Partial<Record<Rol, Pantalla[]>>), [aj])
   const [cfg, setCfg] = React.useState(inicial)
-  const nomIni = React.useMemo(() => ((aj.nombres_menu ?? {}) as Partial<Record<Pantalla, string>>), [aj])
-  const [nom, setNom] = React.useState(nomIni)
-  React.useEffect(() => setNom(nomIni), [nomIni])
   const [busy, setBusy] = React.useState(false)
   const [ok, setOk] = React.useState<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   React.useEffect(() => setCfg(inicial), [inicial])
-  const sucio = JSON.stringify(cfg) !== JSON.stringify(inicial) || JSON.stringify(nom) !== JSON.stringify(nomIni)
+  const sucio = JSON.stringify(cfg) !== JSON.stringify(inicial)
   const nombre: Record<Pantalla, string> = {
     parahoy: 'Para hoy', encargos: `${vocab.encargos} (la lista)`, nuevo: `${vocab.encargo} nuevo`, clientes: vocab.clientes, productos: vocab.productos,
     proveedores: vocab.proveedores, logistica: 'Pantalla de logística', produccion: ajustesHoja(aj).nombre, materiales: vocab.materiales, pedidos: `Pedidos de ${min(vocab.material)}`, informes: 'Informes',
   }
-  // Lo que sale en el menú si no se pone nombre propio
-  const menuDefecto: Record<Pantalla, string> = { ...nombre, encargos: vocab.encargos, nuevo: '', logistica: nombresRol.LOGISTICA, pedidos: 'Pedidos' }
   // Lo de siempre para cada papel, como punto de partida al personalizar
   const deSiempre = (r: Rol): Pantalla[] => r === 'LOGISTICA' ? ['logistica', 'parahoy', 'encargos', 'clientes', 'productos', 'proveedores']
     : r === 'ATENCION' ? ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos', 'proveedores', 'produccion', 'materiales', 'pedidos']
@@ -41,22 +35,20 @@ export function AjustesPantallas() {
     setBusy(true); setErr(null); setOk(null)
     try {
       const limpio = Object.fromEntries(Object.entries(cfg).filter(([, v]) => Array.isArray(v)))
-      const nombres = Object.fromEntries(Object.entries(nom).map(([k, v]) => [k, (v ?? '').trim()]).filter(([, v]) => v))
-      await guardarTienda(tienda.id, tienda.nombre, { ...aj, pantallas: Object.keys(limpio).length ? limpio : null, nombres_menu: Object.keys(nombres).length ? nombres : null })
+      await guardarTienda(tienda.id, tienda.nombre, { ...aj, pantallas: Object.keys(limpio).length ? limpio : null })
       await recargar(); setOk('Guardado')
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
 
   return (
     <>
-      <Pagina titulo="Qué ve cada papel" ayuda="Las pantallas del menú (y de la barra del móvil) de cada papel, y el nombre con el que salen. Administración lo ve todo."
+      <Pagina titulo="Qué ve cada papel" ayuda="Las pantallas del menú (y de la barra del móvil) de cada papel, Administración lo ve todo. El nombre de cada menú se cambia en Nombres."
         mas="Solo cambia lo que se ve en el menú y a dónde se puede entrar; lo que cada papel puede hacer lo marcan sus permisos. Las fichas sueltas (un encargo, un cliente) se pueden abrir siempre desde un enlace. Los tipos con menú propio se renombran en Tipos y etapas → Renombrar." />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
               <th className="p-2 text-left font-medium text-fg-3">Pantalla</th>
-              <th className="p-2 text-left font-medium text-fg-3">Nombre en el menú</th>
               {PAPELES_CONFIGURABLES.map((r) => (
                 <th key={r} className="p-2 text-left align-top font-medium">
                   <div className="flex flex-col gap-1">
@@ -72,7 +64,6 @@ export function AjustesPantallas() {
             {PANTALLAS.map((p) => (
               <tr key={p.k} className="border-t border-border-light">
                 <td className="p-2">{nombre[p.k]}</td>
-                <td className="p-2">{p.k === 'nuevo' ? <span className="text-fg-3">—</span> : <Input className="h-7 w-[180px]" placeholder={menuDefecto[p.k]} aria-label={`Nombre en el menú de ${nombre[p.k]}`} value={nom[p.k] ?? ''} maxLength={40} onChange={(e) => setNom({ ...nom, [p.k]: e.target.value })} />}</td>
                 {PAPELES_CONFIGURABLES.map((r) => (
                   <td key={r} className="p-2">
                     {cfg[r]
@@ -85,7 +76,7 @@ export function AjustesPantallas() {
           </tbody>
         </table>
       </div>
-      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setCfg(inicial); setNom(nomIni); setErr(null) }} />
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setCfg(inicial); setErr(null) }} />
     </>
   )
 }
