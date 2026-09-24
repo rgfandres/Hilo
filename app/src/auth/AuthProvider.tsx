@@ -5,6 +5,9 @@ import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
 import { contextoErrores, mensajeError } from '@/data/encargos'
 import { setSegundosDeshacer } from '@/ui/Avisos'
+
+/** Dirección de vuelta sin «#»: el proveedor añade «#access_token…» y con otra «#» delante la sesión no se lee */
+const sinAlmohadilla = () => window.location.origin + window.location.pathname + window.location.search
 import { gramatica, generosDe, rolesDe, vocabDe, type Gramatica, type Vocab } from '@/lib/vocab'
 
 interface AuthState {
@@ -208,11 +211,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     fase, caducada, cerrarCaducada: () => setCaducada(false),
     signInEnlace: async (email) => {
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href, shouldCreateUser: true } })
+      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: sinAlmohadilla(), shouldCreateUser: true } })
       return error ? error.message : null
     },
     signInProveedor: async (p) => {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: p, options: { redirectTo: window.location.href, queryParams: { prompt: 'select_account' } } })
+      const { error } = await supabase.auth.signInWithOAuth({ provider: p, options: { redirectTo: sinAlmohadilla(), queryParams: { prompt: 'select_account' } } })
       return error ? error.message : null
     },
     recuperarPassword: async (email) => {

@@ -9,6 +9,12 @@ if (!url || !key) {
   console.warn('Faltan VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY en .env')
 }
 
+// Vuelta de Google o del enlace de correo con «##access_token» (la dirección ya llevaba una «#»):
+// se deja en una sola para que la sesión se pueda leer
+if (typeof window !== 'undefined' && /^#+#(access_token|error)=/.test(window.location.hash)) {
+  window.history.replaceState(null, '', window.location.pathname + window.location.search + '#' + window.location.hash.replace(/^#+/, ''))
+}
+
 export const supabase = createClient(url, key, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   global: { fetch: fetchConEspera },
