@@ -205,3 +205,46 @@ export function BarraGuardar({ sucio, busy, ok, err, onGuardar, onDescartar, ext
     </div>
   )
 }
+
+/** Fila de formulario sin <label> (para grupos de controles: listas, botones…). Mismo aspecto que FormRow. */
+export function FilaForm({ label, ayuda, children }: { label: string; ayuda?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-8 items-start gap-2 max-md:flex-col max-md:items-stretch max-md:gap-1">
+      <span className="w-[120px] shrink-0 pt-2 text-sm leading-tight text-fg-3 max-md:w-auto max-md:pt-0">{label}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {children}
+        {ayuda && <span className="text-xs text-fg-3">{ayuda}</span>}
+      </div>
+    </div>
+  )
+}
+
+/** Lista de textos editable: una fila por valor, con «Añadir», quitar y subir (el orden cuenta). */
+export function ListaTextos({ valores, onChange, placeholder, anadir = '+ Añadir', nombre }: {
+  valores: string[]; onChange: (v: string[]) => void; placeholder?: string; anadir?: string; nombre: string
+}) {
+  const refs = React.useRef<(HTMLInputElement | null)[]>([])
+  const [foco, setFoco] = React.useState<number | null>(null)
+  React.useEffect(() => { if (foco != null) { refs.current[foco]?.focus(); setFoco(null) } }, [foco])
+  const poner = (i: number, v: string) => onChange(valores.map((x, j) => (j === i ? v : x)))
+  const quitar = (i: number) => onChange(valores.filter((_, j) => j !== i))
+  const subir = (i: number) => { if (i === 0) return; const n = [...valores]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; onChange(n) }
+  const repes = new Set(valores.map((x) => x.trim().toLowerCase()).filter((x, i, a) => x && a.indexOf(x) !== i))
+  return (
+    <div className="flex flex-col gap-1">
+      {valores.map((v, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <span className="w-5 text-right text-sm text-fg-3">{i + 1}</span>
+          <input ref={(el) => { refs.current[i] = el }} value={v} placeholder={placeholder} aria-label={`${nombre} ${i + 1}`}
+            onChange={(e) => poner(i, e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onChange([...valores.slice(0, i + 1), '', ...valores.slice(i + 1)]); setFoco(i + 1) } }}
+            className={cn('h-7 w-[260px] rounded-sm border bg-bg px-2 outline-none focus:border-gray-8 max-md:flex-1', repes.has(v.trim().toLowerCase()) ? 'border-danger' : 'border-border')} />
+          <button type="button" onClick={() => subir(i)} disabled={i === 0} aria-label={`Subir ${v || 'fila'}`} className="h-7 w-7 rounded-sm text-fg-3 hover:bg-bg-4 disabled:opacity-30">↑</button>
+          <button type="button" onClick={() => quitar(i)} aria-label={`Quitar ${v || 'fila'}`} className="h-7 w-7 rounded-sm text-fg-3 hover:bg-bg-4 hover:text-danger-fg">✕</button>
+        </div>
+      ))}
+      {repes.size > 0 && <span className="text-xs text-danger-fg">Hay valores repetidos: se guardará uno de cada.</span>}
+      <Button size="sm" variant="ghost" className="self-start" onClick={() => { onChange([...valores, '']); setFoco(valores.length) }}>{anadir}</Button>
+    </div>
+  )
+}

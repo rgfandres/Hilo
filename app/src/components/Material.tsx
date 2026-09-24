@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import {
   ajustesMaterial, anadirLinea, asignarMaterial, avisoStock, cant, desasignarMaterial, guardarMaterial, guardarResto,
-  lineasDeEncargo, listarMateriales, nombreMaterial, quitarLinea, restoCandidato, type LineaMaterial, type MaterialEstado,
+  lineasDeEncargo, listarMateriales, nombreMaterial, quitarLinea, restoCandidato, unidadDe, type LineaMaterial, type MaterialEstado,
 } from '@/data/materiales'
 import { mensajeError } from '@/data/encargos'
 import { Button, Combobox, Dialog, FormRow, SectionLabel, Tag, useAvisos, type TagColor } from '@/ui'
@@ -32,6 +32,8 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
   const variantes = activos.filter((m) => m.tipo === valor.tipo)
   const elegido = materiales.find((m) => m.id === valor.material_id)
   const aviso = avisoStock(elegido, Number(valor.cantidad || 0))
+  // Unidad: la del material elegido; si no, la de su tipo; si no, la habitual
+  const ud = unidadDe(elegido ?? variantes[0], aj.unidad)
   return (
     <>
       <FormRow label={`Tipo de ${min(vocab.material)}`}>
@@ -40,21 +42,24 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
           etiquetaCrear="Nuevo tipo" crear={puedeCrear ? async (n) => n : undefined} />
       </FormRow>
       <FormRow label="Variante">
-        <Combobox opciones={variantes.map((m) => ({ id: m.id, nombre: m.variante || '(sin variante)', nota: cant(m.stock, aj.unidad) }))} value={valor.material_id}
+        <Combobox opciones={variantes.map((m) => ({ id: m.id, nombre: m.variante || '(sin variante)', nota: cant(m.stock, m.unidad) }))} value={valor.material_id}
           vacio={valor.tipo ? '— elegir —' : 'Elige antes el tipo'} ariaLabel="Variante" etiquetaCrear="Añadir al catálogo"
           onChange={(id) => onCambio({ ...valor, material_id: id })}
           crear={puedeCrear && valor.tipo && tienda ? async (n) => {
-            const id = await guardarMaterial(tienda.id, null, { tipo: valor.tipo, variante: n, proveedor_id: null, umbral: null, unidad_pedido: null, ubicacion: null, notas: null, activo: true })
-            onCreado?.({ id, tienda_id: tienda.id, tipo: valor.tipo, variante: n, proveedor_id: null, proveedor_nombre: null, stock: 0, umbral: null, unidad_pedido: null,
+            const base = variantes[0]
+            const nuevoM = { tipo: valor.tipo, variante: n, proveedor_id: base?.proveedor_id ?? null, umbral: null, unidad_pedido: null, ubicacion: null, notas: null, activo: true,
+              unidad: ud, por_encargo: base?.por_encargo ?? false, resto_hasta: base?.resto_hasta ?? null }
+            const id = await guardarMaterial(tienda.id, null, nuevoM)
+            onCreado?.({ ...nuevoM, id, tienda_id: tienda.id, proveedor_nombre: base?.proveedor_nombre ?? null, stock: 0,
               ubicacion: null, notas: null, activo: true, unidad_efectiva: null, umbral_efectivo: 0, demanda: 0, encargos_pendientes: 0, demanda_sin_pedir: 0, en_camino: 0, restos: 0 })
             return id
           } : undefined} />
       </FormRow>
-      <FormRow label={`Cantidad (${aj.unidad})`}><NumeroInput value={valor.cantidad} onChange={(c) => onCambio({ ...valor, cantidad: c })} /></FormRow>
+      <FormRow label={`Cantidad (${ud})`}><NumeroInput value={valor.cantidad} onChange={(c) => onCambio({ ...valor, cantidad: c })} /></FormRow>
       {elegido && aviso.nivel && (
         <p className={`my-1 rounded-sm px-2.5 py-1.5 text-sm ${aviso.nivel === 'falta' ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg'}`}>
-          {aviso.nivel === 'falta' ? `No hay ${min(vocab.material)} suficiente` : `${vocab.material} al límite`}: con lo pedido por {elegido.encargos_pendientes + 1} {elegido.encargos_pendientes === 0 ? min(vocab.encargo) : min(vocab.encargos)}, {aviso.texto} {aj.unidad}.
-          {' '}Hay {cant(elegido.stock, aj.unidad)}{Number(elegido.en_camino) > 0 ? ` y ${cant(elegido.en_camino, aj.unidad)} en camino` : ''}.
+          {aviso.nivel === 'falta' ? `No hay ${min(vocab.material)} suficiente` : `${vocab.material} al límite`}: con lo pedido por {elegido.encargos_pendientes + 1} {elegido.encargos_pendientes === 0 ? min(vocab.encargo) : min(vocab.encargos)}, {aviso.texto} {ud}.
+          {' '}Hay {cant(elegido.stock, ud)}{Number(elegido.en_camino) > 0 ? ` y ${cant(elegido.en_camino, ud)} en camino` : ''}.
         </p>
       )}
     </>
@@ -95,8 +100,8 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
     await hacer(l.id, async () => {
       const stock = await asignarMaterial(l.id)
       const m = mats.find((x) => x.id === l.material_id)
-      avisar({ tipo: 'ok', texto: `${nombreMaterial(m)} asignado · quedan ${cant(stock, aj.unidad)}`, accion: { label: 'Deshacer', onClick: () => { hacer(l.id, () => desasignarMaterial(l.id)) } } })
-      const r = m ? restoCandidato(stock, m.unidad_efectiva, aj.umbralResto) : 0
+      avisar({ tipo: 'ok', texto: `${nombreMaterial(m)} asignado · quedan ${cant(stock, unidadDe(m, aj.unidad))}`, accion: { label: 'Deshacer', onClick: () => { hacer(l.id, () => desasignarMaterial(l.id)) } } })
+      const r = m ? restoCandidato(stock, m.unidad_efectiva, m.resto_hasta ?? 0) : 0
       if (m && r > 0) setResto({ m, cantidad: r })
     })
   }
@@ -113,11 +118,12 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
       {lineas.map((l) => {
         const m = mats.find((x) => x.id === l.material_id)
         const av = l.estado !== 'RECIBIDO' ? avisoStock(m) : { nivel: null, texto: '' }
+        const ud = unidadDe(m, aj.unidad)
         return (
           <div key={l.id} className="flex flex-col gap-1 border-b border-border-light py-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1 font-medium">{nombreMaterial(m)}</span>
-              <span className="text-fg-2 tabular">{cant(l.cantidad, aj.unidad)}</span>
+              <span className="text-fg-2 tabular">{cant(l.cantidad, ud)}</span>
               <Tag color={ESTADO[l.estado].color}>{ESTADO[l.estado].txt}</Tag>
             </div>
             {!anulado && (
@@ -130,7 +136,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
             )}
             {av.nivel && m && (
               <span className={`text-sm ${av.nivel === 'falta' ? 'text-danger-fg' : 'text-warn-fg'}`}>
-                {av.nivel === 'falta' ? 'No alcanza' : 'Al límite'}: {av.texto} {aj.unidad}{Number(m.en_camino) > 0 ? ` (hay ${cant(m.en_camino, aj.unidad)} en camino)` : ''}.{' '}
+                {av.nivel === 'falta' ? 'No alcanza' : 'Al límite'}: {av.texto} {ud}{Number(m.en_camino) > 0 ? ` (hay ${cant(m.en_camino, ud)} en camino)` : ''}.{' '}
                 <Link to={`/materiales?v=pedidos`} className="underline">Pedir</Link>
               </span>
             )}
@@ -149,7 +155,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
       )}
       {err && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
 
-      <DialogoResto resto={resto} unidad={aj.unidad} onCerrar={() => setResto(null)}
+      <DialogoResto resto={resto} unidad={unidadDe(resto?.m, aj.unidad)} onCerrar={() => setResto(null)}
         onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, `Sobrante tras ${gr.con('encargo', 'el')} ${encargo.serie ?? ''}${String(encargo.numero).padStart(3, '0')}`, encargo.id); await cargar() }} />
     </div>
   )

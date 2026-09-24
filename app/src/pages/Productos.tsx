@@ -4,7 +4,7 @@ import { coincide } from '@/lib/texto'
 import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesFicha, errorNombre, guardarProducto, listarProductosCat, subirFoto, tieneFicha, type ProductoFila } from '@/data/catalogos'
-import { ajustesMaterial, cant, listarMateriales } from '@/data/materiales'
+import { ajustesMaterial, cant, listarMateriales, unidadPorTipo } from '@/data/materiales'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { PageHeader } from '@/layout/AppShell'
@@ -17,7 +17,8 @@ import { min } from '@/lib/vocab'
 /** «A medida · 8,7 m · Complementos: …» */
 export function resumenFicha(p: { material_tipo?: string | null; consumo?: number | null; construccion?: string | null; receta?: string | null }, aj: Record<string, unknown> | null | undefined) {
   const mat = ajustesMaterial(aj)
-  return [p.construccion, p.consumo != null ? `${p.material_tipo ? `${p.material_tipo} ` : ''}${mat.activo ? cant(p.consumo, mat.unidad) : Number(p.consumo).toLocaleString('es-ES')}` : p.material_tipo,
+  const ud = mat.activo && p.material_tipo ? unidadPorTipo.get(p.material_tipo) : undefined
+  return [p.construccion, p.consumo != null ? `${p.material_tipo ? `${p.material_tipo} ` : ''}${ud ? cant(p.consumo, ud) : Number(p.consumo).toLocaleString('es-ES')}` : p.material_tipo,
     p.receta ? `${ajustesFicha(aj).etiqueta}: ${p.receta}` : null].filter(Boolean).join(' · ')
 }
 
@@ -125,8 +126,11 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
   const ajs = tienda?.ajustes as Record<string, unknown>
   const fic = ajustesFicha(ajs)
   const mat = ajustesMaterial(ajs)
-  const [tiposMat, setTiposMat] = React.useState<string[]>([])
-  React.useEffect(() => { if (p && tienda && mat.activo) listarMateriales(tienda.id).then((ms) => setTiposMat([...new Set(ms.map((m) => m.tipo))])).catch(() => {}) }, [p, tienda, mat.activo])
+  // Tipos de material y su unidad (la del primero de cada tipo)
+  const [udTipo, setUdTipo] = React.useState<Record<string, string>>({})
+  const tiposMat = Object.keys(udTipo)
+  React.useEffect(() => { if (p && tienda && mat.activo) listarMateriales(tienda.id).then((ms) => { const r: Record<string, string> = {}; for (const m of ms) r[m.tipo] ??= m.unidad; setUdTipo(r) }).catch(() => {}) }, [p, tienda, mat.activo])
+  const udConsumo = udTipo[f.mtipo] ?? mat.unidad
   const [inicial, setInicial] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -216,7 +220,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
               <Input className="h-7" list="tipos-mat-prod" disabled={soloLectura} value={f.mtipo} onChange={(e) => setF({ ...f, mtipo: e.target.value })} />
             </FormRow>
           </>}
-          {(mat.activo || f.consumo) && <FormRow label={`Consumo${mat.activo ? ` (${mat.unidad})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
+          {(mat.activo || f.consumo) && <FormRow label={`Consumo${mat.activo ? ` (${udConsumo})` : ''}`} ayuda={`Cuánto ${mat.activo ? `${min(vocab.material)} ` : ''}gasta una unidad. ${mat.activo ? 'Se propone al añadir el material al encargo y es lo que se descuenta.' : ''}`}>
             <Input className="h-7 w-[120px]" inputMode="decimal" disabled={soloLectura} value={f.consumo} onChange={(e) => setF({ ...f, consumo: e.target.value })} />
           </FormRow>}
           {(fic.construcciones.length > 0 || f.construccion) && (

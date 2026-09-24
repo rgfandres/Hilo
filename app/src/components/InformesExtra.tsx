@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { creadosEn, movimientosIntervalo, recibidosProveedor, terminados, type HitoInforme, type Intervalo } from '@/data/informes'
-import { ajustesMaterial, avisoStock, bajoUmbral, cant, listarMateriales, nombreMaterial, type MaterialEstado } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, bajoUmbral, cant, listarMateriales, nombreMaterial, unidadDe, type MaterialEstado } from '@/data/materiales'
 import type { EncargoEstado } from '@/lib/types'
 import { SectionLabel } from '@/ui'
 import { ajustesDinero, dinero, pendiente } from '@/lib/utils'
@@ -80,13 +80,15 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
   }, [tienda, aj.activo, iv.ini, iv.fin])
   if (!aj.activo || !movs) return null
   const matPorId = new Map(mats.map((m) => [m.id, m]))
-  const acc = new Map<string, { nombre: string; CONSUMO: number; RECEPCION: number; PEDIDO: number }>()
+  // Por proveedor se separa por unidad: no se suman metros con unidades
+  const acc = new Map<string, { nombre: string; ud: string; CONSUMO: number; RECEPCION: number; PEDIDO: number }>()
   for (const m of movs) {
     if (m.revertido || !['CONSUMO', 'RECEPCION', 'PEDIDO'].includes(m.tipo)) continue
     const mt = matPorId.get(m.material_id)
-    const k = por === 'material' ? m.material_id : mt?.proveedor_id ?? ''
+    const ud = unidadDe(mt, aj.unidad)
+    const k = por === 'material' ? m.material_id : `${mt?.proveedor_id ?? ''}|${ud}`
     const nombre = por === 'material' ? nombreMaterial(mt) : mt?.proveedor_nombre ?? `Sin ${min(vocab.proveedor)}`
-    const a = acc.get(k) ?? { nombre, CONSUMO: 0, RECEPCION: 0, PEDIDO: 0 }
+    const a = acc.get(k) ?? { nombre, ud, CONSUMO: 0, RECEPCION: 0, PEDIDO: 0 }
     a[m.tipo as 'CONSUMO'] += Number(m.cantidad)
     acc.set(k, a)
   }
@@ -94,7 +96,7 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
   const activos = mats.filter((m) => m.activo)
   const bajos = activos.filter(bajoUmbral).sort((a, b) => (Number(a.stock) - Number(a.umbral_efectivo)) - (Number(b.stock) - Number(b.umbral_efectivo))).slice(0, 12)
   const sinStock = activos.filter((m) => Number(m.stock) <= 0).length
-  const restos = mats.reduce((a, m) => a + Number(m.restos), 0)
+  const conRestos = mats.filter((m) => Number(m.restos) > 0).length
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -106,13 +108,13 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
       <div className="grid grid-cols-3 gap-2">
         <Cifra titulo="Bajo umbral" valor={String(activos.filter(bajoUmbral).length)} />
         <Cifra titulo="Sin stock" valor={String(sinStock)} />
-        <Cifra titulo="En restos" valor={cant(restos, aj.unidad)} />
+        <Cifra titulo="Con restos" valor={String(conRestos)} />
       </div>
       {filas.length === 0 ? <p className="m-0 text-fg-3">Sin consumos, recepciones ni pedidos en este intervalo.</p> : (
         <table className="w-full text-sm">
           <thead><tr className="text-left text-fg-3"><th className="py-1 font-medium">{por === 'material' ? vocab.material : vocab.proveedor}</th><th className="py-1 text-right font-medium">Consumido</th><th className="py-1 text-right font-medium">Recibido</th><th className="py-1 text-right font-medium">Pedido</th></tr></thead>
           <tbody>{filas.map((f) => (
-            <tr key={f.nombre} className="border-t border-border-light"><td className="py-1">{f.nombre}</td><td className="py-1 text-right tabular">{cant(f.CONSUMO, aj.unidad)}</td><td className="py-1 text-right tabular">{cant(f.RECEPCION, aj.unidad)}</td><td className="py-1 text-right tabular">{cant(f.PEDIDO, aj.unidad)}</td></tr>
+            <tr key={f.nombre + f.ud} className="border-t border-border-light"><td className="py-1">{f.nombre}</td><td className="py-1 text-right tabular">{cant(f.CONSUMO, f.ud)}</td><td className="py-1 text-right tabular">{cant(f.RECEPCION, f.ud)}</td><td className="py-1 text-right tabular">{cant(f.PEDIDO, f.ud)}</td></tr>
           ))}</tbody>
         </table>
       )}
@@ -120,7 +122,7 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
         <span className="text-sm font-medium">Los más bajos respecto a su umbral</span>
         <table className="w-full text-sm"><tbody>{bajos.map((m) => {
           const av = avisoStock(m)
-          return <tr key={m.id} className="border-t border-border-light"><td className="py-1"><Link to="/materiales" className="hover:underline">{nombreMaterial(m)}</Link></td><td className="py-1 text-right tabular">{cant(m.stock, aj.unidad)}</td><td className="py-1 text-right text-fg-3">umbral {m.umbral_efectivo}</td><td className="py-1 text-right text-xs text-warn-fg">{av.nivel === 'falta' ? 'no alcanza' : ''}</td></tr>
+          return <tr key={m.id} className="border-t border-border-light"><td className="py-1"><Link to="/materiales" className="hover:underline">{nombreMaterial(m)}</Link></td><td className="py-1 text-right tabular">{cant(m.stock, m.unidad)}</td><td className="py-1 text-right text-fg-3">umbral {cant(m.umbral_efectivo, m.unidad)}</td><td className="py-1 text-right text-xs text-warn-fg">{av.nivel === 'falta' ? 'no alcanza' : ''}</td></tr>
         })}</tbody></table>
       </>}
       <p className="m-0 text-xs text-fg-3">Suma de movimientos del intervalo; los ajustes manuales y los restos no cuentan.</p>

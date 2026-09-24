@@ -380,7 +380,7 @@ function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{nombreMaterial(l)}</div>
                 <div className="text-sm text-fg-3">
-                  {l.proveedor_nombre ?? `Sin ${min(vocab.proveedor)}`} · pedido {fechaCorta(l.fecha)} · faltan {cant(l.pendiente, am.unidad)}
+                  {l.proveedor_nombre ?? `Sin ${min(vocab.proveedor)}`} · pedido {fechaCorta(l.fecha)} · faltan {cant(l.pendiente, l.unidad || am.unidad)}
                   {l.encargos.some((e) => e.activo !== false) && <> · para {l.encargos.filter((e) => e.activo !== false).map((e) => num3(e)).join(', ')}</>}
                 </div>
               </div>
@@ -389,7 +389,7 @@ function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
           ))}
         </ul>
       )}
-      <DialogoRecibir linea={recibir} unidad={am.unidad} onClose={() => setRecibir(null)} onHecho={async () => { await cargar() }} />
+      <DialogoRecibir linea={recibir} unidad={recibir?.unidad || am.unidad} onClose={() => setRecibir(null)} onHecho={async () => { await cargar() }} />
     </section>
   )
 }

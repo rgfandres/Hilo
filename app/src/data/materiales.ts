@@ -4,6 +4,12 @@ import { supabase } from '@/lib/supabase'
 export interface MaterialEstado {
   id: string; tienda_id: string; tipo: string; variante: string; proveedor_id: string | null; proveedor_nombre: string | null
   stock: number; umbral: number | null; unidad_pedido: number | null; ubicacion: string | null; notas: string | null; activo: boolean
+  /** Cómo se cuenta ESTE material (m, uds, g…) */
+  unidad: string
+  /** Se pide uno por encargo y se gasta entero al recibirlo */
+  por_encargo: boolean
+  /** Si sobra esto o menos (y no llega a una unidad de pedido), se ofrece guardarlo como resto. Vacío = no se ofrece */
+  resto_hasta: number | null
   unidad_efectiva: number | null; umbral_efectivo: number
   demanda: number; encargos_pendientes: number; demanda_sin_pedir: number; en_camino: number; restos: number
 }
@@ -19,7 +25,7 @@ export interface Movimiento {
 }
 export interface LineaPedido {
   id: string; pedido_id: string; material_id: string; cantidad: number; fecha: string; proveedor_id: string | null; proveedor_nombre: string | null
-  pedido_notas: string | null; tipo: string; variante: string; recibido: number; pendiente: number; estado: 'PENDIENTE' | 'PARCIAL' | 'RECIBIDO' | 'CERRADA'
+  pedido_notas: string | null; tipo: string; variante: string; unidad: string; recibido: number; pendiente: number; estado: 'PENDIENTE' | 'PARCIAL' | 'RECIBIDO' | 'CERRADA'
   encargos: { id: string; numero: number; serie: string | null; cliente: string | null; cantidad: number; activo?: boolean }[]
   cerrada_en?: string | null; cerrada_motivo?: string | null
 }
@@ -30,13 +36,20 @@ const ok = <T,>(r: { data: T | null; error: unknown }): T => { if (r.error) thro
 export const nombreMaterial = (m: { tipo: string; variante: string } | null | undefined) =>
   !m ? '—' : m.variante ? `${m.tipo} / ${m.variante}` : m.tipo
 
+/** Unidad de cada tipo de material (la del primero), para resúmenes que no cargan el catálogo */
+export const unidadPorTipo = new Map<string, string>()
 export async function listarMateriales(tiendaId: string): Promise<MaterialEstado[]> {
-  return ok(await supabase.from('v_material_estado').select('*').eq('tienda_id', tiendaId).order('tipo').order('variante')) as MaterialEstado[]
+  const r = ok(await supabase.from('v_material_estado').select('*').eq('tienda_id', tiendaId).order('tipo').order('variante')) as MaterialEstado[]
+  unidadPorTipo.clear()
+  for (const m of r) if (!unidadPorTipo.has(m.tipo)) unidadPorTipo.set(m.tipo, m.unidad)
+  return r
 }
 export async function guardarMaterial(tiendaId: string, id: string | null, m: {
   tipo: string; variante: string; proveedor_id: string | null; umbral: number | null; unidad_pedido: number | null; ubicacion: string | null; notas: string | null; activo: boolean
+  unidad: string; por_encargo: boolean; resto_hasta: number | null
 }): Promise<string> {
-  const fila = { ...m, tipo: m.tipo.trim(), variante: m.variante.trim() }
+  if (!m.unidad.trim()) throw new Error('Indica la unidad (m, uds, g…)')
+  const fila = { ...m, tipo: m.tipo.trim(), variante: m.variante.trim(), unidad: m.unidad.trim() }
   if (id) { ok(await supabase.from('material').update(fila).eq('id', id)); return id }
   const r = ok(await supabase.from('material').insert({ ...fila, tienda_id: tiendaId }).select('id').single()) as { id: string }
   return r.id
@@ -107,11 +120,12 @@ export async function liberarMaterial(encargoId: string, devolver: boolean) {
 export function ajustesMaterial(aj: Record<string, unknown> | null | undefined) {
   return {
     activo: ((aj?.modulos as Record<string, boolean> | undefined)?.materiales) === true,
-    unidad: String(aj?.material_unidad ?? 'm'),
-    porEncargoMax: Number(aj?.unidad_por_encargo_max ?? 10),
-    umbralResto: Number(aj?.umbral_resto ?? 5),
+    /** Unidad que se propone al crear un material nuevo (cada material tiene la suya) */
+    unidad: String(aj?.material_unidad ?? 'uds'),
   }
 }
+/** Unidad de un material; si aún no se sabe, la habitual de la tienda */
+export const unidadDe = (m: { unidad?: string | null } | null | undefined, porDefecto: string) => m?.unidad || porDefecto
 
 /** Número con la unidad del módulo: «12,5 m» */
 export const cant = (n: number | null | undefined, unidad: string) =>

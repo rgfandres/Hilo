@@ -7,7 +7,7 @@ import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
 import { Link } from 'react-router-dom'
-import { Avanzado, BarraGuardar, Info, Interruptor, Pagina } from './Ajustes'
+import { Avanzado, BarraGuardar, FilaForm, Info, Interruptor, ListaTextos, Pagina } from './Ajustes'
 
 const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'encargo', kp: 'encargos', ayuda: 'Lo que la tienda hace por encargo' },
@@ -18,6 +18,8 @@ const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
 ]
 const ZONAS = ['Europe/Madrid', 'Atlantic/Canary', 'Europe/Lisbon', 'Europe/London', 'Europe/Paris', 'America/Mexico_City', 'America/Bogota', 'America/Argentina/Buenos_Aires', 'America/Santiago', 'America/Lima', 'America/New_York']
 const COLORES = ['#333333', '#1F3A5F', '#2B4C9B', '#5A3E96', '#9C1049', '#C2185B', '#A32E24', '#8A5A00', '#1E6B3C', '#0F766E']
+
+const limpia = (xs: string[]) => [...new Map(xs.map((x) => x.trim()).filter(Boolean).map((x) => [x.toLowerCase(), x])).values()]
 
 /**
  * Formulario común de los ajustes que viven en tienda.ajustes. Cada página enseña solo su parte,
@@ -46,19 +48,17 @@ function useFormTienda() {
     importe: aj.usar_importe !== false,
     normalizar: aj.normalizar_nombres === true,
     materiales: ((aj.modulos as Record<string, boolean> | undefined)?.materiales) === true,
-    unidadMat: String(aj.material_unidad ?? 'm'),
-    umbralMat: String(aj.umbral_material_defecto ?? 10),
-    porEncargo: String(aj.unidad_por_encargo_max ?? 10),
-    umbralResto: String(aj.umbral_resto ?? 5),
+    unidadMat: String(aj.material_unidad ?? 'uds'),
+    umbralMat: String(aj.umbral_material_defecto ?? 0),
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
     usaComp: ajustesFicha(aj).usaComplementos,
-    construcciones: ((aj.tipos_construccion as string[] | undefined) ?? []).join(', '),
+    construcciones: (aj.tipos_construccion as string[] | undefined) ?? [],
     produccion: ((aj.modulos as Record<string, boolean> | undefined)?.produccion) === true,
     logistica: ((aj.modulos as Record<string, boolean> | undefined)?.logistica) === true,
     diasHist: String(aj.logistica_dias_historico ?? 30),
     hojaNombre: String(aj.hoja_nombre ?? 'Hoja de producción'),
     hojaCol: String(aj.hoja_campo_col ?? ''),
-    hojaCurva: ((aj.hoja_curva as string[] | undefined) ?? []).join(', '),
+    hojaCurva: (aj.hoja_curva as string[] | undefined) ?? [],
     resena: (aj.enlace_resena as string) ?? '',
     prefijo: String(aj.prefijo_telefono ?? '34'),
     verCliente: ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre',
@@ -97,8 +97,6 @@ function useFormTienda() {
     // Números de materiales y logística: sin texto ni negativos
     const numOk = (s: string, min = 0) => { const t = s.trim().replace(',', '.'); return t === '' || (Number.isFinite(Number(t)) && Number(t) >= min) }
     if (f.materiales && !numOk(f.umbralMat)) { setErr('El umbral de material debe ser un número (0 o más)'); return }
-    if (f.materiales && !numOk(f.porEncargo)) { setErr(`«Pedido por ${f.vocab.encargo.toLowerCase()}» debe ser un número (0 o más)`); return }
-    if (f.materiales && !numOk(f.umbralResto)) { setErr('El umbral de resto debe ser un número (0 o más)'); return }
     if (f.logistica && !(numOk(f.diasHist, 1) && /^\d*$/.test(f.diasHist.trim()))) { setErr('El histórico de logística debe ser un número entero de días (1 o más)'); return }
     // Nombres de rol: ni vacíos ni repetidos; moneda: código de 3 letras (EUR, USD…)
     const nombresR = Object.values(f.roles).map((v) => v.trim().toLowerCase())
@@ -133,14 +131,12 @@ function useFormTienda() {
         hoja_nombre: f.hojaNombre.trim() || 'Hoja de producción',
         hoja_campo_col: f.hojaCol || null,
         hoja_col_etiqueta: camposEnc.find((c) => c.clave === f.hojaCol)?.etiqueta ?? null,
-        hoja_curva: f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean),
-        material_unidad: f.unidadMat.trim() || 'm',
+        hoja_curva: f.hojaCol ? limpia(f.hojaCurva) : [],
+        material_unidad: f.unidadMat.trim() || 'uds',
         umbral_material_defecto: Number(f.umbralMat.replace(',', '.')) || 0,
-        unidad_por_encargo_max: Number(f.porEncargo.replace(',', '.')) || 0,
-        umbral_resto: Number(f.umbralResto.replace(',', '.')) || 0,
         etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
         usar_complementos: f.usaComp,
-        tipos_construccion: [...new Set(f.construcciones.split(',').map((x) => x.trim()).filter(Boolean))],
+        tipos_construccion: limpia(f.construcciones),
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
         proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: f.verCliente },
@@ -343,14 +339,14 @@ export function AjustesMateriales() {
   const { f, setF } = t
   return (
     <>
-      <Pagina titulo={f.vocab.materiales} ayuda="Cómo se cuenta y cuándo avisa de pedir." />
+      <Pagina titulo={f.vocab.materiales} ayuda={`Lo que se propone al crear ${gramatica(f.vocab, f.generos).con('material', 'un')} nuevo.`}
+        mas={<>Cada {f.vocab.material.toLowerCase()} tiene su propia unidad (m, uds, g…), su aviso de pedir, si se pide uno por {f.vocab.encargo.toLowerCase()} y cuánto sobrante se guarda como resto. Se cambia en su ficha, en <Link to="/materiales" className="underline">{f.vocab.materiales}</Link>.</>} />
       {!f.materiales && <Apagado />}
         <div className="flex flex-col gap-1">
           {f.materiales && <>
-            <FormRow label="Unidad" ayuda="Cómo se cuenta: m, uds, kg…"><Input className="h-7 w-20" value={f.unidadMat} maxLength={6} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
-            <FormRow label="Umbral por defecto" ayuda="Por debajo de esto se avisa de pedir (cada material puede tener el suyo)."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
-            <FormRow label={`Pedido por ${f.vocab.encargo.toLowerCase()}`} ayuda={`Si la unidad de pedido es esta o menos, se pide una unidad por ${f.vocab.encargo.toLowerCase()} y se consume entera al recibirla.`}><Input className="h-7 w-20" inputMode="decimal" value={f.porEncargo} onChange={(e) => setF({ ...f, porEncargo: e.target.value })} /></FormRow>
-            <FormRow label="Restos hasta" ayuda="Si lo que queda no llega a una unidad de pedido y es esto o menos, se ofrece guardarlo como resto."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralResto} onChange={(e) => setF({ ...f, umbralResto: e.target.value })} /></FormRow>
+            <FormRow label="Unidad habitual" ayuda="La que más usáis. Cada uno puede tener la suya."><Input className="h-7 w-24" list="unidades-habituales" value={f.unidadMat} maxLength={12} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
+            <datalist id="unidades-habituales">{['uds', 'm', 'cm', 'g', 'kg', 'ml', 'l', 'ct'].map((x) => <option key={x} value={x} />)}</datalist>
+            <FormRow label="Aviso de pedir" ayuda="Para los que no tengan uno propio: avisa cuando quede esto o menos."><Input className="h-7 w-24" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
           </>}
         </div>
       <Pie t={t} />
@@ -369,29 +365,38 @@ export function AjustesHoja() {
         <div className="flex flex-col gap-1">
           {f.produccion && <>
             <FormRow label="Nombre"><Input className="h-7 w-[260px]" value={f.hojaNombre} onChange={(e) => setF({ ...f, hojaNombre: e.target.value })} /></FormRow>
-            <FormRow label="Campo en columnas" ayuda="Si lo eliges, la hoja marca el valor de cada línea en columnas (una por valor).">
-              <Select className="w-[260px]" value={f.hojaCol} onChange={(e) => setF({ ...f, hojaCol: e.target.value })}>
+            <FormRow label="Dato extra" ayuda={`Un dato de cada ${f.vocab.encargo.toLowerCase()} que quieras ver en la hoja (por ejemplo, el tamaño).`}>
+              <Select className="w-[260px]" value={f.hojaCol} onChange={(e) => setF({ ...f, hojaCol: e.target.value, hojaCurva: [] })}>
                 <option value="">— ninguno —</option>
-                {camposEnc.filter((c) => c.tipo === 'opcion' || c.clave === f.hojaCol).map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}{c.tipo !== 'opcion' ? ' (no es de opción)' : ''}</option>)}
+                {camposEnc.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
               </Select>
             </FormRow>
-            {camposEnc.length > 0 && !camposEnc.some((c) => c.tipo === 'opcion') && <span className="pl-[128px] text-sm text-fg-3 max-md:pl-0">Solo valen campos de opción (Ajustes → Datos que guardáis).</span>}
             {f.hojaCol && (() => {
               const col = camposEnc.find((c) => c.clave === f.hojaCol)
-              const elegidas = f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean)
-              if (!col?.opciones.length) return <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="Por ejemplo: A, B, C…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>
-              return (
-                <FormRow label="Columnas" ayuda="Las opciones que salen como columna, en el orden del campo. Ninguna marcada = una sola columna con el valor escrito.">
-                  <div className="flex flex-wrap gap-1">
-                    {col.opciones.map((o) => {
-                      const on = elegidas.includes(o)
-                      return <button key={o} type="button" aria-pressed={on}
-                        onClick={() => { const n = on ? elegidas.filter((x) => x !== o) : col.opciones.filter((x) => x === o || elegidas.includes(x)); setF({ ...f, hojaCurva: n.join(', ') }) }}
-                        className={`h-7 rounded-sm border px-2 text-sm ${on ? 'border-gray-12 bg-bg-4 font-medium' : 'border-border text-fg-2'}`}>{o}</button>
-                    })}
+              const rejilla = f.hojaCurva.length > 0
+              const nombre = col?.etiqueta ?? 'el dato'
+              return <>
+                <FilaForm label="Cómo se ve">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="flex items-center gap-2"><input type="radio" name="hoja-modo" checked={!rejilla} onChange={() => setF({ ...f, hojaCurva: [] })} /> Una columna «{nombre}» con lo escrito</label>
+                    <label className="flex items-center gap-2"><input type="radio" name="hoja-modo" checked={rejilla} onChange={() => setF({ ...f, hojaCurva: col?.opciones.length ? [...col.opciones] : [''] })} /> Una columna por cada valor, marcando con ● el de cada línea</label>
                   </div>
-                </FormRow>
-              )
+                </FilaForm>
+                {rejilla && (col?.opciones.length
+                  ? <FilaForm label="Columnas" ayuda="Las opciones que salen como columna. Pulsa para quitar o poner.">
+                      <div className="flex flex-wrap gap-1">
+                        {col.opciones.map((o) => {
+                          const on = f.hojaCurva.includes(o)
+                          return <button key={o} type="button" aria-pressed={on}
+                            onClick={() => { const n = on ? f.hojaCurva.filter((x) => x !== o) : col.opciones.filter((x) => x === o || f.hojaCurva.includes(x)); setF({ ...f, hojaCurva: n.length ? n : [] }) }}
+                            className={`h-7 rounded-sm border px-2 text-sm ${on ? 'border-gray-12 bg-bg-4 font-medium' : 'border-border text-fg-2'}`}>{o}</button>
+                        })}
+                      </div>
+                    </FilaForm>
+                  : <FilaForm label="Columnas" ayuda="Escribe cada valor tal y como se apunta en la ficha, en el orden en que quieres las columnas.">
+                      <ListaTextos nombre="Columna" valores={f.hojaCurva} placeholder="Valor" anadir="+ Añadir columna" onChange={(v) => setF({ ...f, hojaCurva: v.length ? v : [''] })} />
+                    </FilaForm>)}
+              </>
             })()}
           </>}
         </div>
@@ -424,7 +429,9 @@ export function AjustesFichaTecnica() {
     <>
       <Pagina titulo="Ficha técnica" ayuda={`Lo que lleva cada ${f.vocab.producto.toLowerCase()} y los extras que se añaden a ${gramatica(f.vocab, f.generos).con('encargo', 'un')}.`} />
         <div className="flex flex-col gap-1">
-          <FormRow label="Tipos de elaboración" ayuda="Separados por comas (a medida, de serie…). Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
+          <FilaForm label="Tipos de elaboración" ayuda={`Se elige uno en la ficha de cada ${f.vocab.producto.toLowerCase()}. Sin ninguno, no se pregunta.`}>
+            <ListaTextos nombre="Tipo de elaboración" valores={f.construcciones} placeholder="Por ejemplo: A medida" anadir="+ Añadir tipo" onChange={(v) => setF({ ...f, construcciones: v })} />
+          </FilaForm>
           <FormRow label="Complementos" ayuda={`Lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…): un campo de texto en el alta y en la ficha.`}><Interruptor checked={f.usaComp} onChange={(v) => setF({ ...f, usaComp: v })} label="Usar complementos" /></FormRow>
           {f.usaComp && <FormRow label="Cómo los llamáis"><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>}
         </div>
