@@ -10,6 +10,7 @@ import {
 } from '@/data/ajustes'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
+import { listarPlantillas } from '@/data/mensajes'
 import { ajustesMaterial } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
 import type { Etapa, Rol } from '@/lib/types'
@@ -160,7 +161,15 @@ export function AjustesFlujos() {
                     </div>
                     <span className="w-5 text-right text-sm text-fg-3 tabular">{i + 1}</span>
                     <ColorEtapa value={e.color} onChange={(c) => hacer(() => actualizarEtapa(e.id, { color: c }))} />
-                    <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(() => actualizarEtapa(e.id, { nombre: v })) }} />
+                    <NombreEnLinea value={e.nombre} onSave={(v) => { if (etapas.some((x) => x.id !== e.id && plano(x.nombre) === plano(v))) { setErr(`Ya hay una etapa «${v.trim()}» en este tipo`); return } hacer(() => actualizarEtapa(e.id, { nombre: v })).then(async (hecho) => {
+                      // Lo que traía la etapa (de la plantilla de sector o de antes) puede no encajar con el nombre nuevo
+                      if (!hecho || !tienda) return
+                      const msgs = (await listarPlantillas(tienda.id).catch(() => [])).filter((m) => m.etapa_id === e.id)
+                      if (msgs.length || ps.length) setOk(`Guardado. Revisa lo que ya llevaba «${v.trim()}»: ${[
+                        msgs.length ? `mensaje${msgs.length > 1 ? 's' : ''} ${msgs.map((m) => `«${m.nombre}»`).join(', ')} (Ajustes → Mensajes)` : '',
+                        ps.length ? `${ps.length} condici${ps.length > 1 ? 'ones' : 'ón'} (${ps.map((x) => `«${x.mensaje}»`).join(', ')}; en «Editar»)` : '',
+                      ].filter(Boolean).join(' y ')}.`)
+                    }) }} />
                     {ps.some((p) => p.dura) && <IconLock size={13} className="text-danger-fg" />}
                     {ps.some((p) => !p.dura) && <IconAlertTriangle size={13} className="text-warn-fg" />}
                     {e.es_final && <Tag color="green">final</Tag>}
