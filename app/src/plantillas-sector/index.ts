@@ -37,7 +37,6 @@ const bE = (nombre: string, etapas: (string | { etapa: string; proveedor?: 'con'
   ({ key: 'x-' + slug(nombre), tipo: 'etapas', nombre, etapas: etapas.map((e) => typeof e === 'string' ? { etapa: e } : e), accionable: true, ...mas })
 const TODOS: BandejaLista = { key: 'todos', tipo: 'todos', nombre: '📋 Todos', con_terminados: true }
 const PEDIR = (nombre = '📦 Pedir material', grupo?: string): BandejaLista => ({ key: 'mat-pedir', tipo: 'pedir', nombre, grupo, accionable: true, solo_falta: true })
-const ESPERA = (nombre = '🚚 Material en camino', grupo?: string): BandejaLista => ({ key: 'mat-espera', tipo: 'espera_material', nombre, grupo })
 const REVISAR: BandejaLista = { key: 'revisar', tipo: 'revisar', nombre: '⚠️ Revisar', accionable: true }
 const TERMINADOS = (nombre: string, grupo?: string): BandejaLista => ({ key: 'entregados', tipo: 'terminados', nombre, grupo })
 const ANULADOS: BandejaLista = { key: 'anulados', tipo: 'anulados', nombre: '🗑️ Anulados' }

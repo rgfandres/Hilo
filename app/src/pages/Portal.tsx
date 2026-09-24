@@ -170,7 +170,7 @@ export function Portal() {
                     {abiertoAqui ? <IconChevronDown size={14} className="shrink-0 text-fg-3" /> : <IconChevronRight size={14} className="shrink-0 text-fg-3" />}
                     <div className="flex min-w-0 flex-col">
                       <span className="truncate font-medium"><span className="text-fg-3 tabular">{num3(e)}</span> · {e.cliente_nombre ?? `${vocab.encargo} ${num3(e)}`}</span>
-                      <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? `Devuelt${gr.o('encargo')}` : null), relativo(e.actualizado_en)].filter(Boolean).join(' · ')}</span>
+                      <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? `Devuelt${gr.o('encargo')}` : null), relativo(e.hitos?.length ? e.hitos.reduce((m, h) => (h.fecha > m ? h.fecha : m), e.hitos[0].fecha) : e.actualizado_en)].filter(Boolean).join(' · ')}</span>
                       {e.complementos && <span className="truncate text-sm text-fg-2">✨ {e.complementos}</span>}
                     </div>
                   </button>

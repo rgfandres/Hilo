@@ -188,13 +188,13 @@ function useFormTienda() {
 type FT = ReturnType<typeof useFormTienda>
 const Pie = ({ t }: { t: FT }) => <BarraGuardar sucio={t.sucio} busy={t.busy} ok={t.ok} err={t.err} onGuardar={() => t.guardar()} onDescartar={() => { t.setF(t.inicial); t.setErr(null) }} />
 
-/** Ajustes → Datos de la tienda */
+/** Ajustes → Tu tienda */
 export function AjustesTienda() {
   const t = useFormTienda()
   const { tienda, f, setF, setErr, subiendo, setSubiendo } = t
   return (
     <>
-      <Pagina titulo="Datos de la tienda" ayuda="Nombre, color y logo que se ven en la app y en lo que imprimes." mas="El color se usa en el logo mientras no subas uno. El enlace de reseña se ofrece al cliente al entregar (Google, redes…)."
+      <Pagina titulo="Tu tienda" ayuda="Nombre, color y logo que se ven en la app y en lo que imprimes." mas="El color se usa en el logo mientras no subas uno. El enlace de reseña se ofrece al cliente al entregar (Google, redes…)."
         acciones={<Link to="/ajustes/asistente" className="text-sm text-fg-3 underline underline-offset-2 hover:text-fg">Asistente de configuración</Link>} />
         <div className="flex flex-col gap-1">
           <FormRow label="Nombre"><Input className="h-7" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></FormRow>
