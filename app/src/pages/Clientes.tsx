@@ -105,6 +105,7 @@ export function Cliente() {
   const [otro, setOtro] = React.useState<string | null>(null)
   const [quedaEste, setQuedaEste] = React.useState(true)
   const [errM, setErrM] = React.useState<string | null>(null)
+  const otroT = gr.genero.cliente === 'f' ? 'la otra' : 'el otro'
   React.useEffect(() => {
     if (!fusion || !tienda || qF.trim().length < 2) { setCandidatos([]); return }
     const t = setTimeout(() => { buscarClientes(tienda.id, qF.trim()).then((r) => setCandidatos((r as typeof candidatos).filter((x) => x.id !== id))).catch(() => {}) }, 250)
@@ -181,7 +182,7 @@ export function Cliente() {
       </div>
       <EditarCliente open={editar} cliente={c} onClose={() => setEditar(false)} onSaved={() => { cargar() }} titulo={`Editar ${min(vocab.cliente)}`} />
       <Dialog open={fusion} onOpenChange={setFusion} error={errM} className="w-[520px]" title={`Fusionar ${min(vocab.cliente)} repetid${gr.o('cliente')}`}
-        description={`Los ${min(vocab.encargos)} y el historial de medidas pasan a ${gr.con('cliente', 'el')} que se queda; lo que le falte (teléfono, correo, medidas) se completa con ${gr.con('cliente', 'el')} otr${gr.o('cliente')}, y las notas se juntan. ${gr.Con('cliente', 'el')} que sobra se borra. No se puede deshacer.`}
+        description={`Los ${min(vocab.encargos)} y el historial de medidas pasan a ${gr.con('cliente', 'el')} que se queda; lo que le falte (teléfono, correo, medidas) se completa con ${otroT}, y las notas se juntan. ${gr.Con('cliente', 'el')} que sobra se borra. No se puede deshacer.`}
         actions={[{ label: 'Fusionar', variant: 'danger', disabled: !otro, onClick: async () => {
           if (!otro) return
           try {
@@ -203,8 +204,8 @@ export function Cliente() {
         </div>
         {otro && (
           <div className="flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
-            <label className="flex items-center gap-2"><input type="radio" checked={quedaEste} onChange={() => setQuedaEste(true)} /> Se queda {gr.con('cliente', 'este')} ({encs.length} {min(encs.length === 1 ? vocab.encargo : vocab.encargos)}) y se borra el otro</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={!quedaEste} onChange={() => setQuedaEste(false)} /> Se queda el otro y se borra {gr.con('cliente', 'este')}</label>
+            <label className="flex items-center gap-2"><input type="radio" checked={quedaEste} onChange={() => setQuedaEste(true)} /> Se queda {gr.con('cliente', 'este')} ({encs.length} {min(encs.length === 1 ? vocab.encargo : vocab.encargos)}) y se borra {otroT}</label>
+            <label className="flex items-center gap-2"><input type="radio" checked={!quedaEste} onChange={() => setQuedaEste(false)} /> Se queda {otroT} y se borra {gr.con('cliente', 'este')}</label>
           </div>
         )}
       </Dialog>
