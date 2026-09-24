@@ -17,6 +17,20 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      /* Si tras un despliegue el navegador tiene guardada una versión rota de la app
+         (la página en lugar del programa), se limpia y se recarga una sola vez. */
+      setTimeout(function () {
+        var root = document.getElementById('root')
+        if (root && root.childElementCount === 0 && !sessionStorage.getItem('hilo-rescate')) {
+          sessionStorage.setItem('hilo-rescate', '1')
+          var js = [].slice.call(document.querySelectorAll('script[type="module"][src]')).map(function (s) { return s.src })
+          Promise.all([window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k) })) }) : null]
+            .concat(js.map(function (u) { return fetch(u, { cache: 'reload' }).catch(function () {}) })))
+            .then(function () { location.reload() })
+        }
+      }, 8000)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
