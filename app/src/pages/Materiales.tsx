@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import {
   ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, avanzarPorMaterial, lineasDeTienda, listarMateriales,
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
-  avisoStock, bajoUmbral, cerrarLineaPedido, pedidoAbierto, restosPendientes, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
+  avisoStock, bajoUmbral, cerrarLineaPedido, encargoDelSobrante, pedidoAbierto, restosPendientes, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto, unidadDe,
 } from '@/data/materiales'
 import { listarProveedoresCat, vendeMaterial, type ProveedorFila } from '@/data/catalogos'
 import { mensajeError } from '@/data/encargos'
@@ -121,7 +121,7 @@ function RestosPorGuardar({ rp, unidad, onCambio }: { rp: { m: MaterialEstado; c
           <Button size="sm" variant="primary" onClick={() => setResto(x)}>Guardar resto {cant(x.cantidad, unidadDe(x.m, unidad))}</Button>
         </div>
       ))}
-      <DialogoResto resto={resto} unidad={unidadDe(resto?.m, unidad)} onCerrar={() => setResto(null)} onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, 'Guardado desde el aviso'); await onCambio() }} />
+      <DialogoResto resto={resto} unidad={unidadDe(resto?.m, unidad)} onCerrar={() => setResto(null)} onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, 'Guardado desde el aviso', (await encargoDelSobrante(r.m.id)) ?? undefined); await onCambio() }} />
     </div>
   )
 }
@@ -504,7 +504,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio, soloReci
 }
 
 export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: LineaPedido | null; unidad: string; onClose: () => void; onHecho: (stock: number) => Promise<void> }) {
-  const { vocab } = useAuth()
+  const { vocab, gr } = useAuth()
   const avisar = useAvisos()
   const [v, setV] = React.useState(''); const [asignar, setAsignar] = React.useState(true); const [avanzar, setAvanzar] = React.useState(true); const [err, setErr] = React.useState<string | null>(null)
   const vivos = (linea?.encargos ?? []).filter((e) => e.activo !== false)
@@ -533,7 +533,7 @@ export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: Lin
       {linea && vivos.length > 0 && asignar && (
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-0.5" checked={avanzar} onChange={(e) => setAvanzar(e.target.checked)} />
-          <span>Y pasar al paso siguiente los que solo esperaban esto (el que pide «tener el {min(vocab.material)} recibido»).</span>
+          <span>Y pasar al paso siguiente los que solo esperaban esto (el que pide «tener {gr.con('material', 'el')} recibid{gr.o('material')}»).</span>
         </label>
       )}
     </Dialog>

@@ -220,3 +220,14 @@ export const numEncargo = (e: { numero: number; serie?: string | null } | null |
 
 /** Una sola regla de «bajo umbral» para todas las pantallas: stock por debajo del umbral o no alcanza para lo pedido */
 export const bajoUmbral = (m: MaterialEstado) => (Number(m.umbral_efectivo) > 0 && Number(m.stock) <= Number(m.umbral_efectivo)) || avisoStock(m).nivel !== null
+
+/**
+ * Encargo que dejó el sobrante: el del último consumo de ese material, si no ha habido otro movimiento
+ * de stock después. Así el resto queda ligado a él y vuelve al stock si ese encargo se anula.
+ */
+export async function encargoDelSobrante(materialId: string): Promise<string | null> {
+  const { data } = await supabase.from('movimiento_material').select('tipo,delta,encargo_id,revertido')
+    .eq('material_id', materialId).neq('delta', 0).order('fecha', { ascending: false }).limit(1)
+  const m = (data ?? [])[0] as { tipo: string; encargo_id: string | null; revertido: boolean } | undefined
+  return m && m.tipo === 'CONSUMO' && !m.revertido ? m.encargo_id : null
+}

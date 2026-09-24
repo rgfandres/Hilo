@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustesMaterial, anadirLinea, asignarMaterial, avisoStock, cant, desasignarMaterial, guardarMaterial, guardarResto,
+  ajustesMaterial, anadirLinea, asignarMaterial, avanzarPorMaterial, avisoStock, cant, desasignarMaterial, guardarMaterial, guardarResto,
   lineasDeEncargo, listarMateriales, nombreMaterial, quitarLinea, restoCandidato, unidadDe, type LineaMaterial, type MaterialEstado,
 } from '@/data/materiales'
 import { mensajeError } from '@/data/encargos'
@@ -71,7 +71,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
   refresco?: Date
   /** De la ficha técnica del producto: tipo de material y consumo que se proponen al añadir */
   sugerido?: { tipo: string | null; consumo: number | null } | null
-  encargo: { id: string; tienda_id: string; numero: number; serie?: string | null; estado: string }
+  encargo: { id: string; tienda_id: string; numero: number; serie?: string | null; estado: string; etapa_siguiente_nombre?: string | null }
   editable: boolean
   onCambio: () => void
 }) {
@@ -100,7 +100,9 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
     await hacer(l.id, async () => {
       const stock = await asignarMaterial(l.id)
       const m = mats.find((x) => x.id === l.material_id)
-      avisar({ tipo: 'ok', texto: `${nombreMaterial(m)} asignado · quedan ${cant(stock, unidadDe(m, aj.unidad))}`, accion: { label: 'Deshacer', onClick: () => { hacer(l.id, () => desasignarMaterial(l.id)) } } })
+      // Si el paso siguiente solo esperaba el material, pasa solo (como al recibir un pedido)
+      const pasa = await avanzarPorMaterial([encargo.id]).catch(() => 0)
+      avisar({ tipo: 'ok', texto: `${nombreMaterial(m)} asignado · quedan ${cant(stock, unidadDe(m, aj.unidad))}${pasa ? ` · pasa a «${encargo.etapa_siguiente_nombre ?? 'el paso siguiente'}»` : ''}`, accion: pasa ? undefined : { label: 'Deshacer', onClick: () => { hacer(l.id, () => desasignarMaterial(l.id)) } } })
       const r = m ? restoCandidato(stock, m.unidad_efectiva, m.resto_hasta ?? 0) : 0
       if (m && r > 0) setResto({ m, cantidad: r })
     })

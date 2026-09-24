@@ -521,7 +521,7 @@ export function Encargo() {
 
       <Dialog open={modal === 'final'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`${e.etapa_siguiente_nombre}: ${num3(e)} · ${e.cliente_nombre}`}
-        description={`${e.producto_nombre ? `${gr.Con('producto', 'el')} «${e.producto_nombre}» ` : `${gr.Con('encargo', 'el')} `}pasa a «${e.etapa_siguiente_nombre}» y sale de la lista de trabajo. Se puede deshacer justo después.`}
+        description={`${gr.Con('encargo', 'el')} ${num3(e)}${e.producto_nombre ? ` (${e.producto_nombre})` : ''} pasa a «${e.etapa_siguiente_nombre}» y sale de la lista de trabajo. Se puede deshacer justo después.`}
         actions={[{ label: e.etapa_siguiente_nombre ?? 'Confirmar', variant: 'primary', onClick: () => avanzar(true) }]} />
 
       <Dialog open={modal === 'incidencia'} onOpenChange={() => setModal(null)} error={modalErr}
