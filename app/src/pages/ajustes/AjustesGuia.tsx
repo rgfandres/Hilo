@@ -89,6 +89,12 @@ export function AjustesGuia() {
               {medidas.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
             </Select>
           </FormRow>
+          <FormRow label="Cómo se elige" ayuda="Con la tabla de referencias: la primera fila que llega a la medida, o la más cercana.">
+            <Select className="w-[260px]" value={g.modo ?? 'alcanza'} onChange={(e) => setG({ ...g, modo: e.target.value as 'alcanza' | 'cercana' })}>
+              <option value="alcanza">La primera que alcanza la medida</option>
+              <option value="cercana">La más cercana</option>
+            </Select>
+          </FormRow>
           <FormRow label="Medidas que validan" ayuda="Comprueban la principal; las demás no cuentan.">
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {medidas.filter((c) => c.clave !== g.principal).map((c) => (

@@ -51,6 +51,7 @@ export function AjustesFicha() {
     producto: `${vocab.producto} de ejemplo`, proveedor: null, etapa: 'Primera etapa', tipo: tiposT.find((t) => t.id === tipoSel)?.nombre ?? null,
     camposEncargo: camposEnc, datosEncargo: {}, camposCliente: camposCli, datosCliente: {},
     hilo: [{ etapa: 'Primera etapa', fecha: new Date().toISOString(), nota: null }],
+    creado: new Date().toISOString(), complementos: 'Complementos de ejemplo', notasCliente: null,
   }
   const vista = fichaHTML(texto, ejemplo)
   const campos = [...camposTodos, ...camposCli].filter((c, i, a) => a.findIndex((x) => x.clave === c.clave) === i)

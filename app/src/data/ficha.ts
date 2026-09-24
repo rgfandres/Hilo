@@ -9,14 +9,19 @@ import type { Vocab } from '@/lib/vocab'
  *  - Marcadores sueltos en una línea que se expanden a bloques:
  *      {campos_encargo} {campos_cliente} {hilo} {lineas}
  *  - Marcadores de texto: {tienda} {numero} {nombre} {telefono} {email} {producto}
- *      {proveedor} {etapa} {fecha} {tipo} y la clave de cualquier campo.
+ *      {proveedor} {etapa} {fecha} {fecha_alta} {año} {complementos} {notas} {tipo}
+ *      y la clave de cualquier campo.
+ *  - Tablas de dos columnas, como en un documento: líneas seguidas «| Etiqueta | {marcador} |».
+ *      Una fila con la segunda celda vacía hace de cabecera de la tabla.
+ *  - «@archivo …» (no se imprime): nombre del PDF, p. ej. «@archivo {año}_{numero}_{nombre}».
  */
 export const BLOQUES_FICHA = ['campos_encargo', 'campos_cliente', 'hilo', 'lineas'] as const
 export const MARCADORES_FICHA: { k: string; ayuda: string }[] = [
   { k: 'tienda', ayuda: 'Nombre de la tienda' }, { k: 'numero', ayuda: 'Número' }, { k: 'nombre', ayuda: 'Cliente' },
   { k: 'telefono', ayuda: 'Teléfono del cliente' }, { k: 'email', ayuda: 'Correo del cliente' }, { k: 'producto', ayuda: 'Producto' },
   { k: 'proveedor', ayuda: 'Proveedor asignado' }, { k: 'etapa', ayuda: 'Etapa actual' }, { k: 'tipo', ayuda: 'Tipo de encargo' },
-  { k: 'fecha', ayuda: 'Fecha de impresión' },
+  { k: 'fecha', ayuda: 'Fecha de impresión' }, { k: 'fecha_alta', ayuda: 'Fecha de alta' }, { k: 'año', ayuda: 'Año de alta' },
+  { k: 'complementos', ayuda: 'Complementos de este encargo' }, { k: 'notas', ayuda: 'Notas del cliente' },
   { k: 'campos_encargo', ayuda: 'Bloque: todos los campos del encargo (los vacíos quedan para rellenar a mano)' },
   { k: 'campos_cliente', ayuda: 'Bloque: los campos del cliente' },
   { k: 'hilo', ayuda: 'Bloque: pasos con su fecha' }, { k: 'lineas', ayuda: 'Bloque: renglones en blanco para notas' },
@@ -58,6 +63,8 @@ export interface DatosFicha {
   camposEncargo: Campo[]; datosEncargo: Record<string, unknown>
   camposCliente: Campo[]; datosCliente: Record<string, unknown>
   hilo: { etapa: string; fecha: string; nota?: string | null }[]
+  /** Fecha de alta del encargo, sus complementos y las notas del cliente */
+  creado?: string | null; complementos?: string | null; notasCliente?: string | null
   /** Logo de la tienda (URL pública) */
   logo?: string | null
 }
@@ -70,6 +77,9 @@ function textos(d: DatosFicha): Record<string, string> {
     tienda: d.tienda, numero: num3({ numero: d.numero, serie: d.serie }), nombre: d.nombre, telefono: d.telefono ?? '', email: d.email ?? '',
     producto: d.producto ?? '', proveedor: d.proveedor ?? '', etapa: d.etapa ?? '', tipo: d.tipo ?? '',
     fecha: new Date().toLocaleDateString(locale(), { timeZone: zona() }),
+    fecha_alta: d.creado ? new Date(d.creado).toLocaleDateString(locale(), { timeZone: zona() }) : '',
+    año: d.creado ? String(new Date(d.creado).getFullYear()) : String(new Date().getFullYear()),
+    complementos: d.complementos ?? '', notas: d.notasCliente ?? '',
   }
   for (const c of [...d.camposCliente, ...d.camposEncargo]) {
     const src = d.camposEncargo.includes(c) ? d.datosEncargo : d.datosCliente
@@ -79,7 +89,18 @@ function textos(d: DatosFicha): Record<string, string> {
   return t
 }
 const rellenarLinea = (l: string, t: Record<string, string>) =>
-  l.replace(/\{([a-z0-9_]+)\}/gi, (m, k: string) => (k in t ? t[k] : m))
+  l.replace(/\{([a-z0-9_ñ]+)\}/gi, (m, k: string) => (k in t ? t[k] : m))
+
+/** Celdas de una fila «| a | b |» (sin las barras de los extremos) */
+const celdas = (l: string) => l.replace(/^\|/, '').replace(/\|$/, '').split('|').map((x) => x.trim().replace(/^\*\*(.*)\*\*$/, '$1'))
+const esFila = (l: string) => /^\|.*\|$/.test(l.trim())
+
+/** Nombre del archivo al guardar como PDF (línea «@archivo …» de la plantilla) */
+export function archivoFicha(plantilla: string, d: DatosFicha): string {
+  const l = plantilla.split('\n').map((x) => x.trim()).find((x) => x.startsWith('@archivo '))
+  const t = textos(d)
+  return (l ? rellenarLinea(l.slice(9), t) : `${t.numero} · ${d.nombre}`).trim() || t.numero
+}
 
 /** HTML completo (página A4) listo para imprimir o para una vista previa. */
 export function fichaHTML(plantilla: string, d: DatosFicha): string {
@@ -95,8 +116,22 @@ export function fichaHTML(plantilla: string, d: DatosFicha): string {
     hilo: d.hilo.length ? `<table class="hilo">${d.hilo.map((h) => `<tr><td>${esc(fechaLarga(h.fecha))}</td><td>${esc(h.etapa)}${h.nota ? ` · <span class="nota">${esc(h.nota)}</span>` : ''}</td></tr>`).join('')}</table>` : '<p class="gris">Sin pasos todavía.</p>',
     lineas: '<div class="lineas">' + '<div></div>'.repeat(6) + '</div>',
   }
-  const cuerpo = plantilla.split('\n').map((raw) => {
-    const l = raw.trim()
+  // Las filas «| a | b |» seguidas forman una tabla como la de un documento
+  const lineas = plantilla.split('\n').filter((x) => !x.trim().startsWith('@archivo '))
+  const grupos: (string | string[])[] = []
+  for (const raw of lineas) {
+    if (esFila(raw)) { const u = grupos[grupos.length - 1]; if (Array.isArray(u)) u.push(raw.trim()); else grupos.push([raw.trim()]) }
+    else grupos.push(raw)
+  }
+  const cuerpo = grupos.map((g) => {
+    if (Array.isArray(g)) {
+      return `<table class="doc">${g.map((f) => {
+        const [a = '', b = ''] = celdas(f).map((c) => rellenarLinea(c, t))
+        if (!b && !/\{/.test(celdas(f)[1] ?? '')) return `<tr><th colspan="2" class="cab">${esc(a)}</th></tr>`
+        return `<tr><th>${esc(a)}</th><td>${esc(b)}</td></tr>`
+      }).join('')}</table>`
+    }
+    const l = g.trim()
     const solo = l.match(/^\{([a-z_]+)\}$/i)
     if (solo && solo[1] in bloques) return bloques[solo[1]]
     if (!l) return ''
@@ -104,7 +139,7 @@ export function fichaHTML(plantilla: string, d: DatosFicha): string {
     if (l.startsWith('# ')) return `<h1>${esc(rellenarLinea(l.slice(2), t))}</h1>`
     return `<p>${esc(rellenarLinea(l, t))}</p>`
   }).join('\n')
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(`${num3({ numero: d.numero, serie: d.serie })} · ${d.nombre}`)}</title><style>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(archivoFicha(plantilla, d))}</title><style>
     @page { size: A4; margin: 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; color: #222; margin: 0; padding: 18px; line-height: 1.45; }
@@ -115,6 +150,8 @@ export function fichaHTML(plantilla: string, d: DatosFicha): string {
     .campos td { padding: 4px 0; border-bottom: 1px solid #eee; } .campos td.vacio { border-bottom: 1px solid #bbb; }
     .hilo td { padding: 3px 8px 3px 0; border-bottom: 1px solid #f0f0f0; } .hilo td:first-child { width: 110px; color: #666; white-space: nowrap; }
     .nota { color: #666; } .lineas div { height: 26px; border-bottom: 1px solid #bbb; }
+    table.doc { margin: 10px 0 16px; border: 1px solid #999; } .doc th, .doc td { border: 1px solid #999; padding: 5px 8px; text-align: center; font-weight: 700; }
+    .doc th { width: 50%; } .doc th.cab { background: #f2f2f2; letter-spacing: .03em; }
   </style></head><body>${d.logo && /^https:\/\//.test(d.logo) ? `<img src="${esc(d.logo)}" alt="" style="height:40px;max-width:180px;object-fit:contain;float:right">` : ''}${cuerpo}</body></html>`
 }
 
@@ -130,8 +167,12 @@ export function fichaTexto(plantilla: string, d: DatosFicha): string {
     hilo: d.hilo.map((h) => `${fechaLarga(h.fecha)} · ${h.etapa}${h.nota ? ` (${h.nota})` : ''}`).join('\n'),
     lineas: '',
   }
-  return plantilla.split('\n').map((raw) => {
+  return plantilla.split('\n').filter((x) => !x.trim().startsWith('@archivo ')).map((raw) => {
     const l = raw.trim()
+    if (esFila(l)) {
+      const [a = '', b = ''] = celdas(l).map((c) => rellenarLinea(c, t))
+      return b ? `${a.replace(/:$/, '')}: ${b}` : !/\{/.test(celdas(l)[1] ?? '') ? `\n— ${a} —` : ''
+    }
     const solo = l.match(/^\{([a-z_]+)\}$/i)
     if (solo && solo[1] in bloques) return bloques[solo[1]]
     if (l.startsWith('## ')) return `\n— ${rellenarLinea(l.slice(3), t)} —`

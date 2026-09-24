@@ -18,8 +18,10 @@ export interface Guia {
   tolerancias: [number, number, number]
   responsable: string
   filas: FilaGuia[]
+  /** Cómo se elige la fila: la primera que alcanza la medida, o la de referencia más cercana */
+  modo?: 'alcanza' | 'cercana'
 }
-export const GUIA_VACIA: Guia = { activa: false, destino: null, especial: 'Revisar', principal: null, validan: [], tolerancias: [1, 2, 3], responsable: '', filas: [] }
+export const GUIA_VACIA: Guia = { activa: false, destino: null, especial: 'Revisar', principal: null, validan: [], tolerancias: [1, 2, 3], responsable: '', filas: [], modo: 'alcanza' }
 
 /** La guía que rige: la propia del periodo si la tiene; si no, la de la tienda */
 export function guiaDe(aj: Record<string, unknown> | null | undefined, periodoAj?: Record<string, unknown> | null): Guia {
@@ -34,10 +36,17 @@ const num = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
-/** Índice de la primera fila cuya referencia alcanza la medida (si pasa de todas, la última y fuera de tabla) */
+/** Índice de la fila que toca: la primera que alcanza la medida o la más cercana (si pasa de todas, la última y fuera de tabla) */
 function indice(g: Guia, campo: string, medida: number): { i: number; fuera: boolean } | null {
   const filas = g.filas.map((f, i) => ({ i, v: f.valores[campo] })).filter((x) => x.v != null) as { i: number; v: number }[]
   if (!filas.length) return null
+  const max = Math.max(...filas.map((x) => x.v))
+  if (g.modo === 'cercana') {
+    // La más cercana (a igual distancia, la mayor)
+    let mejor = filas[0]
+    for (const x of filas) if (Math.abs(x.v - medida) < Math.abs(mejor.v - medida) || (Math.abs(x.v - medida) === Math.abs(mejor.v - medida) && x.v > mejor.v)) mejor = x
+    return { i: mejor.i, fuera: medida > max }
+  }
   const f = filas.find((x) => medida <= x.v)
   return f ? { i: f.i, fuera: false } : { i: filas[filas.length - 1].i, fuera: true }
 }

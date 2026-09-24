@@ -176,6 +176,7 @@ export function Encargo() {
         camposEncargo: camposEnc, datosEncargo: e.datos ?? {}, camposCliente: camposCli, datosCliente: cli?.datos ?? {},
         hilo: hitos.filter((h) => !h.deshecho_en && h.tipo !== 'INCIDENCIA').sort((a, b) => a.fecha.localeCompare(b.fecha))
           .map((h) => ({ etapa: h.etapa?.nombre ?? '', fecha: h.fecha, nota: h.nota })),
+        creado: e.creado_en, complementos: e.complementos ?? null, notasCliente: (cli as { notas?: string | null } | null)?.notas ?? null,
       }
       setFicha({ html: fichaHTML(plantilla, d), texto: fichaTexto(plantilla, d) })
     } catch (x) { setErr(mensajeError(x)) }
