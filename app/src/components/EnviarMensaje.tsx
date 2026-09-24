@@ -2,7 +2,7 @@ import * as React from 'react'
 import { copiarTexto } from '@/lib/copiar'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  enlaceCorreo, enlaceWhatsApp, marcadoresConcordancia, registrarEnvio, rellenar, sinRellenar, telefonoWhatsApp, type PlantillaMensaje,
+  enlaceCorreo, enlaceGmail, enlaceWhatsApp, fraseEtapa, marcadoresConcordancia, nombreUsuario, registrarEnvio, rellenar, sinRellenar, telefonoWhatsApp, type PlantillaMensaje,
 } from '@/data/mensajes'
 import { mensajeError } from '@/data/encargos'
 import type { Campo } from '@/data/config'
@@ -26,12 +26,14 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
   campos: Campo[]
   onEnviado: () => void
 }) {
-  const { tienda, vocab, gr } = useAuth()
+  const { tienda, vocab, gr, session } = useAuth()
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const [pid, setPid] = React.useState<string>('')
   const [texto, setTexto] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
   const [copiado, setCopiado] = React.useState(false)
+  // Se queda abierto tras enviar, para mandarlo también por el otro canal (como en la entrega de Notelodigo)
+  const [enviados, setEnviados] = React.useState<string[]>([])
 
   const ctx = React.useMemo(() => {
     const c: Record<string, unknown> = {}
@@ -44,12 +46,13 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
     Object.assign(c, {
       nombre, nombre_pila: nombre.split(/\s+/)[0],
       numero: num3(encargo), producto: encargo.producto_nombre, proveedor: encargo.proveedor_nombre,
-      etapa: encargo.etapa_actual_nombre, tienda: tienda?.nombre, enlace_resena: aj.enlace_resena,
+      etapa: encargo.etapa_actual_nombre, estado: fraseEtapa(aj, encargo.etapa_actual_nombre), complementos: encargo.complementos,
+      usuario: nombreUsuario(session?.user), tienda: tienda?.nombre, enlace_resena: aj.enlace_resena,
       ...(encargo.importe != null ? { importe: dinero(encargo.importe, String(aj.moneda ?? 'EUR')), a_cuenta: dinero(encargo.a_cuenta, String(aj.moneda ?? 'EUR')), pendiente: dinero(pendiente(encargo), String(aj.moneda ?? 'EUR')) } : {}),
       ...marcadoresConcordancia(vocab.producto, gr.genero.producto, encargo.producto_nombre),
     })
     return c
-  }, [encargo, cliente, campos, tienda, aj.enlace_resena, aj.moneda, vocab.producto, gr.genero.producto])
+  }, [encargo, cliente, campos, tienda, aj, session?.user, vocab.producto, gr.genero.producto])
 
   // Se rellena al abrir (o al cambiar de plantilla); una recarga de la ficha no pisa lo que se ha retocado
   const ctxRef = React.useRef(ctx); ctxRef.current = ctx
@@ -57,7 +60,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
   React.useEffect(() => {
     if (!open) return
     const p = plantillasRef.current.find((x) => x.id === inicial) ?? null
-    setPid(p?.id ?? ''); setTexto(p ? rellenar(p.texto, ctxRef.current) : ''); setErr(null); setCopiado(false)
+    setPid(p?.id ?? ''); setTexto(p ? rellenar(p.texto, ctxRef.current) : ''); setErr(null); setCopiado(false); setEnviados([])
   }, [open, inicial])
 
   const plantilla = plantillas.find((x) => x.id === pid) ?? null
@@ -70,11 +73,12 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
     if (!texto.trim()) { setErr('El mensaje está vacío'); return }
     const destino = via === 'WHATSAPP' ? tel! : email!
     // Abrir primero (el navegador solo permite abrir ventanas justo tras el clic)
-    const url = via === 'WHATSAPP' ? enlaceWhatsApp(destino, texto) : enlaceCorreo(destino, `${tienda?.nombre ?? ''} · ${vocab.encargo} ${num3(encargo)}`, texto)
+    const asunto = plantilla?.asunto?.trim() ? rellenar(plantilla.asunto, ctx) : `${tienda?.nombre ?? ''} · ${vocab.encargo} ${num3(encargo)}`
+    const url = via === 'WHATSAPP' ? enlaceWhatsApp(destino, texto) : (aj.correo_web === 'gmail' ? enlaceGmail : enlaceCorreo)(destino, asunto, texto)
     window.open(url, '_blank', 'noopener')
     try {
       await registrarEnvio({ encargo_id: encargo.id, plantilla_id: plantilla?.id ?? null, canal: via, texto, destino, nombre: plantilla?.nombre ?? 'Mensaje libre' })
-      onEnviado(); onOpenChange(false)
+      onEnviado(); setEnviados((l) => [...new Set([...l, via === 'WHATSAPP' ? 'WhatsApp' : 'correo'])])
     } catch (x) { setErr(mensajeError(x)) }
   }
 
@@ -111,6 +115,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
         })()}
       </Select>
       <Textarea className="min-h-[140px]" value={texto} onChange={(e) => { setTexto(e.target.value); setCopiado(false) }} placeholder="Escribe el mensaje…" />
+      {enviados.length > 0 && <span className="text-sm text-ok-fg">Abierto por {enviados.join(' y ')} y anotado en el historial. Puedes mandarlo también por el otro canal o cerrar.</span>}
       {faltan.length > 0 && (
         <span className="text-sm text-warn-fg">Sin rellenar: {faltan.map((f) => `{${f}}`).join(', ')}. Complétalo a mano o revisa la plantilla.</span>
       )}

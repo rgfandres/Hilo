@@ -3,6 +3,10 @@ import { supabase } from '@/lib/supabase'
 export type Canal = 'WHATSAPP' | 'EMAIL' | 'AMBOS'
 export interface PlantillaMensaje {
   id: string; tienda_id: string; etapa_id: string | null; clave: string; nombre: string; texto: string; canal: Canal; orden: number
+  /** Asunto del correo (con marcadores); vacío = «Tienda · Encargo Nº» */
+  asunto?: string | null
+  /** Se sugiere también al abrir una incidencia (un retraso) */
+  al_incidencia?: boolean
 }
 export interface MensajeEnviado {
   id: string; encargo_id: string; plantilla_id: string | null; canal: Canal; fecha: string; texto: string | null; destino: string | null; nombre: string | null
@@ -40,6 +44,9 @@ export const MARCADORES: { k: string; ayuda: string }[] = [
   { k: 'producto', ayuda: 'Solo el nombre del producto (sin artículo delante: no se sabe su género)' },
   { k: 'proveedor', ayuda: 'Proveedor asignado' },
   { k: 'etapa', ayuda: 'Etapa actual' },
+  { k: 'estado', ayuda: 'Cómo se dice la etapa actual en un mensaje («en preparación»…). Se escribe en Ajustes → Mensajes' },
+  { k: 'complementos', ayuda: 'Los complementos apuntados en el encargo' },
+  { k: 'usuario', ayuda: 'Nombre de quien envía el mensaje' },
   { k: 'tienda', ayuda: 'Nombre de la tienda' },
   { k: 'enlace_resena', ayuda: 'Enlace de reseña (Ajustes → Datos de la tienda)' },
   { k: 'importe', ayuda: 'Importe del encargo' },
@@ -60,16 +67,39 @@ export function marcadoresConcordancia(palabra: string, genero: 'm' | 'f', nombr
   }
 }
 
-/** Sustituye {marcador} por su valor. Lo que no se conoce se deja tal cual para que se vea. */
+const MARCA = /\{([a-z0-9_]+)(?:\|([^{}]*))?\}/gi
+/**
+ * Sustituye {marcador} por su valor.
+ * - {marcador|texto}: si no hay valor, pone «texto» ({proveedor|el proveedor}).
+ * - [[ … ]]: el trozo solo sale si todo lo que lleva dentro tiene valor (el párrafo de la reseña).
+ * Lo que no se conoce se deja tal cual para que se vea.
+ */
 export function rellenar(texto: string, ctx: Record<string, unknown>): string {
-  return texto.replace(/\{([a-z0-9_]+)\}/gi, (m, k: string) => {
+  const uno = (t: string) => t.replace(MARCA, (m, k: string, def?: string) => {
     const v = ctx[k]
-    return v == null || v === '' ? m : String(v)
+    return v == null || v === '' ? (def != null ? def : m) : String(v)
   })
+  return uno(texto.replace(/\[\[([\s\S]*?)\]\]/g, (_m, dentro: string) => {
+    const r = uno(dentro)
+    return sinRellenar(r).length ? '' : r
+  }))
 }
 /** Marcadores que se han quedado sin valor (para avisar antes de enviar). */
 export function sinRellenar(texto: string): string[] {
-  return [...new Set([...texto.matchAll(/\{([a-z0-9_]+)\}/gi)].map((x) => x[1]))]
+  return [...new Set([...texto.matchAll(MARCA)].map((x) => x[1]))]
+}
+/** Cómo se dice una etapa en los mensajes: la frase de la tienda o el nombre de la etapa en minúscula */
+export function fraseEtapa(aj: Record<string, unknown> | null | undefined, etapa: string | null | undefined): string | null {
+  if (!etapa) return null
+  const f = ((aj?.frases_etapa ?? {}) as Record<string, string>)[etapa]
+  return f?.trim() || etapa.charAt(0).toLowerCase() + etapa.slice(1)
+}
+/** Nombre de quien usa la app para {usuario}: el de su perfil, o lo de delante del @ del correo */
+export function nombreUsuario(u: { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined): string | null {
+  const n = (u?.user_metadata?.name as string | undefined)?.trim()
+  if (n) return n.split(/\s+/)[0]
+  const e = u?.email?.split('@')[0]
+  return e ? e.charAt(0).toUpperCase() + e.slice(1) : null
 }
 
 /** Teléfono para wa.me: solo dígitos, sin 00, con prefijo de país si parece nacional. */
@@ -85,6 +115,9 @@ export function telefonoWhatsApp(tel: string | null | undefined, prefijo: string
 export const enlaceWhatsApp = (tel: string, texto: string) => `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`
 export const enlaceCorreo = (email: string, asunto: string, texto: string) =>
   `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`
+/** Redactor de Gmail en el navegador (sin vincular cuentas: usa la sesión de Gmail que ya esté abierta) */
+export const enlaceGmail = (email: string, asunto: string, texto: string) =>
+  `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`
 
 /** Ayuda de un marcador con el vocabulario de la tienda (cliente, encargo, proveedor, producto) */
 export function ayudaMarcador(texto: string, v: { cliente: string; encargo: string; proveedor: string; producto: string }) {

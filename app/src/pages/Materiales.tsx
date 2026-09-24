@@ -161,10 +161,10 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
           <option value="">Todos los tipos</option>
           {[...new Set(mats.map((m) => m.tipo))].sort((a, b) => a.localeCompare(b)).map((x) => <option key={x} value={x}>{x}</option>)}
         </Select>
-        <Select className="w-[190px]" value={fProv} onChange={(e) => setFProv(e.target.value)} aria-label={vocab.proveedor}>
-          <option value="">{`${vocab.proveedores}: todos`}</option>
+        <Select className="w-[190px]" value={fProv} onChange={(e) => setFProv(e.target.value)} aria-label="Proveedor">
+          <option value="">Todos los proveedores</option>
           {provs.filter((p) => mats.some((m) => m.proveedor_id === p.id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          {mats.some((m) => !m.proveedor_id) && <option value="-">Sin {min(vocab.proveedor)}</option>}
+          {mats.some((m) => !m.proveedor_id) && <option value="-">Sin proveedor</option>}
         </Select>
         <span className="text-sm text-fg-3">{vis.length} de {mats.length}</span>
         <div className="flex-1" />

@@ -21,6 +21,7 @@ import { min, textosFin } from '@/lib/vocab'
 import { useDobleToque } from '@/lib/movil'
 import { bandejasLista, enEtapas, tiposAparte, type BandejaLista } from '@/lib/listaBandejas'
 import { listarTipos } from '@/data/ajustes'
+import { listarPlantillas, type PlantillaMensaje } from '@/data/mensajes'
 
 type Vista = 'lista' | 'tablero'
 const LS_COLS = 'hilo.columnas_ocultas'
@@ -33,6 +34,9 @@ export function Encargos() {
   const { tienda, rol, vocab, periodo, gr, nombresRol } = useAuth()
   const nav = useNavigate()
   const avisar = useAvisos()
+  // Plantillas ligadas a etapas: al avanzar desde la lista también se sugiere avisar al cliente
+  const [plantillasMsg, setPlantillasMsg] = React.useState<PlantillaMensaje[]>([])
+  React.useEffect(() => { if (tienda && rol !== 'LOGISTICA') listarPlantillas(tienda.id).then(setPlantillasMsg).catch(() => {}) }, [tienda, rol])
   const [params, setParams] = useSearchParams()
   const [rows, setRows] = React.useState<EncargoEstado[]>([])
   const [anulados, setAnulados] = React.useState<EncargoEstado[]>([])
@@ -323,6 +327,8 @@ export function Encargos() {
       const hito = await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: (e.puertas_pendientes ?? []).some((p) => !p.dura) })
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${e.cliente_nombre} → ${e.etapa_siguiente_nombre}`,
         accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id, hito).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
+      const sug = plantillasMsg.find((p) => p.etapa_id === e.etapa_siguiente_id)
+      if (sug) avisar({ tipo: 'info', texto: `¿Avisar a ${e.cliente_nombre}? «${sug.nombre}»`, accion: { label: 'Preparar mensaje', onClick: () => nav(`/encargos/${e.id}?avisar=${sug.id}`) } })
     } catch (ex) {
       // Si falla, la lectura de después devuelve la fila a su estado real
       avisar({ tipo: 'error', texto: mensajeError(ex) })

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
@@ -44,6 +44,7 @@ const aLocal = (iso: string) => aHoraTienda(iso)
 
 export function Encargo() {
   const { id } = useParams()
+  const [spA, setSpA] = useSearchParams()
   const nav = useNavigate()
   const { rol, vocab, tienda, gr, session, nombresRol } = useAuth()
   const avisar = useAvisos()
@@ -123,6 +124,13 @@ export function Encargo() {
   }, [id, tienda])
 
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
+  // Desde la lista: «Preparar mensaje» llega con ?avisar=<plantilla>
+  const avisarPid = spA.get('avisar')
+  React.useEffect(() => {
+    if (!avisarPid || !e || !plantillasMsg.length) return
+    setMensaje({ inicial: avisarPid })
+    setSpA((s) => { s.delete('avisar'); return s }, { replace: true })
+  }, [avisarPid, e, plantillasMsg, setSpA])
   // Si otra persona avanza o comenta este encargo, se ve al momento
   const { ultima } = useTiempoReal(tienda?.id, () => cargar().catch(() => {}), (f) => f.encargo_id === id || f.id === id)
 
@@ -520,7 +528,8 @@ export function Encargo() {
         title={`Incidencia en ${e.etapa_actual_nombre ?? ''}`}
         description={`${gr.Con('encargo', 'el')} se queda en esta etapa y pasa a «Revisar» hasta que se resuelva.`}
         actions={[{ label: 'Registrar incidencia', variant: 'danger', disabled: !nota.trim(),
-          onClick: () => hacer(() => crearHito(e.id, e.etapa_actual_clave!, { tipo: 'INCIDENCIA', nota: nota.trim() })) }]}>
+          onClick: () => hacer(() => crearHito(e.id, e.etapa_actual_clave!, { tipo: 'INCIDENCIA', nota: nota.trim() }),
+            async () => { setSugerencia(plantillasMsg.find((p) => p.al_incidencia) ?? null); await cargar() }) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="¿Qué ha pasado?" />
       </Dialog>
 
