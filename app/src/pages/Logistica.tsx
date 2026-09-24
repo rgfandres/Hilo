@@ -173,7 +173,11 @@ export function Logistica() {
   async function avanzar(e: EncargoEstado) {
     const sig = e.etapa_siguiente_id ? etapaPorId[e.etapa_siguiente_id] : undefined
     if (!sig) return
-    if (necesitaProvDe(e) && !provDe(e)) { avisar({ tipo: 'aviso', texto: `Elige antes ${gr.con('proveedor', 'el')}` }); return }
+    if (necesitaProvDe(e) && !provDe(e)) {
+      // El texto de la condición de la tienda («Elige un taller antes de marcar como llevado») si lo tiene
+      const p = (e.puertas_pendientes ?? []).find((x) => x.dura && x.tipo === 'CAMPO_NO_VACIO' && x.referencia === 'proveedor_id')
+      avisar({ tipo: 'aviso', texto: p?.mensaje || `Elige antes ${gr.con('proveedor', 'el')}` }); return
+    }
     setOcultos((s) => new Set(s).add(e.id))
     try {
       const hito = await pasoSiguiente(e)

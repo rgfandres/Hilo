@@ -269,6 +269,8 @@ export function NuevoEncargo() {
     <>
       <PageHeader title={gr.Con('encargo', 'nuevo')} subtitle={numero ? `Nº previsto: ${numero}` : undefined} />
       <form onSubmit={guardar} className="flex max-w-[560px] flex-col gap-5 overflow-auto p-8">
+        {/* En el móvil la cabecera no enseña el subtítulo */}
+        {numero && <p className="m-0 text-sm text-fg-2 md:hidden">Nº previsto: <b>{numero}</b></p>}
         {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
         {borrador && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-bg-2 px-3 py-2 text-sm">

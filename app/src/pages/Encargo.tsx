@@ -29,6 +29,7 @@ import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, a
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
+import { tiposAparte } from '@/lib/listaBandejas'
 import { EnviarMensaje } from '@/components/EnviarMensaje'
 import { listarEnvios, listarPlantillas, type MensajeEnviado, type PlantillaMensaje } from '@/data/mensajes'
 
@@ -249,7 +250,7 @@ export function Encargo() {
 
   return (
     <>
-      <PageHeader title={<span><Link to="/encargos" className="text-fg-3">{vocab.encargos}</Link><span className="mx-2 text-border-strong">/</span>{num3(e)} · {e.cliente_nombre}</span>}>
+      <PageHeader title={<span><Link to={tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? `/encargos?t=${e.tipo_encargo_id}` : '/encargos'} className="text-fg-3">{tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? e.tipo_nombre ?? vocab.encargos : vocab.encargos}</Link><span className="mx-2 text-border-strong">/</span>{num3(e)} · {e.cliente_nombre}</span>}>
         {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
