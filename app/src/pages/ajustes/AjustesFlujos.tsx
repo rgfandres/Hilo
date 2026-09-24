@@ -14,7 +14,7 @@ import type { Etapa, Rol } from '@/lib/types'
 import { ROLES, generoAuto, min } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag, tagColorFromHex } from '@/ui'
 import { cn } from '@/lib/utils'
-import { Bloque, Estado, FilaLista, Interruptor, Lista, Pagina } from './Ajustes'
+import { Avanzado, Bloque, Estado, FilaLista, Interruptor, Lista, Pagina } from './Ajustes'
 
 const PALETA = ['#999999', '#C98A00', '#2B4C9B', '#5A3E96', '#1E6B3C', '#A32E24', '#C2185B']
 const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
@@ -155,39 +155,26 @@ export function AjustesFlujos() {
                     {ps.some((p) => !p.dura) && <IconAlertTriangle size={13} className="text-warn-fg" />}
                     {e.es_final && <Tag color="green">final</Tag>}
                     {ps.some((p) => p.tipo === 'HITO_PREVIO' && !etapas.slice(0, i).some((x) => x.clave === p.referencia)) && (
-                      <Tag color="red" title="Pide haber pasado por una etapa que ya no está antes: bloquearía para siempre. Abre «Detalles» y corrígela.">condición imposible</Tag>
+                      <Tag color="red" title="Pide haber pasado por una etapa que ya no está antes: bloquearía para siempre. Pulsa «Editar» y corrígela.">condición imposible</Tag>
                     )}
                     <Select className="w-[140px]" value={e.rol_ejecuta} title="Quién marca esta etapa (le sale en «Mi trabajo»)"
                       onChange={(ev) => hacer(() => actualizarEtapa(e.id, { rol_ejecuta: ev.target.value as Rol }))}>
                       {ROLES.map((r) => <option key={r} value={r}>{nombresRol[r]}</option>)}
                     </Select>
-                    <Button variant="ghost" size="sm" onClick={() => setAbierta(abierta === e.id ? null : e.id)}>{abierta === e.id ? 'Cerrar' : 'Detalles'}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setAbierta(abierta === e.id ? null : e.id)}>{abierta === e.id ? 'Cerrar' : 'Editar'}</Button>
                   </FilaLista>
                   {abierta === e.id && (
-                    <div className="flex flex-col gap-4 bg-bg-2 px-4 py-3">
+                    <div className="flex flex-col gap-3 bg-bg-2 px-4 py-3">
                       <div className="flex flex-wrap gap-x-6 gap-y-2">
-                        <Interruptor checked={e.visible_para_proveedor} label={`La ve ${gr.con('proveedor', 'el')}`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { visible_para_proveedor: v, ...(v ? {} : { marca_proveedor: false }) }))} />
-                        <Interruptor checked={!!e.marca_proveedor} disabled={!e.visible_para_proveedor} label={`La marca ${gr.con('proveedor', 'el')} desde su portal`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { marca_proveedor: v }))} />
-                        <Interruptor checked={e.es_espera} label="Es una espera (no cuenta como estancado)"
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_espera: v }))} />
-                        {(conHoja || e.es_produccion) && <Interruptor checked={!!e.es_produccion} label={`Envía a ${generoAuto(nombreHoja) === 'f' ? 'la' : 'el'} ${min(nombreHoja)}`}
-                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />}
                         <Interruptor checked={e.es_final} label={`Es el final (${min(vocab.encargo)} terminad${gr.o('encargo')})`}
                           onChange={(v) => hacer(async () => {
                             // Una sola etapa final por tipo (el servidor lo hace de una vez)
                             await marcarFinal(e.id, v)
                           }, v && i < etapas.length - 1 ? `Guardado. Ojo: las etapas que hay detrás de «${e.nombre}» ya no se alcanzarán` : 'Guardado')} />
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-fg-2">
-                        Grupo de bandejas
-                        <GrupoEnLinea value={e.grupo ?? ''} onSave={(v) => hacer(() => actualizarEtapa(e.id, { grupo: v.trim() || null }))} />
-                        <span className="text-fg-3">Opcional. Las etapas con el mismo grupo salen juntas en las pestañas de la lista.</span>
-                      </label>
-
+                      <Avanzado titulo="Condiciones para entrar" defecto={ps.some((p) => p.tipo === 'HITO_PREVIO' && !etapas.slice(0, i).some((x) => x.clave === p.referencia))}
+                        resumen={ps.length === 0 ? 'ninguna: se puede pasar siempre' : `${ps.length} ${ps.length === 1 ? 'condición' : 'condiciones'}${ps.some((p) => p.dura) ? ' (alguna bloquea)' : ' (solo avisan)'}`}>
                       <div className="flex flex-col gap-1.5">
-                        <span className="text-sm font-medium text-fg-2">Para entrar en «{e.nombre}» hace falta…</span>
                         {ps.length === 0 && <span className="text-sm text-fg-3">Nada: se puede pasar siempre.</span>}
                         {i === 0 && <span className="text-sm text-fg-3">Es la primera etapa: sus condiciones solo pueden avisar (si bloquearan, no se podría crear {gr.con('encargo', 'ningun')}).</span>}
                         {e.marca_proveedor && ps.some((p) => p.dura && p.tipo !== 'HITO_PREVIO') && (
@@ -219,6 +206,29 @@ export function AjustesFlujos() {
                           ))}
                         </div>
                       </div>
+
+                      </Avanzado>
+                      <Avanzado titulo="Más opciones" resumen={[
+                        e.visible_para_proveedor && `la ve ${gr.con('proveedor', 'el')}`, e.marca_proveedor && 'la marca desde su portal',
+                        e.es_espera && 'es una espera', e.es_produccion && `envía a ${min(nombreHoja)}`, e.grupo && `grupo «${e.grupo}»`,
+                      ].filter(Boolean).join(' · ')}>
+                      <div className="flex flex-wrap gap-x-6 gap-y-2">
+                        <Interruptor checked={e.visible_para_proveedor} label={`La ve ${gr.con('proveedor', 'el')}`}
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { visible_para_proveedor: v, ...(v ? {} : { marca_proveedor: false }) }))} />
+                        <Interruptor checked={!!e.marca_proveedor} disabled={!e.visible_para_proveedor} label={`La marca ${gr.con('proveedor', 'el')} desde su portal`}
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { marca_proveedor: v }))} />
+                        <Interruptor checked={e.es_espera} label="Es una espera (no cuenta como estancado)"
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_espera: v }))} />
+                        {(conHoja || e.es_produccion) && <Interruptor checked={!!e.es_produccion} label={`Envía a ${generoAuto(nombreHoja) === 'f' ? 'la' : 'el'} ${min(nombreHoja)}`}
+                          onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />}
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-fg-2">
+                        Grupo de bandejas
+                        <GrupoEnLinea value={e.grupo ?? ''} onSave={(v) => hacer(() => actualizarEtapa(e.id, { grupo: v.trim() || null }))} />
+                        <span className="text-fg-3">Opcional. Las etapas con el mismo grupo salen juntas en las pestañas de la lista.</span>
+                      </label>
+
+                      </Avanzado>
 
                       <div><Button variant="danger" size="sm" onClick={() => { setBorrar(e); setDErr(null) }}><IconTrash size={13} /> Borrar etapa</Button></div>
                     </div>

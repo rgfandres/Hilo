@@ -10,7 +10,7 @@ import { ajustesHoja } from '@/data/produccion'
 import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
-import { BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
+import { Avanzado, BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
 
 type Destino = { entidad: PlantillaCampos['entidad']; tipoId: string | null }
 const TIPOS_CAMPO: { v: Campo['tipo']; l: string }[] = [
@@ -168,6 +168,14 @@ export function AjustesCampos() {
             )}
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 pl-6 text-sm">
               <Interruptor checked={!!c.obligatorio} label="Obligatorio" onChange={(v) => set(i, { obligatorio: v, ...(v ? { secundario: false } : {}) })} />
+            </div>
+            <Avanzado titulo="Más opciones" className="ml-6" resumen={[
+              c.tipo === 'numero' && c.medida && `medida${c.unidad ? ` (${c.unidad})` : ''}`,
+              esEncargo && c.en_tabla && 'columna en la lista',
+              verProveedor && c.visible_proveedor && `lo ve ${gr.con('proveedor', 'el')}`,
+              c.destacado && 'destacado', c.secundario && 'plegado', c.ayuda && 'con ayuda',
+            ].filter(Boolean).join(' · ')}>
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
               {c.tipo === 'numero' && dest.entidad !== 'PRODUCTO' && <Interruptor checked={!!c.medida} label="Es una medida" onChange={(v) => set(i, { medida: v })} />}
               {c.tipo === 'numero' && c.medida && <Input className="h-6 w-20 text-sm" placeholder="Unidad" value={c.unidad ?? ''} onChange={(e) => set(i, { unidad: e.target.value || undefined })} aria-label="Unidad de la medida" />}
               {esEncargo && <Interruptor checked={!!c.en_tabla} label="Columna en la lista" onChange={(v) => set(i, { en_tabla: v })} />}
@@ -175,10 +183,9 @@ export function AjustesCampos() {
               <Interruptor checked={!!c.destacado} label="Destacado" onChange={(v) => set(i, { destacado: v, ...(v ? { secundario: false } : {}) })} />
               <Interruptor checked={!!c.secundario} disabled={!!c.obligatorio} label="Plegado en «Más datos»" onChange={(v) => set(i, { secundario: v, ...(v ? { destacado: false } : {}) })} />
             </div>
-            <div className="pl-6">
-              <Input className="h-7 text-sm" placeholder="Ayuda bajo el campo (opcional): cómo se toma o qué poner" value={c.ayuda ?? ''}
-                onChange={(e) => set(i, { ayuda: e.target.value || undefined })} aria-label="Ayuda del campo" />
-            </div>
+            <Input className="h-7 text-sm" placeholder="Ayuda bajo el campo (opcional): cómo se toma o qué poner" value={c.ayuda ?? ''}
+              onChange={(e) => set(i, { ayuda: e.target.value || undefined })} aria-label="Ayuda del campo" />
+            </Avanzado>
           </div>
         ))}
         <form onSubmit={anadir} className="flex gap-2">

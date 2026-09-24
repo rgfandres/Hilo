@@ -8,7 +8,7 @@ import { mensajeError } from '@/data/encargos'
 import { plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
-import { BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
+import { Avanzado, BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
 
 type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string; medida?: boolean; unidad?: string }
 
@@ -99,6 +99,9 @@ export function AjustesGuia() {
               {medidas.length === 0 && <span className="text-sm text-fg-3">Ningún campo está marcado como medida. En Ajustes → Datos que guardáis, en cada campo de número que sea una medida, activa «Es una medida».</span>}
             </div>
           </FormRow>
+        </div>
+        <Avanzado resumen={`tolerancias ${g.tolerancias[0]} y ${g.tolerancias[1]} · «${g.especial}»${g.responsable ? ` · consultar con ${g.responsable}` : ''}`}>
+        <div className="flex flex-col gap-1">
           <FormRow label="Tolerancias" ayuda="Filas de diferencia permitidas: hasta la 1.ª cifra, vale la principal; hasta la 2.ª, avisa; más, se marca para revisar.">
             <div className="flex gap-1.5">
               {[0, 1].map((i) => <Input key={i} className="h-7 w-14" inputMode="numeric" value={String(g.tolerancias[i])}
@@ -108,6 +111,7 @@ export function AjustesGuia() {
           <FormRow label="Valor «revisar»" ayuda="Opción especial para cuando no se puede decidir."><Input className="h-7 w-[160px]" value={g.especial} onChange={(e) => setG({ ...g, especial: e.target.value })} /></FormRow>
           <FormRow label="Consultar con" ayuda="Quién decide los casos dudosos (sale en el aviso y en el comentario automático)."><Input className="h-7 w-[220px]" value={g.responsable} onChange={(e) => setG({ ...g, responsable: e.target.value })} /></FormRow>
         </div>
+        </Avanzado>
       </Bloque>
 
       <Bloque titulo="Tabla" ayuda="Una fila por valor, en orden. En cada medida, la referencia máxima de esa fila: se elige la primera fila que la alcanza."

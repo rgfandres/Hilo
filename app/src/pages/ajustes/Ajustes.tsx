@@ -126,10 +126,10 @@ export function Info({ children, titulo }: { children: React.ReactNode; titulo: 
 }
 
 /** Parte plegable para lo que casi nadie necesita tocar. */
-export function Avanzado({ titulo = 'Opciones avanzadas', resumen, children, defecto = false }: { titulo?: string; resumen?: React.ReactNode; children: React.ReactNode; defecto?: boolean }) {
+export function Avanzado({ titulo = 'Opciones avanzadas', resumen, children, defecto = false, className }: { titulo?: string; resumen?: React.ReactNode; children: React.ReactNode; defecto?: boolean; className?: string }) {
   const [open, setOpen] = React.useState(defecto)
   return (
-    <div className="rounded-md border border-border">
+    <div className={cn('rounded-md border border-border bg-bg', className)}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg-2">
         <span className="w-3 text-fg-3">{open ? '▾' : '▸'}</span>
         <span className="font-medium">{titulo}</span>
