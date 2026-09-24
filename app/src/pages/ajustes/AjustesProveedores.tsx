@@ -1,14 +1,14 @@
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  anadirCorreoProveedor, listarProveedoresAcceso, quitarCorreoProveedor,
+  anadirCorreoProveedor, guardarTienda, listarProveedoresAcceso, quitarCorreoProveedor,
   type ProveedorConAcceso,
 } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
 import { Link } from 'react-router-dom'
-import { Button, Input, Tag } from '@/ui'
+import { Button, FormRow, Input, Select, Tag } from '@/ui'
 import { min } from '@/lib/vocab'
-import { Bloque, Estado, FilaLista, Lista } from './Ajustes'
+import { Bloque, Estado, FilaLista, Lista, Pagina } from './Ajustes'
 
 /**
  * Ajustes → Proveedores: alta, nombre, activo y correos con acceso a su portal.
@@ -38,7 +38,9 @@ export function AjustesProveedores() {
 
   const VS = vocab.proveedores
   return (
-    <Bloque titulo={`Acceso al portal de ${min(VS)}`} ayuda={<>Los correos que añadas podrán entrar a ver solo lo suyo. Para dar de alta, renombrar o desactivar {gr.con('proveedor', 'un')}, ve a <Link to="/proveedores" className="underline">{VS}</Link>.</>}>
+    <>
+    <Pagina titulo={`Portal de ${min(VS)}`} ayuda={<>Cada correo que añadas entra a ver solo lo suyo. Altas y bajas, en <Link to="/proveedores" className="underline">{VS}</Link>.</>} />
+    <Bloque titulo="Correos con acceso">
 
       {lista.length === 0 ? <p className="text-fg-3">Todavía no hay {min(VS)}. <Link to="/proveedores" className="underline">Añadir</Link></p> : (
         <Lista>
@@ -81,6 +83,35 @@ export function AjustesProveedores() {
           ))}
         </Lista>
       )}
+      <Estado ok={ok} err={err} />
+    </Bloque>
+    {rol === 'ADMIN' && <QueVe />}
+    </>
+  )
+}
+
+/** Qué ve el proveedor del cliente. Se guarda al elegir (una sola opción, sin barra de guardar). */
+function QueVe() {
+  const { tienda, recargar, gr } = useAuth()
+  const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
+  const actual = ((aj.proveedor as Record<string, string> | undefined)?.ver_cliente) ?? 'nombre'
+  const [err, setErr] = React.useState<string | null>(null)
+  const [ok, setOk] = React.useState<string | null>(null)
+  async function poner(v: string) {
+    if (!tienda) return
+    setErr(null); setOk(null)
+    try { await guardarTienda(tienda.id, tienda.nombre, { ...aj, proveedor: { ...((aj.proveedor as object) ?? {}), ver_cliente: v } }); await recargar(); setOk('Guardado') }
+    catch (x) { setErr(mensajeError(x)) }
+  }
+  return (
+    <Bloque titulo={`Qué ve ${gr.con('proveedor', 'el')}`} ayuda={`Teléfono y correo ${gr.con('cliente', 'del')} nunca se muestran.`}>
+      <FormRow label={`Nombre ${gr.con('cliente', 'del')}`}>
+        <Select className="w-[260px]" value={actual} onChange={(e) => poner(e.target.value)}>
+          <option value="nombre">Nombre completo</option>
+          <option value="iniciales">Solo iniciales</option>
+          <option value="no">Nada (solo el número)</option>
+        </Select>
+      </FormRow>
       <Estado ok={ok} err={err} />
     </Bloque>
   )

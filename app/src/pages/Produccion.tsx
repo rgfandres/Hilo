@@ -146,7 +146,7 @@ export function Produccion() {
         <PageHeader title={hoja.nombre} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
           <span>{laHoja.charAt(0).toUpperCase() + laHoja.slice(1)} está apagad{generoAuto(hoja.nombre) === 'f' ? 'a' : 'o'}.</span>
-          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/tienda">Activarla en Ajustes → Tienda</Link></Button>}
+          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/modulos">Activarla en Ajustes → Módulos</Link></Button>}
         </div>
       </>
     )
@@ -157,7 +157,7 @@ export function Produccion() {
     <>
       <PageHeader title={hoja.nombre} subtitle={lineas ? (() => { const n = todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length; return n ? `${n} ${n === 1 ? 'línea' : 'líneas'} sin imprimir` : 'Todo impreso' })() : undefined} />
       {etProd.size === 0 && lineas && (
-        <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a {laHoja}. Márcalo en Ajustes → Flujos → la etapa → «Envía a {laHoja}».</p>
+        <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a {laHoja}. Márcalo en Ajustes → Tipos y etapas → la etapa → «Envía a {laHoja}».</p>
       )}
       {tabs.length > 0 && <Tabs items={tabs} value={prod} onChange={(k) => setSp((s) => { s.set('p', k); return s }, { replace: true })} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}

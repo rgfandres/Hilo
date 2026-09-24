@@ -41,7 +41,7 @@ export const MARCADORES: { k: string; ayuda: string }[] = [
   { k: 'proveedor', ayuda: 'Proveedor asignado' },
   { k: 'etapa', ayuda: 'Etapa actual' },
   { k: 'tienda', ayuda: 'Nombre de la tienda' },
-  { k: 'enlace_resena', ayuda: 'Enlace de reseña (Ajustes → Tienda)' },
+  { k: 'enlace_resena', ayuda: 'Enlace de reseña (Ajustes → Datos de la tienda)' },
   { k: 'importe', ayuda: 'Importe del encargo' },
   { k: 'a_cuenta', ayuda: 'Lo entregado a cuenta' },
   { k: 'pendiente', ayuda: 'Lo que falta por cobrar' },

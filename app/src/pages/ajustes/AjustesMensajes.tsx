@@ -8,7 +8,7 @@ import {
   MARCADORES, ayudaMarcador, actualizarPlantilla, marcadoresConcordancia, borrarPlantilla, crearPlantilla, listarPlantillas, rellenar, type Canal, type PlantillaMensaje,
 } from '@/data/mensajes'
 import { Button, Dialog, Input, Select, Textarea } from '@/ui'
-import { Bloque, Estado } from './Ajustes'
+import { Bloque, Estado, Pagina } from './Ajustes'
 import { min } from '@/lib/vocab'
 import { ajustesDinero } from '@/lib/utils'
 import { useCambiosSinGuardar } from '@/lib/salir'
@@ -66,8 +66,10 @@ export function AjustesMensajes() {
 
   return (
     <>
-      <Bloque titulo="Mensajes" acciones={<Button variant="primary" onClick={nueva}>+ Plantilla</Button>}
-        ayuda={`Consejo: para que los artículos concuerden, usa {tu_producto} en vez de «tu {producto}» y termina los adjetivos con {o} (list{o}). Textos preparados para avisar ${gr.con('cliente', 'al')} por WhatsApp o correo. Si los unes a una etapa, se sugieren al llegar a ella. Nunca se envían solos.`}>
+      <Pagina titulo="Mensajes al cliente" ayuda={`Textos preparados para avisar ${gr.con('cliente', 'al')} por WhatsApp o correo. Nunca se envían solos.`}
+        mas={`Si unes un mensaje a una etapa, se sugiere al llegar a ella. Los huecos entre llaves ({nombre}, {numero}…) se rellenan solos. Para que los artículos concuerden, usa {tu_producto} en vez de «tu {producto}» y termina los adjetivos con {o} (list{o}).`}
+        acciones={<Button variant="primary" onClick={nueva}>+ Plantilla</Button>} />
+      <Bloque titulo="Plantillas">
         <div className="flex flex-wrap gap-1.5 text-sm">
           <span className="text-fg-3">Marcadores:</span>
           {marcadores.map((m) => <code key={m.k} title={m.ayuda} className="rounded-sm bg-bg-4 px-1.5">{`{${m.k}}`}</code>)}

@@ -69,7 +69,7 @@ export function Materiales() {
         <PageHeader title={vocab.materiales} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
           <span>El módulo de {min(vocab.materiales)} está apagado.</span>
-          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/tienda">Activarlo en Ajustes → Tienda</Link></Button>}
+          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/modulos">Activarlo en Ajustes → Módulos</Link></Button>}
         </div>
       </>
     )

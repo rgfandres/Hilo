@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { mensajeError } from '@/data/encargos'
 import { ActivarDosPasos, seguridadDe } from '@/components/Seguridad'
 import { Button, Dialog, FormRow, Input } from '@/ui'
-import { Bloque, Estado } from './Ajustes'
+import { Bloque, Estado, Pagina } from './Ajustes'
 
 /** Ajustes → Mi cuenta: quién soy, contraseña, verificación en dos pasos y salir. */
 export function AjustesCuenta() {
@@ -39,7 +39,8 @@ export function AjustesCuenta() {
 
   return (
     <>
-      <Bloque titulo="Mi cuenta" ayuda="Tus datos de acceso. Valen para todas las tiendas en las que estés.">
+      <Pagina titulo="Mi cuenta" ayuda="Tus datos de acceso. Valen para todas las tiendas en las que estés." />
+      <Bloque titulo="Tus datos">
         <div className="flex flex-col gap-1">
           <FormRow label="Conectado como"><span className="font-medium">{email}</span></FormRow>
           <FormRow label="Entras con">{proveedor === 'google' ? 'Google' : 'Correo'}</FormRow>

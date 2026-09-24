@@ -181,7 +181,7 @@ export function NuevoEncargo() {
   async function guardar(ev: React.FormEvent) {
     ev.preventDefault()
     if (!tienda) return
-    if (!tipo) { setErr(`No hay ningún tipo de ${min(vocab.encargo)} que se pueda elegir. Actívalo en Ajustes → Flujos.`); return }
+    if (!tipo) { setErr(`No hay ningún tipo de ${min(vocab.encargo)} que se pueda elegir. Actívalo en Ajustes → Tipos y etapas.`); return }
     if (!existente && !nombre.trim()) { setErr(`Falta el nombre ${gr.con('cliente', 'del')}`); return }
     if (!existente && email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setErr('Ese correo no parece válido'); return }
     if (din.usa && ((importe !== '' && !(Number(importe.replace(',', '.')) >= 0)) || (aCuenta !== '' && !(Number(aCuenta.replace(',', '.')) >= 0)))) { setErr('El importe y lo entregado a cuenta tienen que ser números de 0 o más'); return }
@@ -285,7 +285,7 @@ export function NuevoEncargo() {
 
         <div className="flex flex-col gap-1">
           <SectionLabel>{vocab.encargo}</SectionLabel>
-          {tipos.length === 0 && ps.length > 0 && <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">No hay ningún tipo de {min(vocab.encargo)} que se pueda elegir.{rol === 'ADMIN' && <> <Link to="/ajustes/flujos" className="underline">Configúralo en Ajustes → Flujos</Link></>}</p>}
+          {tipos.length === 0 && ps.length > 0 && <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">No hay ningún tipo de {min(vocab.encargo)} que se pueda elegir.{rol === 'ADMIN' && <> <Link to="/ajustes/flujos" className="underline">Configúralo en Ajustes → Tipos y etapas</Link></>}</p>}
           {tipos.length > 1 && (
             <FormRow label="Tipo">
               <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>

@@ -8,7 +8,7 @@ import { mensajeError } from '@/data/encargos'
 import { plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
-import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
 
 type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string; medida?: boolean; unidad?: string }
 
@@ -39,7 +39,7 @@ export function AjustesGuia() {
     }).catch(() => {})
   }, [tienda])
 
-  // Solo los campos marcados como medida en Ajustes → Campos (nunca importes ni cantidades)
+  // Solo los campos marcados como medida en Ajustes → Datos que guardáis (nunca importes ni cantidades)
   const medidas = campos.filter((c) => (c.entidad === 'CLIENTE' || c.entidad === 'ENCARGO') && c.tipo === 'numero' && c.medida)
   const cols = [...new Set([...(g.principal ? [g.principal] : []), ...g.validan])]
   const et = Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta]))
@@ -66,13 +66,15 @@ export function AjustesGuia() {
 
   return (
     <>
+      <Pagina titulo="Guía de medidas" ayuda={`Propone un valor a partir de las medidas guardadas, al crear o editar ${gr.con('encargo', 'un')}.`}
+        mas="Se propone en vivo y siempre se puede elegir otro. La medida principal manda; las que validan la comprueban y, si se alejan demasiado (tolerancias), se avisa o se marca para revisar." />
       <div className="flex flex-wrap items-center gap-3">
         <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="guia_medidas" />
         {amb.periodo && (amb.propio == null
           ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>
           : <Button size="sm" variant="ghost" onClick={() => setQuitarPropia(true)}>Quitar la guía propia del periodo</Button>)}
       </div>
-      <Bloque titulo="Guía de medidas" ayuda={`Tabla de referencia para proponer un valor a partir de las medidas guardadas. Se propone en vivo al crear o editar ${gr.con('encargo', 'un')}; siempre se puede elegir otro.`}>
+      <Bloque titulo="Cómo funciona">
         <div className="flex flex-col gap-1">
           <FormRow label="Usar la guía"><Interruptor checked={g.activa} onChange={(v) => setG({ ...g, activa: v })} label={g.activa ? 'Activa' : 'Apagada'} /></FormRow>
           <FormRow label="Se guarda en" ayuda={`Campo ${gr.con('encargo', 'del')} donde queda el valor elegido; sus opciones pasan a ser las de la guía.`}>
@@ -94,10 +96,10 @@ export function AjustesGuia() {
                   <input type="checkbox" checked={g.validan.includes(c.clave)} onChange={(e) => setG({ ...g, validan: e.target.checked ? [...g.validan, c.clave] : g.validan.filter((x) => x !== c.clave) })} />{c.etiqueta}
                 </label>
               ))}
-              {medidas.length === 0 && <span className="text-sm text-fg-3">Ningún campo está marcado como medida. En Ajustes → Campos, en cada campo de número que sea una medida, activa «Es una medida».</span>}
+              {medidas.length === 0 && <span className="text-sm text-fg-3">Ningún campo está marcado como medida. En Ajustes → Datos que guardáis, en cada campo de número que sea una medida, activa «Es una medida».</span>}
             </div>
           </FormRow>
-          <FormRow label="Tolerancias" ayuda="Diferencia en filas entre la principal y las que validan: hasta la primera cifra se usa la principal; hasta la segunda, la de en medio con aviso; por encima, la mayor y se marca para revisar.">
+          <FormRow label="Tolerancias" ayuda="Filas de diferencia permitidas: hasta la 1.ª cifra, vale la principal; hasta la 2.ª, avisa; más, se marca para revisar.">
             <div className="flex gap-1.5">
               {[0, 1].map((i) => <Input key={i} className="h-7 w-14" inputMode="numeric" value={String(g.tolerancias[i])}
                 onChange={(e) => { const t = [...g.tolerancias] as [number, number, number]; t[i] = parseInt(e.target.value, 10) || 0; setG({ ...g, tolerancias: t }) }} />)}
@@ -149,7 +151,7 @@ export function AjustesGuia() {
         description="El periodo vuelve a usar la guía de la tienda y su tabla propia se borra."
         actions={[{ label: 'Quitar', variant: 'danger', onClick: async () => { setQuitarPropia(false); await ponerAjustePeriodo(amb.periodo!.id, 'guia_medidas', null); await amb.recargarPeriodos(); await recargar(); setOk('El periodo vuelve a usar la guía de la tienda') } }]} />
       <Dialog open={importar !== null} onOpenChange={(o) => { if (!o) { setImportar(null); setImpErr(null) } }} error={impErr} title="Pegar desde hoja de cálculo"
-        description="Copia la tabla con su cabecera: una fila por valor y una columna por medida, o al revés. Los nombres de las medidas deben coincidir con los de Ajustes → Campos."
+        description="Copia la tabla con su cabecera: una fila por valor y una columna por medida, o al revés. Los nombres de las medidas deben coincidir con los de Ajustes → Datos que guardáis."
         actions={[{ label: 'Importar', onClick: async () => {
           const r = importarGuia(importar ?? '', medidas)
           if (typeof r === 'string') { setImpErr(r); return }

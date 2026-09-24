@@ -94,7 +94,7 @@ export function importarGuia(texto: string, campos: { clave: string; etiqueta: s
     }
     return { filas: filas.filter((f) => f.etiqueta), columnas }
   }
-  return 'No reconozco los nombres de las medidas: usa los mismos que en Ajustes → Campos'
+  return 'No reconozco los nombres de las medidas: usa los mismos que en Ajustes → Datos que guardáis'
 }
 
 export interface Historial { id: string; cliente_id: string; encargo_id: string | null; datos: Record<string, unknown>; fecha: string; usuario_id: string | null }

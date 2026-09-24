@@ -12,7 +12,7 @@ import type { Rol } from '@/lib/types'
 import { ROLES, ayudaRoles } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag } from '@/ui'
 import { fechaCorta } from '@/lib/utils'
-import { Bloque, Estado, FilaLista, Lista } from './Ajustes'
+import { Bloque, Estado, FilaLista, Lista, Pagina } from './Ajustes'
 
 /** Ajustes → Equipo: personas, roles e invitaciones (por correo o por enlace). */
 export function AjustesEquipo() {
@@ -67,7 +67,8 @@ export function AjustesEquipo() {
 
   return (
     <>
-      <Bloque titulo="Equipo" ayuda="Quién entra en la tienda y qué puede hacer. Cada persona tiene un rol."
+      <Pagina titulo="Equipo" ayuda="Quién entra en la tienda y con qué papel." />
+      <Bloque titulo="Personas"
         acciones={<Button variant="primary" onClick={() => { setInvitar(true); setEmail(''); setRol(rolDefecto); setDErr(null) }}>+ Invitar</Button>}>
         <Lista>
           {equipo.map((m) => {

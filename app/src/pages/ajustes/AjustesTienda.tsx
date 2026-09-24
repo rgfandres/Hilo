@@ -6,7 +6,8 @@ import { guardarTienda } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
-import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
+import { Link } from 'react-router-dom'
+import { Avanzado, BarraGuardar, Info, Interruptor, Pagina } from './Ajustes'
 
 const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'encargo', kp: 'encargos', ayuda: 'Lo que la tienda hace por encargo' },
@@ -18,8 +19,11 @@ const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
 const ZONAS = ['Europe/Madrid', 'Atlantic/Canary', 'Europe/Lisbon', 'Europe/London', 'Europe/Paris', 'America/Mexico_City', 'America/Bogota', 'America/Argentina/Buenos_Aires', 'America/Santiago', 'America/Lima', 'America/New_York']
 const COLORES = ['#333333', '#1F3A5F', '#2B4C9B', '#5A3E96', '#9C1049', '#C2185B', '#A32E24', '#8A5A00', '#1E6B3C', '#0F766E']
 
-/** Ajustes → Tienda: identidad, vocabulario, roles y reglas generales. */
-export function AjustesTienda() {
+/**
+ * Formulario común de los ajustes que viven en tienda.ajustes. Cada página enseña solo su parte,
+ * pero se guarda todo junto (lo que no se ve se guarda tal cual estaba).
+ */
+function useFormTienda() {
   const { tienda, recargar } = useAuth()
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const inicial = React.useMemo(() => ({
@@ -151,10 +155,18 @@ export function AjustesTienda() {
     return { ...s, vocab, generos: { ...s.generos, ...(k in s.generos && !s.generosFijados[k as ClaveVocab] ? { [k]: generoAuto(v) } : {}) } }
   })
   const setGenero = (k: ClaveVocab, g: Genero) => setF((s) => ({ ...s, generos: { ...s.generos, [k]: g }, generosFijados: { ...s.generosFijados, [k]: g } }))
+  return { tienda, aj, inicial, f, setF, ok, err, setErr, busy, subiendo, setSubiendo, sucio, AYUDA, camposEnc, guardar, setVocab, setGenero }
+}
+type FT = ReturnType<typeof useFormTienda>
+const Pie = ({ t }: { t: FT }) => <BarraGuardar sucio={t.sucio} busy={t.busy} ok={t.ok} err={t.err} onGuardar={t.guardar} onDescartar={() => { t.setF(t.inicial); t.setErr(null) }} />
 
+/** Ajustes → Datos de la tienda */
+export function AjustesTienda() {
+  const t = useFormTienda()
+  const { tienda, f, setF, setErr, subiendo, setSubiendo } = t
   return (
     <>
-      <Bloque titulo="Tienda" ayuda="Nombre y color que se ven en la app. El color solo marca el logo.">
+      <Pagina titulo="Datos de la tienda" ayuda="Nombre, color y logo que se ven en la app y en lo que imprimes." mas="El color se usa en el logo mientras no subas uno. El enlace de reseña se ofrece al cliente al entregar (Google, redes…)." />
         <div className="flex flex-col gap-1">
           <FormRow label="Nombre"><Input className="h-7" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></FormRow>
           <FormRow label="Color">
@@ -166,7 +178,7 @@ export function AjustesTienda() {
               <input type="color" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className="h-5 w-7 cursor-pointer rounded-sm border border-border bg-bg" title="Otro color" />
             </div>
           </FormRow>
-          <FormRow label="Logo" ayuda="Sale en el menú, en la ficha imprimible y en los informes. Mejor cuadrado o apaisado, con fondo claro.">
+          <FormRow label="Logo" ayuda="Mejor cuadrado o apaisado, con fondo claro.">
             <div className="flex flex-wrap items-center gap-2">
               {f.logo
                 ? <img src={f.logo} alt="Logo" className="h-10 max-w-[160px] rounded-sm border border-border object-contain p-0.5" onError={() => setErr('El logo no carga: súbelo de nuevo')} />
@@ -184,10 +196,56 @@ export function AjustesTienda() {
               {f.logo && <Button variant="ghost" size="sm" onClick={() => setF({ ...f, logo: '' })}>Quitar</Button>}
             </div>
           </FormRow>
+                  <FormRow label="Enlace de reseña">
+            <Input className="h-7" type="url" placeholder="https://… (se ofrece al entregar)" value={f.resena} onChange={(e) => setF({ ...f, resena: e.target.value })} />
+          </FormRow>
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo="Vocabulario" ayuda="Cómo llama tu tienda a cada cosa. Se usa en toda la app: menú, botones y mensajes.">
+/** Ajustes → Idioma y región */
+export function AjustesRegion() {
+  const t = useFormTienda()
+  const { f, setF } = t
+  return (
+    <>
+      <Pagina titulo="Idioma y región" ayuda="Cómo se escriben fechas, horas, precios y teléfonos." />
+      <div className="flex flex-col gap-1">
+          <FormRow label="Formato" ayuda={`Cómo se escriben fechas y números: hoy es ${new Date().toLocaleDateString(f.locale, { day: 'numeric', month: 'long', year: 'numeric' })}; un número, ${(1234.5).toLocaleString(f.locale)}`}>
+            <Select className="w-[260px]" value={f.locale} onChange={(e) => setF({ ...f, locale: e.target.value })}>
+              {[['es-ES', 'Español (España)'], ['es-MX', 'Español (México)'], ['es-AR', 'Español (Argentina)'], ['es-CO', 'Español (Colombia)'], ['es-CL', 'Español (Chile)'],
+                ['ca-ES', 'Català'], ['gl-ES', 'Galego'], ['eu-ES', 'Euskara'], ['pt-PT', 'Português (Portugal)'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)']]
+                .map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Select>
+          </FormRow>
+          <FormRow label="Zona horaria">
+            <Select className="w-[260px]" value={f.zona} onChange={(e) => setF({ ...f, zona: e.target.value })}>
+              {[...new Set([f.zona, ...ZONAS])].map((z) => <option key={z} value={z}>{z.replace('_', ' ')}</option>)}
+            </Select>
+          </FormRow>
+          <FormRow label="Moneda"><Input className="h-7 w-20" value={f.moneda} maxLength={3} onChange={(e) => setF({ ...f, moneda: e.target.value })} /></FormRow>
+          <FormRow label="Prefijo del país">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-fg-3">+</span>
+              <Input className="h-7 w-20" inputMode="numeric" value={f.prefijo} onChange={(e) => setF({ ...f, prefijo: e.target.value })} />
+              <span className="text-fg-3">se añade a los teléfonos sin prefijo al abrir WhatsApp</span>
+            </div>
+          </FormRow>
+      </div>
+      <Pie t={t} />
+    </>
+  )
+}
+
+/** Ajustes → Cómo lo llamáis (vocabulario) */
+export function AjustesPalabras() {
+  const t = useFormTienda()
+  const { f, setVocab, setGenero } = t
+  return (
+    <>
+      <Pagina titulo="Cómo lo llamáis" ayuda="Las palabras de tu negocio: la app las usa en menús, botones y mensajes." mas="Si en tu tienda decís «pedido» en vez de «encargo», cámbialo aquí y toda la app lo dirá así. «Se dice» sirve para que las frases salgan bien (el / la)." />
         <div className="grid grid-cols-[1fr_1fr_1fr_80px] items-center gap-x-3 gap-y-1.5">
           <span className="text-sm text-fg-3">Qué es</span><span className="text-sm text-fg-3">Singular</span><span className="text-sm text-fg-3">Plural</span><span className="text-sm text-fg-3">Se dice</span>
           {PALABRAS.map((p) => (
@@ -201,9 +259,18 @@ export function AjustesTienda() {
             </React.Fragment>
           ))}
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo="Nombres de los roles" ayuda="El permiso lo da el rol; aquí solo cambias cómo se llama en tu tienda.">
+/** Ajustes → Nombres de los papeles (roles) */
+export function AjustesPapeles() {
+  const t = useFormTienda()
+  const { f, setF, AYUDA } = t
+  return (
+    <>
+      <Pagina titulo="Nombres de los papeles" ayuda="Cómo llamáis a cada papel del equipo. Cambiar el nombre no cambia lo que puede hacer." />
         <div className="flex flex-col gap-1">
           {ROLES.map((r) => (
             <FormRow key={r} label={r === 'ADMIN' ? 'Administración' : r === 'OPERATIVO' ? 'Operativo' : r === 'ATENCION' ? 'Atención' : 'Logística'}>
@@ -214,10 +281,19 @@ export function AjustesTienda() {
             </FormRow>
           ))}
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo="Reglas generales">
-        <div className="flex flex-col gap-1">
+/** Ajustes → Avisos y reglas */
+export function AjustesReglas() {
+  const t = useFormTienda()
+  const { f, setF } = t
+  return (
+    <>
+      <Pagina titulo="Avisos y reglas" ayuda="Cuándo algo se da por parado y pasa a «Revisar», y cómo se numera." />
+      <div className="flex flex-col gap-1">
           <FormRow label="Estancado">
             <div className="flex flex-wrap items-center gap-2">
               <Input className="h-7 w-20" type="number" min={1} max={365} value={f.dias} onChange={(e) => setF({ ...f, dias: e.target.value })} />
@@ -230,6 +306,15 @@ export function AjustesTienda() {
               <span className="text-fg-3">días en una etapa de espera (p. ej. fuera, en {f.vocab.proveedor.toLowerCase()}) → pasa a «Revisar»</span>
             </div>
           </FormRow>
+          <FormRow label="Numeración">
+            <Interruptor checked={f.reinicia} onChange={(v) => setF({ ...f, reinicia: v })} label="Empieza en 001 en cada periodo" />
+          </FormRow>
+          <FormRow label="Nombres" ayuda="Se aplica a lo nuevo y a lo que se edite. Buscar ignora las tildes siempre.">
+            <Interruptor checked={f.normalizar} onChange={(v) => setF({ ...f, normalizar: v })} label="Guardar en mayúsculas y sin tildes" />
+          </FormRow>
+      </div>
+      <Avanzado resumen="Deshacer, doble toque y filas por página">
+        <div className="flex flex-col gap-1">
           <FormRow label="Deshacer">
             <div className="flex flex-wrap items-center gap-2">
               <Input className="h-7 w-20" type="number" min={3} max={60} value={f.deshacer} onChange={(e) => setF({ ...f, deshacer: e.target.value })} />
@@ -245,44 +330,22 @@ export function AjustesTienda() {
           <FormRow label="Filas por página">
             <Input className="h-7 w-20" type="number" min={10} max={500} value={f.pagina} onChange={(e) => setF({ ...f, pagina: e.target.value })} />
           </FormRow>
-          <FormRow label="Numeración">
-            <Interruptor checked={f.reinicia} onChange={(v) => setF({ ...f, reinicia: v })} label="Empieza en 001 en cada periodo" />
-          </FormRow>
-          <FormRow label="Formato" ayuda={`Cómo se escriben fechas y números: hoy es ${new Date().toLocaleDateString(f.locale, { day: 'numeric', month: 'long', year: 'numeric' })}; un número, ${(1234.5).toLocaleString(f.locale)}`}>
-            <Select className="w-[260px]" value={f.locale} onChange={(e) => setF({ ...f, locale: e.target.value })}>
-              {[['es-ES', 'Español (España)'], ['es-MX', 'Español (México)'], ['es-AR', 'Español (Argentina)'], ['es-CO', 'Español (Colombia)'], ['es-CL', 'Español (Chile)'],
-                ['ca-ES', 'Català'], ['gl-ES', 'Galego'], ['eu-ES', 'Euskara'], ['pt-PT', 'Português (Portugal)'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)']]
-                .map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </Select>
-          </FormRow>
-          <FormRow label="Zona horaria">
-            <Select className="w-[260px]" value={f.zona} onChange={(e) => setF({ ...f, zona: e.target.value })}>
-              {[...new Set([f.zona, ...ZONAS])].map((z) => <option key={z} value={z}>{z.replace('_', ' ')}</option>)}
-            </Select>
-          </FormRow>
-          <FormRow label="Moneda"><Input className="h-7 w-20" value={f.moneda} maxLength={3} onChange={(e) => setF({ ...f, moneda: e.target.value })} /></FormRow>
-          <FormRow label="Importes" ayuda="Importe pactado y lo entregado a cuenta en cada encargo; se ve lo pendiente de cobro y se puede filtrar.">
-            <Interruptor checked={f.importe} onChange={(v) => setF({ ...f, importe: v })} label="Usar importe y cobros" />
-          </FormRow>
-          <FormRow label="Nombres" ayuda={`Nombres de ${f.vocab.clientes.toLowerCase()}, ${f.vocab.productos.toLowerCase()}, ${f.vocab.proveedores.toLowerCase()} y ${f.vocab.materiales.toLowerCase()} en MAYÚSCULAS y sin tildes (la Ñ se conserva). Al activarlo se aplica a lo nuevo y a lo que se edite. Buscar ignora las tildes siempre.`}>
-            <Interruptor checked={f.normalizar} onChange={(v) => setF({ ...f, normalizar: v })} label="Guardar en mayúsculas y sin tildes" />
-          </FormRow>
-          <FormRow label="Prefijo del país">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-fg-3">+</span>
-              <Input className="h-7 w-20" inputMode="numeric" value={f.prefijo} onChange={(e) => setF({ ...f, prefijo: e.target.value })} />
-              <span className="text-fg-3">se añade a los teléfonos sin prefijo al abrir WhatsApp</span>
-            </div>
-          </FormRow>
-          <FormRow label="Enlace de reseña">
-            <Input className="h-7" type="url" placeholder="https://… (se ofrece al entregar)" value={f.resena} onChange={(e) => setF({ ...f, resena: e.target.value })} />
-          </FormRow>
         </div>
-      </Bloque>
+      </Avanzado>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo={f.vocab.materiales} ayuda={`Catálogo de ${f.vocab.materiales.toLowerCase()} con stock, pedidos a ${f.vocab.proveedores.toLowerCase()}, consumo por ${f.vocab.encargo.toLowerCase()} y restos.`}>
+/** Ajustes → Módulos → Materiales */
+export function AjustesMateriales() {
+  const t = useFormTienda()
+  const { f, setF } = t
+  return (
+    <>
+      <Pagina titulo={f.vocab.materiales} ayuda="Cómo se cuenta y cuándo avisa de pedir." />
+      {!f.materiales && <Apagado />}
         <div className="flex flex-col gap-1">
-          <FormRow label="Módulo" ayuda={!f.materiales && inicial.materiales ? `Al apagarlo, las condiciones de etapa «Tener ${f.vocab.material.toLowerCase()} recibido» dejan de exigirse (se conservan por si lo vuelves a encender).` : undefined}><Interruptor checked={f.materiales} onChange={(v) => setF({ ...f, materiales: v })} label={`Usar ${f.vocab.materiales.toLowerCase()} y compras`} /></FormRow>
           {f.materiales && <>
             <FormRow label="Unidad" ayuda="Cómo se cuenta: m, uds, kg…"><Input className="h-7 w-20" value={f.unidadMat} maxLength={6} onChange={(e) => setF({ ...f, unidadMat: e.target.value })} /></FormRow>
             <FormRow label="Umbral por defecto" ayuda="Por debajo de esto se avisa de pedir (cada material puede tener el suyo)."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralMat} onChange={(e) => setF({ ...f, umbralMat: e.target.value })} /></FormRow>
@@ -290,19 +353,20 @@ export function AjustesTienda() {
             <FormRow label="Restos hasta" ayuda="Si lo que queda no llega a una unidad de pedido y es esto o menos, se ofrece guardarlo como resto."><Input className="h-7 w-20" inputMode="decimal" value={f.umbralResto} onChange={(e) => setF({ ...f, umbralResto: e.target.value })} /></FormRow>
           </>}
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo="Ficha técnica" ayuda={`Lo que cada ${f.vocab.producto.toLowerCase()} lleva: se rellena en su ficha del catálogo y se ve como resumen en cada ${f.vocab.encargo.toLowerCase()}.`}>
+/** Ajustes → Módulos → Hoja de producción */
+export function AjustesHoja() {
+  const t = useFormTienda()
+  const { f, setF, camposEnc } = t
+  return (
+    <>
+      <Pagina titulo={f.hojaNombre || 'Hoja de producción'} ayuda={`Hoja con los ${f.vocab.encargos.toLowerCase()} para enviar a quien los fabrica. Qué etapa la envía se elige en Tipos y etapas.`} />
+      {!f.produccion && <Apagado />}
         <div className="flex flex-col gap-1">
-          <FormRow label="Tipos de elaboración" ayuda="Separados por comas (a medida, de serie…). Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
-          <FormRow label="Complementos" ayuda={`Lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…): un campo de texto en el alta y en la ficha.`}><Interruptor checked={f.usaComp} onChange={(v) => setF({ ...f, usaComp: v })} label="Usar complementos" /></FormRow>
-          {f.usaComp && <FormRow label="Cómo los llamáis"><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>}
-        </div>
-      </Bloque>
-
-      <Bloque titulo={f.hojaNombre || 'Hoja de producción'} ayuda={`Una hoja por ${f.vocab.producto.toLowerCase()} con los ${f.vocab.encargos.toLowerCase()} enviados a producción, lista para imprimir. Qué etapa envía se marca en Ajustes → Flujos.`}>
-        <div className="flex flex-col gap-1">
-          <FormRow label="Módulo"><Interruptor checked={f.produccion} onChange={(v) => setF({ ...f, produccion: v })} label="Usar la hoja de producción" /></FormRow>
           {f.produccion && <>
             <FormRow label="Nombre"><Input className="h-7 w-[260px]" value={f.hojaNombre} onChange={(e) => setF({ ...f, hojaNombre: e.target.value })} /></FormRow>
             <FormRow label="Campo en columnas" ayuda="Si lo eliges, la hoja marca el valor de cada línea en columnas (una por valor).">
@@ -311,7 +375,7 @@ export function AjustesTienda() {
                 {camposEnc.filter((c) => c.tipo === 'opcion' || c.clave === f.hojaCol).map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}{c.tipo !== 'opcion' ? ' (no es de opción)' : ''}</option>)}
               </Select>
             </FormRow>
-            {camposEnc.length > 0 && !camposEnc.some((c) => c.tipo === 'opcion') && <span className="pl-[128px] text-sm text-fg-3 max-md:pl-0">Solo valen campos de opción (Ajustes → Campos).</span>}
+            {camposEnc.length > 0 && !camposEnc.some((c) => c.tipo === 'opcion') && <span className="pl-[128px] text-sm text-fg-3 max-md:pl-0">Solo valen campos de opción (Ajustes → Datos que guardáis).</span>}
             {f.hojaCol && (() => {
               const col = camposEnc.find((c) => c.clave === f.hojaCol)
               const elegidas = f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean)
@@ -331,26 +395,103 @@ export function AjustesTienda() {
             })()}
           </>}
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo={`Pantalla de ${f.roles.LOGISTICA}`} ayuda={`Bandejas para quien lleva y trae: una por cada etapa que marca «${f.roles.LOGISTICA}» (Ajustes → Flujos) y una por cada comprobación obligatoria antes de ella, con tarjetas para el móvil.`}>
+/** Ajustes → Módulos → Logística */
+export function AjustesLogistica() {
+  const t = useFormTienda()
+  const { f, setF } = t
+  return (
+    <>
+      <Pagina titulo={`Pantalla de ${f.roles.LOGISTICA}`} ayuda={`Sus tareas son las etapas que marca «${f.roles.LOGISTICA}» en Tipos y etapas.`} />
+      {!f.logistica && <Apagado />}
         <div className="flex flex-col gap-1">
-          <FormRow label="Módulo"><Interruptor checked={f.logistica} onChange={(v) => setF({ ...f, logistica: v })} label={`Usar la pantalla de «${f.roles.LOGISTICA}»`} /></FormRow>
-          {f.logistica && <FormRow label="Histórico (días)"><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /></FormRow>}
+          {f.logistica && <FormRow label="Histórico (días)" ayuda="Cuántos días atrás se ve lo ya hecho."><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /></FormRow>}
         </div>
-      </Bloque>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <Bloque titulo={`Qué ve ${gramatica(f.vocab, f.generos).con('proveedor', 'el')}`} ayuda={`Teléfono y correo ${gramatica(f.vocab, f.generos).con('cliente', 'del')} nunca se muestran. Qué campos ve se elige en Ajustes → Campos.`}>
-        <FormRow label={`Nombre ${gramatica(f.vocab, f.generos).con('cliente', 'del')}`}>
-          <Select className="w-[260px]" value={f.verCliente} onChange={(e) => setF({ ...f, verCliente: e.target.value })}>
-            <option value="nombre">Nombre completo</option>
-            <option value="iniciales">Solo iniciales</option>
-            <option value="no">Nada (solo el número)</option>
-          </Select>
-        </FormRow>
-      </Bloque>
+/** Ajustes → Módulos → Ficha técnica y complementos */
+export function AjustesFichaTecnica() {
+  const t = useFormTienda()
+  const { f, setF } = t
+  return (
+    <>
+      <Pagina titulo="Ficha técnica" ayuda={`Lo que lleva cada ${f.vocab.producto.toLowerCase()} y los extras que se añaden a ${gramatica(f.vocab, f.generos).con('encargo', 'un')}.`} />
+        <div className="flex flex-col gap-1">
+          <FormRow label="Tipos de elaboración" ayuda="Separados por comas (a medida, de serie…). Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
+          <FormRow label="Complementos" ayuda={`Lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…): un campo de texto en el alta y en la ficha.`}><Interruptor checked={f.usaComp} onChange={(v) => setF({ ...f, usaComp: v })} label="Usar complementos" /></FormRow>
+          {f.usaComp && <FormRow label="Cómo los llamáis"><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>}
+        </div>
+      <Pie t={t} />
+    </>
+  )
+}
 
-      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setF(inicial); setErr(null) }} />
+const Apagado = () => (
+  <p className="m-0 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">Este módulo está apagado. <Link to="/ajustes/modulos" className="underline">Actívalo en Módulos</Link>.</p>
+)
+
+/** Tarjeta de un módulo: nombre, «i» con la explicación larga, interruptor y una línea. */
+function Modulo({ nombre, linea, info, on, onChange, config, aviso }: {
+  nombre: string; linea: string; info: string; on?: boolean; onChange?: (v: boolean) => void; config?: string; aviso?: string
+}) {
+  const siempre = onChange === undefined
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-bg p-3.5">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">{nombre}</span>
+        <Info titulo={nombre}>{info}</Info>
+        <span className="flex-1" />
+        {!siempre && <Interruptor checked={!!on} onChange={onChange} />}
+      </div>
+      <p className="m-0 text-fg-2">{linea}</p>
+      {aviso && <p className="m-0 text-sm text-warn-fg">{aviso}</p>}
+      <div className="mt-auto pt-1 text-sm">
+        {config && (siempre || on)
+          ? <Link to={config} className="text-fg-2 underline underline-offset-2 hover:text-fg">Configurar</Link>
+          : !siempre && <span className="text-fg-3">Apagado</span>}
+      </div>
+    </div>
+  )
+}
+
+/** Ajustes → Módulos: encender y apagar lo opcional. Apagar no borra datos. */
+export function AjustesModulos() {
+  const t = useFormTienda()
+  const { f, setF, inicial } = t
+  const v = f.vocab, g = gramatica(f.vocab, f.generos)
+  const m = (s: string) => s.toLowerCase()
+  return (
+    <>
+      <Pagina titulo="Módulos" ayuda="Enciende solo lo que uses. Apagar un módulo no borra nada." mas="Cada módulo añade pantallas o datos a la app. Si lo apagas, desaparecen de la vista pero lo guardado se conserva: al volver a encenderlo, todo sigue ahí. Pulsa la «i» de cada uno para ver qué hace." />
+      <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+        <Modulo nombre="Cobros" on={f.importe} onChange={(x) => setF({ ...f, importe: x })}
+          linea="Apunta el precio, lo pagado a cuenta y lo que falta por cobrar."
+          info={`Cada ${m(v.encargo)} tendrá su importe y lo entregado a cuenta. Verás lo pendiente de cobro, podrás filtrar por ello y saldrá en Informes.`} />
+        <Modulo nombre={v.materiales} on={f.materiales} onChange={(x) => setF({ ...f, materiales: x })} config="/ajustes/materiales"
+          linea={`Controla ${g.con('material', 'el')} que tienes y lo que pides a ${m(v.proveedores)}.`}
+          info={`Catálogo de ${m(v.materiales)} con su stock, aviso cuando queda poco, pedidos a ${m(v.proveedores)}, lo que gasta cada ${m(v.encargo)} y los restos que sobran.`}
+          aviso={!f.materiales && inicial.materiales ? `Al apagarlo, las etapas dejan de exigir «tener ${m(v.material)} recibido» (se conserva por si lo vuelves a encender).` : undefined} />
+        <Modulo nombre={f.hojaNombre || 'Hoja de producción'} on={f.produccion} onChange={(x) => setF({ ...f, produccion: x })} config="/ajustes/hoja"
+          linea={`Hoja con los ${m(v.encargos)} para enviar a quien los fabrica o prepara.`}
+          info={`Junta por ${m(v.producto)} los ${m(v.encargos)} que una etapa manda a producción, lista para imprimir o enviar a quien los fabrica o prepara (${m(v.proveedor)}, equipo de producción…). Qué etapa la envía se elige en Tipos y etapas.`} />
+        <Modulo nombre="Logística" on={f.logistica} onChange={(x) => setF({ ...f, logistica: x })} config="/ajustes/logistica"
+          linea={`Pantalla para quien hace los recados: recoger ${m(v.material)}, llevar y traer de ${m(v.proveedores)}.`}
+          info={`Para la persona de tu equipo que se mueve fuera de la tienda (papel «${f.roles.LOGISTICA}»). Ve en el móvil qué tiene que recoger o llevar y a dónde, y marca cuándo lo ha hecho. Sus tareas son las etapas que marca «${f.roles.LOGISTICA}» en Tipos y etapas. No puede escribir a los clientes.`} />
+        <Modulo nombre="Guía de medidas" config="/ajustes/guia"
+          linea={`Sugiere un valor a partir de las medidas ${g.con('cliente', 'del')}.`}
+          info={`Una tabla de referencia: al apuntar las medidas ${g.con('cliente', 'del')}, la app propone el valor que mejor encaja y avisa si alguna medida se sale. Se activa y se rellena dentro de su página.`} />
+        <Modulo nombre="Ficha técnica y complementos" config="/ajustes/ficha-tecnica"
+          linea={`Datos técnicos de cada ${m(v.producto)} y extras que se añaden.`}
+          info={`Lo que lleva cada ${m(v.producto)} (${m(v.material)}, consumo, elaboración) y los complementos que se añaden a ${g.con('encargo', 'un')} (acabados, extras…).`} />
+      </div>
+      <Pie t={t} />
     </>
   )
 }

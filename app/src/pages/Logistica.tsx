@@ -161,7 +161,7 @@ export function Logistica() {
         <PageHeader title={nombresRol.LOGISTICA} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
           <span>La pantalla de «{nombresRol.LOGISTICA}» está apagada.</span>
-          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/tienda">Activarla en Ajustes → Tienda</Link></Button>}
+          {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/modulos">Activarla en Ajustes → Módulos</Link></Button>}
         </div>
       </>
     )
@@ -171,7 +171,7 @@ export function Logistica() {
   return (
     <>
       <PageHeader title={nombresRol.LOGISTICA} subtitle={actual?.subtitulo} />
-      {logis.length === 0 && encs && <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa la marca «{nombresRol.LOGISTICA}». Asígnaselas en Ajustes → Flujos.</p>}
+      {logis.length === 0 && encs && <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa la marca «{nombresRol.LOGISTICA}». Asígnaselas en Ajustes → Tipos y etapas.</p>}
       {bandejas.length > 1 && <Tabs items={tabs} value={actual?.key ?? ''} onChange={(k) => { setBandeja(k); setCarpeta(null); setProd('') }} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
       <div className="min-h-0 flex-1 overflow-auto p-3 md:p-4">

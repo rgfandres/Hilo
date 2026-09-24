@@ -6,7 +6,7 @@ import { mensajeError } from '@/data/encargos'
 import { metodoActual, seguridadDe, type Seguridad } from '@/components/Seguridad'
 import { METODOS_INSTANCIA } from '@/pages/Login'
 import { Button, Dialog, Input, Select } from '@/ui'
-import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
 
 /** Dominios de correo gratuito: no se pueden aprobar (entraría cualquiera). */
 const DOMINIOS_PUBLICOS = new Set(['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 'outlook.es', 'live.com', 'yahoo.com', 'yahoo.es', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com', 'gmx.com', 'aol.com'])
@@ -59,7 +59,8 @@ export function AjustesSeguridad() {
 
   return (
     <>
-      <Bloque titulo="Formas de entrar" ayuda="Qué pueden usar las personas del equipo para entrar en esta tienda. Si alguien entra de otra forma, se le pide que vuelva a entrar.">
+      <Pagina titulo="Seguridad" ayuda="Cómo puede entrar el equipo en esta tienda." />
+      <Bloque titulo="Formas de entrar" ayuda="Si alguien entra de otra forma, se le pide que vuelva a entrar.">
         <div className="flex flex-col gap-2">
           {disponibles.map((d) => {
             const hay = METODOS_INSTANCIA.includes(d.instancia)

@@ -3,43 +3,77 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { PageHeader } from '@/layout/AppShell'
 import { cn } from '@/lib/utils'
-import { Button } from '@/ui'
+import { Button, Popover } from '@/ui'
 import { useCambiosSinGuardar } from '@/lib/salir'
 
 type Quien = 'admin' | 'gestion' | 'todos'
-const SECCIONES: { to: string; label: string; quien: Quien }[] = [
-  { to: 'cuenta', label: 'Mi cuenta', quien: 'todos' },
-  { to: 'tienda', label: 'Tienda', quien: 'admin' },
-  { to: 'equipo', label: 'Equipo', quien: 'admin' },
-  { to: 'seguridad', label: 'Seguridad', quien: 'admin' },
-  { to: 'proveedores', label: '', quien: 'gestion' }, // etiqueta = vocabulario
-  { to: 'flujos', label: 'Flujos', quien: 'admin' },
-  { to: 'campos', label: 'Campos', quien: 'admin' },
-  { to: 'mensajes', label: 'Mensajes', quien: 'admin' },
-  { to: 'ficha', label: 'Ficha', quien: 'admin' },
-  { to: 'periodos', label: 'Periodos', quien: 'admin' },
-  { to: 'guia', label: 'Guía de medidas', quien: 'admin' },
+type Aj = Record<string, unknown>
+type Sec = { to: string; label: (v: Etiquetas) => string; quien: Quien; si?: (aj: Aj) => boolean }
+type Etiquetas = { vocab: ReturnType<typeof useAuth>['vocab']; roles: Record<string, string>; aj: Aj }
+const mod = (k: string) => (aj: Aj) => (aj.modulos as Record<string, boolean> | undefined)?.[k] === true
+/** Menú de ajustes agrupado por lo que el usuario quiere hacer (no por cómo está hecho por dentro). */
+const GRUPOS: { titulo: string; items: Sec[] }[] = [
+  { titulo: 'Tu tienda', items: [
+    { to: 'tienda', label: () => 'Datos de la tienda', quien: 'admin' },
+    { to: 'region', label: () => 'Idioma y región', quien: 'admin' },
+    { to: 'palabras', label: () => 'Cómo lo llamáis', quien: 'admin' },
+  ] },
+  { titulo: 'Cómo trabajáis', items: [
+    { to: 'flujos', label: () => 'Tipos y etapas', quien: 'admin' },
+    { to: 'campos', label: () => 'Datos que guardáis', quien: 'admin' },
+    { to: 'periodos', label: () => 'Periodos', quien: 'admin' },
+    { to: 'reglas', label: () => 'Avisos y reglas', quien: 'admin' },
+  ] },
+  { titulo: 'Módulos', items: [
+    { to: 'modulos', label: () => 'Activar módulos', quien: 'admin' },
+    { to: 'materiales', label: ({ vocab }) => vocab.materiales, quien: 'admin', si: mod('materiales') },
+    { to: 'hoja', label: ({ aj }) => String(aj.hoja_nombre ?? 'Hoja de producción'), quien: 'admin', si: mod('produccion') },
+    { to: 'logistica', label: ({ roles }) => `Pantalla de ${roles.LOGISTICA ?? 'Logística'}`, quien: 'admin', si: mod('logistica') },
+    { to: 'guia', label: () => 'Guía de medidas', quien: 'admin' },
+    { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin' },
+  ] },
+  { titulo: 'Clientes y proveedores', items: [
+    { to: 'mensajes', label: () => 'Mensajes al cliente', quien: 'admin' },
+    { to: 'ficha', label: ({ vocab }) => `Hoja de ${vocab.encargo.toLowerCase()}`, quien: 'admin' },
+    { to: 'proveedores', label: ({ vocab }) => `Portal de ${vocab.proveedores.toLowerCase()}`, quien: 'gestion' },
+  ] },
+  { titulo: 'Personas y acceso', items: [
+    { to: 'equipo', label: () => 'Equipo', quien: 'admin' },
+    { to: 'papeles', label: () => 'Nombres de los papeles', quien: 'admin' },
+    { to: 'seguridad', label: () => 'Seguridad', quien: 'admin' },
+  ] },
+  { titulo: 'Mi cuenta', items: [
+    { to: 'cuenta', label: () => 'Mi cuenta', quien: 'todos' },
+  ] },
 ]
+const SECCIONES = GRUPOS.flatMap((g) => g.items)
 const puedeVer = (q: Quien, rol: string | null) => q === 'todos' || rol === 'ADMIN' || (q === 'gestion' && rol === 'OPERATIVO')
 
-/** Ajustes: sub-menú a la izquierda (como Twenty) y la sección a la derecha. */
+/** Ajustes: menú agrupado a la izquierda y la sección a la derecha. */
 export function Ajustes() {
-  const { rol, vocab } = useAuth()
-  const visibles = SECCIONES.filter((s) => puedeVer(s.quien, rol))
+  const { rol, vocab, tienda, nombresRol } = useAuth()
+  const aj = (tienda?.ajustes ?? {}) as Aj
+  const et: Etiquetas = { vocab, roles: nombresRol as Record<string, string>, aj }
   // Una sección a la que el rol no tiene acceso (p. ej. escrita a mano en la dirección) no se abre
   const loc = useLocation()
   const seccion = SECCIONES.find((x) => loc.pathname.split('/')[2] === x.to)
   if (seccion && !puedeVer(seccion.quien, rol)) return <Navigate to="/ajustes/cuenta" replace />
+  const grupos = GRUPOS.map((g) => ({ ...g, items: g.items.filter((s) => puedeVer(s.quien, rol) && (!s.si || s.si(aj) || s === seccion)) })).filter((g) => g.items.length)
   return (
     <>
       <PageHeader title="Ajustes" />
       <div className="flex min-h-0 flex-1 max-md:flex-col">
-        <nav className="flex w-[200px] shrink-0 flex-col gap-0.5 border-r border-border p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:border-b max-md:border-r-0">
-          {visibles.map((s) => (
-            <NavLink key={s.to} to={s.to}
-              className={({ isActive }) => cn('flex h-7 shrink-0 items-center rounded-sm px-2 font-medium text-fg-2 hover:bg-bg-4 max-md:h-9', isActive && 'bg-gray-5 text-fg')}>
-              {s.label || `Portal de ${vocab.proveedores.toLowerCase()}`}
-            </NavLink>
+        <nav aria-label="Ajustes" className="flex w-[220px] shrink-0 flex-col gap-4 overflow-auto border-r border-border p-3 max-md:w-full max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-r-0 max-md:p-2">
+          {grupos.map((g) => (
+            <div key={g.titulo} className="flex flex-col gap-0.5 max-md:contents">
+              <span className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-fg-3 max-md:hidden">{g.titulo}</span>
+              {g.items.map((s) => (
+                <NavLink key={s.to} to={s.to}
+                  className={({ isActive }) => cn('flex h-7 shrink-0 items-center rounded-sm px-2 text-fg-2 hover:bg-bg-4 max-md:h-9', isActive && 'bg-gray-5 font-medium text-fg')}>
+                  {s.label(et)}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="min-w-0 flex-1 overflow-auto">
@@ -55,6 +89,55 @@ export function Ajustes() {
 export function AjustesInicio() {
   const { rol } = useAuth()
   return <Navigate to={rol === 'ADMIN' ? 'tienda' : rol === 'OPERATIVO' ? 'proveedores' : 'cuenta'} replace />
+}
+
+/** Cabecera de cada página de ajustes: título, UNA línea de ayuda y, si hace falta, «¿Qué es esto?» con el resto. */
+export function Pagina({ titulo, ayuda, mas, acciones }: { titulo: string; ayuda?: React.ReactNode; mas?: React.ReactNode; acciones?: React.ReactNode }) {
+  const [ver, setVer] = React.useState(false)
+  return (
+    <header className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-3">
+        <h1 className="m-0 flex-1 text-xl font-semibold">{titulo}</h1>
+        {acciones}
+      </div>
+      {ayuda && (
+        <p className="m-0 text-fg-2">
+          {ayuda}
+          {mas && <> <button type="button" aria-expanded={ver} onClick={() => setVer(!ver)} className="text-fg-3 underline underline-offset-2 hover:text-fg">{ver ? 'Ocultar' : '¿Qué es esto?'}</button></>}
+        </p>
+      )}
+      {ver && mas && <div className="rounded-md bg-bg-3 px-3 py-2 leading-relaxed text-fg-2">{mas}</div>}
+    </header>
+  )
+}
+
+/** Botón «i» con una explicación más larga que se abre al pulsarlo. */
+export function Info({ children, titulo }: { children: React.ReactNode; titulo: string }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen} className="w-[300px] p-3 leading-relaxed text-fg-2"
+      trigger={({ toggle }) => (
+        <button type="button" onClick={toggle} aria-label={`Qué es ${titulo}`} aria-expanded={open}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-xs font-semibold text-fg-3 hover:bg-bg-4 hover:text-fg">i</button>
+      )}>
+      {children}
+    </Popover>
+  )
+}
+
+/** Parte plegable para lo que casi nadie necesita tocar. */
+export function Avanzado({ titulo = 'Opciones avanzadas', resumen, children, defecto = false }: { titulo?: string; resumen?: React.ReactNode; children: React.ReactNode; defecto?: boolean }) {
+  const [open, setOpen] = React.useState(defecto)
+  return (
+    <div className="rounded-md border border-border">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg-2">
+        <span className="w-3 text-fg-3">{open ? '▾' : '▸'}</span>
+        <span className="font-medium">{titulo}</span>
+        {resumen && <span className="truncate text-sm text-fg-3">{resumen}</span>}
+      </button>
+      {open && <div className="flex flex-col gap-3 border-t border-border-light px-3 py-3">{children}</div>}
+    </div>
+  )
 }
 
 /** Bloque de ajustes: título, explicación en una línea y contenido. */

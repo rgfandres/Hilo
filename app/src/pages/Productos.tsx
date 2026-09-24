@@ -233,7 +233,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
           {!mat.activo && !f.consumo && !fic.usaComplementos && !f.receta && fic.construcciones.length === 0 && !f.construccion && <span className="text-sm text-fg-3">Sin datos técnicos que rellenar con los ajustes actuales.</span>}
         </div>
         {campos.length === 0 && !soloLectura && (
-          <p className="text-sm text-fg-3">¿Necesitas más datos de cada {min(vocab.producto)}? Añádelos en Ajustes → Campos → {vocab.producto}.</p>
+          <p className="text-sm text-fg-3">¿Necesitas más datos de cada {min(vocab.producto)}? Añádelos en Ajustes → Datos que guardáis → {vocab.producto}.</p>
         )}
         {!nuevo && (p as ProductoFila | null)?.encargos ? (
           <div className="flex flex-col gap-1">

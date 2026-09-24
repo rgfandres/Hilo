@@ -4,7 +4,7 @@ import { activarPeriodo, actualizarPeriodo, archivarPeriodo, crearPeriodo, lista
 import { mensajeError } from '@/data/encargos'
 import { Button, Dialog, Input, Tag } from '@/ui'
 import { fechaCorta } from '@/lib/utils'
-import { Bloque, Estado, FilaLista, Lista } from './Ajustes'
+import { Bloque, Estado, FilaLista, Lista, Pagina } from './Ajustes'
 
 /**
  * Ajustes → Periodos (temporadas, años, campañas…).
@@ -33,7 +33,9 @@ export function AjustesPeriodos() {
 
   return (
     <>
-      <Bloque titulo="Periodos" ayuda={`Temporadas, años o campañas. Solo uno está activo: las listas de ${vocab.encargos.toLowerCase()} muestran ese periodo.${reinicia ? ' La numeración empieza en 001 en cada periodo.' : ''}`}>
+      <Pagina titulo="Periodos" ayuda={`Temporadas, años o campañas. Las listas de ${vocab.encargos.toLowerCase()} muestran el periodo activo.`}
+        mas={`Solo puede haber un periodo activo a la vez. Al cambiarlo, todo el equipo pasa a ver el nuevo y lo que se cree irá a él; nada del anterior se borra.${reinicia ? ' La numeración empieza en 001 en cada periodo.' : ''}`} />
+      <Bloque titulo="Lista">
         {lista.length === 0 ? <p className="text-fg-3">No hay periodos: se trabaja con todo junto.</p> : (
           <>
           <Lista>

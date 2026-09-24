@@ -396,7 +396,7 @@ export function Encargos() {
             <button onClick={() => setP({ b: null, f: null, q: null, desde: null, g: null })} className="text-fg-3 underline-offset-2 hover:text-fg hover:underline">Quitar filtro</button>
           </span>
         )}
-        {bandeja === 'revisar' && <span className="text-fg-2">Aquí entran: {CRITERIO_REVISAR.charAt(0).toLowerCase() + CRITERIO_REVISAR.slice(1)}. Los días se cambian en Ajustes → Tienda.</span>}
+        {bandeja === 'revisar' && <span className="text-fg-2">Aquí entran: {CRITERIO_REVISAR.charAt(0).toLowerCase() + CRITERIO_REVISAR.slice(1)}. Los días se cambian en Ajustes → Avisos y reglas.</span>}
         {bandeja === 'bloqueados' && <span className="text-fg-2">Resuelve lo que falta desde la fila (o desde la ficha) y el botón de avanzar vuelve a funcionar.</span>}
         {err && <span className="ml-2 inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); recargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></span>}
       </div>

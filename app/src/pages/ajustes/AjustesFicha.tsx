@@ -6,7 +6,7 @@ import { MARCADORES_FICHA, fichaHTML, guardarPlantillaFicha, obtenerPlantillaFic
 import { Button, Dialog, Select, Textarea } from '@/ui'
 import { confirmarSalida } from '@/lib/salir'
 import { ayudaMarcador } from '@/data/mensajes'
-import { BarraGuardar, Bloque } from './Ajustes'
+import { BarraGuardar, Bloque, Pagina } from './Ajustes'
 import { listarTipos, ponerAjustePeriodo } from '@/data/ajustes'
 import { SelectorAmbito, useAmbito } from '@/components/Ambito'
 
@@ -15,7 +15,7 @@ import { SelectorAmbito, useAmbito } from '@/components/Ambito'
  * desde cada encargo. Texto con marcadores; vista previa al lado.
  */
 export function AjustesFicha() {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const [texto, setTexto] = React.useState('')
   const [guardado, setGuardado] = React.useState<string | null>(null)
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
@@ -84,7 +84,9 @@ export function AjustesFicha() {
   const sucio = texto !== (guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))
 
   return (
-    <Bloque titulo="Ficha imprimible" ayuda={`La hoja que sale con «Imprimir ficha» en cada ${vocab.encargo.toLowerCase()}. También se puede guardar en PDF o copiar como texto.`}>
+    <>
+    <Pagina titulo={`Hoja ${gr.con('encargo', 'del')}`} ayuda={`Lo que sale al pulsar «Imprimir ficha» en cada ${vocab.encargo.toLowerCase()} (también en PDF o como texto).`} />
+    <Bloque titulo="Contenido">
       <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="ficha" />
       {amb.periodo && amb.propio == null && <span className="text-sm text-fg-3">Este periodo usa la ficha de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>}
       <div className="flex flex-col gap-1.5">
@@ -115,5 +117,6 @@ export function AjustesFicha() {
         description={amb.periodo ? 'El periodo vuelve a usar la ficha de la tienda y la suya se borra.' : 'Se borra la ficha personalizada de la tienda y se usa la de por defecto.'}
         actions={[{ label: 'Confirmar', variant: 'danger', onClick: () => { setConfirmarQuitar(false); guardar(null) } }]} />
     </Bloque>
+    </>
   )
 }

@@ -14,7 +14,7 @@ import type { Etapa, Rol } from '@/lib/types'
 import { ROLES, generoAuto, min } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag, tagColorFromHex } from '@/ui'
 import { cn } from '@/lib/utils'
-import { Bloque, Estado, FilaLista, Interruptor, Lista } from './Ajustes'
+import { Bloque, Estado, FilaLista, Interruptor, Lista, Pagina } from './Ajustes'
 
 const PALETA = ['#999999', '#C98A00', '#2B4C9B', '#5A3E96', '#1E6B3C', '#A32E24', '#C2185B']
 const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
@@ -25,7 +25,7 @@ const TIPOS_PUERTA: { v: PuertaDef['tipo']; label: string }[] = [
 ]
 
 /**
- * Ajustes → Flujos. Editor en forma de lista:
+ * Ajustes → Tipos y etapas. Editor en forma de lista:
  * tipos de encargo → etapas en orden → condiciones para entrar en cada etapa.
  * Cada cambio se guarda al momento.
  */
@@ -91,7 +91,9 @@ export function AjustesFlujos() {
 
   return (
     <>
-      <Bloque titulo="Flujos" ayuda={`Cada tipo de ${vocab.encargo.toLowerCase()} tiene sus etapas, en orden. ${gr.Con('encargo', 'un')} avanza de una a la siguiente.`}
+      <Pagina titulo="Tipos y etapas" ayuda={`Los pasos por los que pasa cada ${vocab.encargo.toLowerCase()}, en orden.`}
+        mas={`Cada tipo de ${vocab.encargo.toLowerCase()} (por ejemplo, «a medida» o «arreglo») tiene sus etapas. ${gr.Con('encargo', 'un')} avanza de una a la siguiente. En cada etapa eliges quién la marca; las condiciones para avanzar y los avisos están en sus opciones avanzadas.`} />
+      <Bloque titulo="Tipos"
         acciones={<Button onClick={() => { setDlgTipo('nuevo'); setNombreTipo(''); setDErr(null) }}>+ Tipo</Button>}>
         <div className="flex flex-wrap items-center gap-1.5">
           {tipos.map((t) => (
@@ -132,7 +134,7 @@ export function AjustesFlujos() {
 
       {tipo && (
         <Bloque titulo={`Etapas de «${tipo.nombre}»`}
-          ayuda={<>Pulsa una etapa para ver sus condiciones. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa. «Quién marca» decide en el «Mi trabajo» de quién aparece: {nombresRol.ADMIN} y {nombresRol.OPERATIVO} pueden marcar cualquier etapa.</>}>
+          ayuda={<>Pulsa una etapa para editarla. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa. {nombresRol.ADMIN} y {nombresRol.OPERATIVO} pueden marcar cualquiera.</>}>
           {etapas.length > 0 && !etapas.some((x) => x.es_final) && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa es final: {gr.con('encargo', 'los')} de este tipo nunca terminarían. Abre la última y activa «Es el final».</p>}
           {etapas.length === 0 && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Este tipo aún no tiene etapas: hasta que las tenga no se podrá usar.</p>}
           <Lista>

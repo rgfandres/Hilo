@@ -10,7 +10,7 @@ import { ajustesHoja } from '@/data/produccion'
 import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
-import { BarraGuardar, Bloque, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
 
 type Destino = { entidad: PlantillaCampos['entidad']; tipoId: string | null }
 const TIPOS_CAMPO: { v: Campo['tipo']; l: string }[] = [
@@ -19,7 +19,7 @@ const TIPOS_CAMPO: { v: Campo['tipo']; l: string }[] = [
 type CampoExt = Campo & { visible_proveedor?: boolean }
 
 /**
- * Ajustes → Campos: qué datos se guardan de cada cliente, encargo y producto.
+ * Ajustes → Datos que guardáis: qué datos se guardan de cada cliente, encargo y producto.
  * La clave interna se fija al crear el campo; cambiar la etiqueta no pierde datos.
  */
 export function AjustesCampos() {
@@ -126,7 +126,8 @@ export function AjustesCampos() {
 
   return (
     <>
-      <Bloque titulo="Campos" ayuda={`Los datos que se guardan de cada cosa. Nombre, teléfono y correo ${gr.con('cliente', 'del')} ya vienen de serie.`}>
+      <Pagina titulo="Datos que guardáis" ayuda={`Lo que se apunta de cada cosa. Nombre, teléfono y correo ${gr.con('cliente', 'del')} ya vienen de serie.`} />
+      <Bloque titulo="De qué">
         <div className="flex flex-wrap gap-1.5">
           {destinos.map((o) => {
             const activo = o.d.entidad === dest.entidad && o.d.tipoId === dest.tipoId

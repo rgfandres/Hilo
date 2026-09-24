@@ -110,7 +110,7 @@ export function mensajeError(e: unknown): string {
   if (/duplicate key|unique constraint/i.test(m)) return 'Ya existe uno igual (mismo nombre o número).'
   if (/NO_REVERTIR_STOCK/.test(m)) return 'No se puede revertir: parte de lo recibido ya se ha usado y el stock quedaría en negativo. Corrige el stock a mano si hace falta.'
   if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
-  if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Flujos.'
+  if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Tipos y etapas.'
   if (/PASO_ATRAS/.test(m)) return 'Ese paso ya está hecho o es anterior al actual. Recarga para ver el estado real.'
   if (/VOLVER_ADELANTE/.test(m)) return 'Solo se puede volver a una etapa anterior a la actual.'
   if (/INCIDENCIA_ABIERTA/.test(m)) return 'Hay una incidencia abierta: resuélvela antes de avanzar.'
