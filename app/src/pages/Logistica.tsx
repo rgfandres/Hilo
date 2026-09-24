@@ -179,8 +179,8 @@ export function Logistica() {
             {porProd.size > 1 && (
               <div className="flex items-center gap-2">
                 <Select className="w-auto max-w-full" value={prod} onChange={(x) => setProd(x.target.value)} aria-label={vocab.producto}>
-                  <option value="">Todos {gr.genero.producto === 'f' ? 'las' : 'los'} {min(vocab.productos)} ({enBandeja.length})</option>
-                  {[...porProd.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([n, c]) => <option key={n} value={n}>{n} ({c})</option>)}
+                  <option value="">{gr.genero.producto === 'f' ? 'Todas las' : 'Todos los'} {min(vocab.productos)} ({enBandeja.length})</option>
+                  {[...porProd.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([n, c]) => <option key={n} value={n}>{n === '—' ? `Sin ${min(vocab.producto)}` : n} ({c})</option>)}
                 </Select>
                 {prod && <span className="text-sm text-fg-3">{filtrados.length} de {enBandeja.length}</span>}
               </div>
@@ -260,8 +260,9 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, valor, etiquetaValor, fecha, o
       {pasos.length > 1 && (
         <div className="flex flex-wrap gap-1">
           {pasos.map((p) => {
-            const h = hitos.find((x) => x.etapa_id === p.id)
             const pasado = p.orden <= actualOrden
+            // Solo cuentan los pasos ya dados (si se volvió atrás, los posteriores no)
+            const h = pasado ? [...hitos].reverse().find((x) => x.etapa_id === p.id) : undefined
             return (
               <span key={p.id} title={h ? new Date(h.fecha).toLocaleString('es-ES') : pasado ? 'Sin fecha' : 'Pendiente'}
                 className={cn('rounded-sm px-1.5 py-0.5 text-xs', h ? 'bg-bg-4 text-fg' : pasado ? 'bg-bg-3 text-fg-3' : 'border border-dashed border-border text-fg-3')}>
