@@ -43,6 +43,7 @@ const GRUPOS: { titulo: string; items: Sec[] }[] = [
   { titulo: 'Personas y acceso', items: [
     { to: 'equipo', label: () => 'Equipo', quien: 'admin' },
     { to: 'papeles', label: () => 'Nombres de los papeles', quien: 'admin' },
+    { to: 'pantallas', label: () => 'Qué ve cada papel', quien: 'admin' },
     { to: 'seguridad', label: () => 'Seguridad', quien: 'admin' },
   ] },
   { titulo: 'Mi cuenta', items: [

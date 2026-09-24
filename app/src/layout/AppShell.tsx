@@ -13,6 +13,7 @@ import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica } from '@/data/logistica'
 import { activo, bloqueado, enRevisar, miTrabajo, pendientesDe, tope99 } from '@/lib/bandejas'
 import { bandejasLista, pendientesConf } from '@/lib/listaBandejas'
+import { inicioDe, pantallaDeRuta, pantallasDe, type Pantalla } from '@/lib/pantallas'
 import { cn } from '@/lib/utils'
 import { useCerrarConAtras } from '@/lib/movil'
 import { useConexion } from '@/lib/conexion'
@@ -48,6 +49,17 @@ export function AppShell() {
   const conexion = useConexion()
   const hoja = ajustesHoja(tienda?.ajustes as Record<string, unknown>)
   const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
+  // Pantallas que ve este papel (si la tienda lo ha configurado)
+  const pant = pantallasDe(tienda?.ajustes as Record<string, unknown>, rol)
+  const ve = (k: Pantalla) => !pant || pant.has(k)
+  // Una pantalla que este papel no ve (escrita a mano en la dirección, o la de inicio) lleva a la suya
+  const navG = useNavigate()
+  React.useEffect(() => {
+    if (!pant) return
+    const k = pantallaDeRuta(loc.pathname)
+    if (k && !pant.has(k)) navG(inicioDe(pant), { replace: true })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.pathname, tienda?.ajustes, rol])
   // Contadores del menú: se recalculan al cambiar de pantalla y cada minuto (solo con la pestaña visible)
   React.useEffect(() => {
     if (!tienda) return
@@ -111,7 +123,18 @@ export function AppShell() {
   const nombre = (session?.user.user_metadata?.name as string | undefined) ?? session?.user.email ?? ''
 
   // Barra inferior del móvil: 4 destinos según el rol + «Más» (abre el menú completo)
-  const destinos = rol === 'LOGISTICA'
+  const todosDestinos = [
+    { k: 'logistica' as Pantalla, to: '/logistica', label: 'Mi trabajo', icon: IconTruck, n: cuenta.logistica },
+    { k: 'parahoy' as Pantalla, to: rol === 'LOGISTICA' ? '/para-hoy' : '/', label: 'Para hoy', icon: IconClock },
+    { k: 'encargos' as Pantalla, to: '/encargos', label: vocab.encargos, icon: IconLayoutList, n: cuenta.encargos },
+    { k: 'nuevo' as Pantalla, to: '/encargos/nuevo', label: 'Nuevo', icon: IconPlus },
+    { k: 'clientes' as Pantalla, to: '/clientes', label: vocab.clientes, icon: IconUser },
+    { k: 'productos' as Pantalla, to: '/productos', label: vocab.productos, icon: IconBox },
+    { k: 'proveedores' as Pantalla, to: '/proveedores', label: vocab.proveedores, icon: IconBuildingWarehouse },
+  ]
+  const destinos = pant
+    ? todosDestinos.filter((d) => pant.has(d.k) && (d.k !== 'logistica' || conLogistica)).slice(0, 4)
+    : rol === 'LOGISTICA'
     ? [conLogistica ? { to: '/logistica', label: 'Mi trabajo', icon: IconTruck, n: cuenta.logistica } : { to: '/encargos?b=mio', label: 'Mi trabajo', icon: IconListCheck }, { to: '/encargos', label: vocab.encargos, icon: IconLayoutList, n: conLogistica ? undefined : cuenta.encargos },
        { to: '/proveedores', label: vocab.proveedores, icon: IconBuildingWarehouse }, { to: '/para-hoy', label: 'Para hoy', icon: IconClock }]
     : rol === 'ATENCION'
@@ -159,15 +182,16 @@ export function AppShell() {
           <IconSearch size={14} /><span className="flex-1 text-left">Buscar</span><span className="text-xs">{esMac ? '⌘K' : 'Ctrl K'}</span>
         </button>
 
-        <Item to={rol === 'LOGISTICA' ? '/para-hoy' : '/'} icon={<IconClock size={14} />}>Para hoy</Item>
-        <Item to="/encargos" icon={<IconLayoutList size={14} />} count={cuenta.encargos} title="Pendientes para ti: tu trabajo y lo que hay que revisar">{vocab.encargos}</Item>
-        <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>
-        <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>
-        <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en manos de un proveedor">{vocab.proveedores}</Item>
-        {conLogistica && rol !== 'ATENCION' && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' || rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.logistica : 0}>{nombresRol.LOGISTICA}</Item>}
-        {hoja.activo && rol !== 'LOGISTICA' && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
-        {conMateriales && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
-        <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>
+        {ve('parahoy') && <Item to={rol === 'LOGISTICA' ? '/para-hoy' : '/'} icon={<IconClock size={14} />}>Para hoy</Item>}
+        {ve('encargos') && <Item to="/encargos" icon={<IconLayoutList size={14} />} count={cuenta.encargos} title="Pendientes para ti: tu trabajo y lo que hay que revisar">{vocab.encargos}</Item>}
+        {pant?.has('nuevo') && !pant.has('encargos') && <Item to="/encargos/nuevo" icon={<IconPlus size={14} />}>{`${vocab.encargo} nuevo`}</Item>}
+        {ve('clientes') && <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>}
+        {ve('productos') && <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>}
+        {ve('proveedores') && <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en manos de un proveedor">{vocab.proveedores}</Item>}
+        {conLogistica && rol !== 'ATENCION' && ve('logistica') && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' || rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.logistica : 0}>{nombresRol.LOGISTICA}</Item>}
+        {hoja.activo && rol !== 'LOGISTICA' && ve('produccion') && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
+        {conMateriales && ve('materiales') && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
+        {rol === 'ADMIN' && <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>}
         {rol === 'ADMIN' && <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>}
         <div className="flex-1" />
         <span className="flex items-center gap-1.5 px-2 pb-1 text-xs text-fg-3" title={conexion === 'conectado' ? 'Conectado con el servidor' : 'Sin conexión: lo que cambies no se guardará'}>
