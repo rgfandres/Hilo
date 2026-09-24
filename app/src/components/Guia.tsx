@@ -7,12 +7,15 @@ import { guiaDe, opcionesGuia, sugerir, type Guia, type Sugerencia } from '@/dat
  * Guía de medidas en un formulario: el campo destino toma las opciones de la guía y se
  * autorrellena con la propuesta mientras nadie lo haya tocado a mano.
  */
-export function useGuia({ datos, etiquetas, valor, setValor, inicialTocado }: {
+export function useGuia({ datos, etiquetas, valor, setValor, inicialTocado, periodoAjustes }: {
   datos: Record<string, unknown>; etiquetas: Record<string, string>
   valor: string; setValor: (v: string) => void; inicialTocado: boolean
+  /** Ajustes del periodo del encargo (al editar uno de otro periodo); si no, el periodo activo */
+  periodoAjustes?: Record<string, unknown> | null
 }) {
   const { tienda, periodo } = useAuth()
-  const g: Guia = React.useMemo(() => guiaDe(tienda?.ajustes as Record<string, unknown>, periodo?.ajustes), [tienda, periodo])
+  const pAj = periodoAjustes !== undefined ? periodoAjustes : periodo?.ajustes
+  const g: Guia = React.useMemo(() => guiaDe(tienda?.ajustes as Record<string, unknown>, pAj), [tienda, pAj])
   const [tocado, setTocado] = React.useState(inicialTocado)
   const sug = React.useMemo(() => sugerir(g, datos, etiquetas), [g, datos, etiquetas])
   React.useEffect(() => {

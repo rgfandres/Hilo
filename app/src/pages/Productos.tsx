@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import * as React from 'react'
 import { IconPhoto, IconSearch, IconUpload, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -33,6 +34,15 @@ export function Productos() {
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [q, setQ] = React.useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [inactivos, setInactivos] = React.useState(false)
+  // La búsqueda puede llegar por la URL (desde el buscador) estando ya en esta pantalla
+  const loc = useLocation()
+  React.useEffect(() => { const u = new URLSearchParams(loc.search).get('q'); if (u != null) setQ(u) }, [loc.search])
+  // Si lo buscado solo está entre los inactivos, se muestran
+  React.useEffect(() => {
+    const t = q.trim().toLowerCase(); if (!t || !lista) return
+    const m = lista.filter((p) => p.nombre.toLowerCase().includes(t))
+    if (m.length && m.every((p) => !p.activo)) setInactivos(true)
+  }, [q, lista])
   const [editar, setEditar] = React.useState<ProductoFila | 'nuevo' | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
 

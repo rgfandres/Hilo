@@ -1,8 +1,12 @@
 import { plano } from '@/lib/texto'
+import { min, rolesDe, vocabDe, type Vocab } from '@/lib/vocab'
 import { supabase } from '@/lib/supabase'
 import type { Comentario, EncargoEstado, Etapa, Hito, TipoHito } from '@/lib/types'
 
-/** Encargos de la tienda. Por defecto, activos del periodo activo (si lo hay). */
+/**
+ * Encargos de la tienda. Con periodo: los de ese periodo y, además, todo lo que sigue abierto
+ * de periodos anteriores (lo abierto se ve siempre; el periodo solo filtra lo terminado).
+ */
 export async function listarEncargos(
   tiendaId: string,
   opts: { periodoId?: string | null; estado?: 'ACTIVO' | 'ANULADO' } = {},
@@ -12,7 +16,7 @@ export async function listarEncargos(
     .select('*')
     .eq('tienda_id', tiendaId)
     .eq('estado', opts.estado ?? 'ACTIVO')
-  if (opts.periodoId) q = q.eq('periodo_id', opts.periodoId)
+  if (opts.periodoId) q = q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
   const { data, error } = await q.order('numero', { ascending: false })
   if (error) throw error
   return (data ?? []) as EncargoEstado[]
@@ -102,11 +106,34 @@ export function mensajeError(e: unknown): string {
   if (/JWT expired|invalid JWT|refresh token/i.test(m)) return 'Tu sesión ha caducado. Vuelve a entrar.'
   if (/Proveedor no válido o inactivo/i.test(m)) return 'Tu cuenta no está asociada a ningún proveedor activo de esta tienda. Pide a la tienda que te añada.'
   if (/duplicate key|unique constraint/i.test(m)) return 'Ya existe uno igual (mismo nombre o número).'
+  if (/NO_REVERTIR_STOCK/.test(m)) return 'No se puede revertir: parte de lo recibido ya se ha usado y el stock quedaría en negativo. Corrige el stock a mano si hace falta.'
   if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
   if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Flujos.'
   const rol = m.match(/ROL_NO_MARCA:[^:]*:(.*)$/)
   if (rol) return `Tu rol no puede marcar «${rol[1]}». Lo marca otra persona del equipo.`
-  return m.replace(/^.*?Bloqueado:\s*/, 'No se puede: ')
+  if (/Etapa .* no existe para este tipo/.test(m)) return 'Esa etapa ya no existe en el flujo. Recarga la página.'
+  return traducirServidor(m.replace(/^.*?Bloqueado:\s*/, 'No se puede: '))
+}
+
+// Contexto de la tienda para traducir los textos del servidor (vocabulario y nombres de rol)
+let ctxErr: { vocab: Vocab; roles: Record<string, string> } = { vocab: vocabDe(null), roles: rolesDe(null) }
+export function contextoErrores(ajustes: Record<string, unknown> | null | undefined) {
+  ctxErr = { vocab: vocabDe(ajustes), roles: rolesDe(ajustes) }
+}
+/** Cambia códigos de rol y palabras fijas (encargo, cliente, proveedor) por las de la tienda */
+function traducirServidor(m: string): string {
+  const { vocab, roles } = ctxErr
+  const conMay = (orig: string, nuevo: string) => orig[0] === orig[0].toUpperCase() ? nuevo.charAt(0).toUpperCase() + nuevo.slice(1) : min(nuevo)
+  let r = m.replace(/Solo ADMIN\b/g, 'Solo administración')
+  r = r.replace(/\b(ADMIN|OPERATIVO|ATENCION|LOGISTICA)\b/g, (k) => `«${roles[k as keyof typeof roles] ?? k}»`)
+  r = r.replace(/encargo\(s\)/g, min(vocab.encargos))
+  r = r.replace(/\b([Ee]ncargos|[Ee]ncargo|[Cc]lientes|[Cc]liente|[Pp]roveedores|[Pp]roveedor)\b/g, (w) => {
+    const base = w.toLowerCase()
+    const v = base === 'encargos' ? vocab.encargos : base === 'encargo' ? vocab.encargo
+      : base === 'clientes' ? vocab.clientes : base === 'cliente' ? vocab.cliente : base === 'proveedores' ? vocab.proveedores : vocab.proveedor
+    return conMay(w, v)
+  })
+  return r
 }
 
 export async function resolverIncidencia(encargoId: string, nota?: string) {

@@ -143,7 +143,7 @@ export function Cliente() {
           )}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col max-md:min-h-[70vh]">
-          <div className="flex h-9 items-center border-b border-border px-5 font-medium">{vocab.encargos} <span className="ml-1.5 text-fg-3">{encs.length}</span></div>
+          <div className="flex h-9 items-center border-b border-border px-5 font-medium">{vocab.encargos} <span className="ml-1.5 text-fg-3">{encs.filter((e) => e.estado === 'ACTIVO').length}{encs.some((e) => e.estado === 'ANULADO') && ` (+${encs.filter((e) => e.estado === 'ANULADO').length} anulad${gr.o('encargo', encs.filter((e) => e.estado === 'ANULADO').length !== 1)})`}</span></div>
           <div className="min-h-0 flex-1 overflow-auto">
             {encs.length === 0 ? <p className="p-5 text-fg-3">{gr.Con('cliente', 'este')} todavía no tiene {min(vocab.encargos)}.</p> : (
               <Table>

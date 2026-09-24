@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import {
   ajustarStock, ajustesMaterial, cambiarResto, cant, crearPedido, guardarMaterial, guardarResto, lineasDeTienda, listarMateriales,
   listarMovimientos, listarPedidos, listarRestos, nombreMaterial, propuestaPedido, recibirLinea, restoCandidato, revertirMovimiento,
-  avisoStock, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto,
+  avisoStock, bajoUmbral, cerrarLineaPedido, type LineaMaterial, type LineaPedido, type MaterialEstado, type Movimiento, type Resto,
 } from '@/data/materiales'
 import { listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
 import { mensajeError } from '@/data/encargos'
@@ -101,7 +101,7 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
   const [editar, setEditar] = React.useState<MaterialEstado | 'nuevo' | null>(null)
   const [stock, setStock] = React.useState<MaterialEstado | null>(null)
   const t = q.trim().toLowerCase()
-  const bajo = (m: MaterialEstado) => avisoStock(m).nivel !== null || Number(m.stock) < Number(m.umbral_efectivo)
+  const bajo = bajoUmbral
   const vis = mats.filter((m) => (filtro === 'inactivos' ? !m.activo : m.activo) && (filtro !== 'bajo' || bajo(m))
     && (!t || `${m.tipo} ${m.variante} ${m.proveedor_nombre ?? ''} ${m.ubicacion ?? ''}`.toLowerCase().includes(t)))
   const tipos = [...new Set(vis.map((m) => m.tipo))]
@@ -123,7 +123,7 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
       </div>
       {vis.length === 0 ? <p className="p-6 text-center text-fg-3">{mats.length ? 'Nada coincide.' : `Todavía no hay ${min(vocab.materiales)}. Añade el primero o créalo al asignarlo a un ${min(vocab.encargo)}.`}</p> : (
         <Table>
-          <thead><Tr><Th>Variante</Th><Th>Proveedor</Th><Th className="text-right">Stock</Th><Th className="text-right">Pedido por {min(vocab.encargos)}</Th><Th className="text-right">En camino</Th><Th className="text-right">Umbral</Th><Th>Ubicación</Th><Th /></Tr></thead>
+          <thead><Tr><Th>Variante</Th><Th>Proveedor</Th><Th className="text-right">Stock</Th><Th className="text-right">Necesario para {min(vocab.encargos)}</Th><Th className="text-right">En camino</Th><Th className="text-right">Umbral</Th><Th>Ubicación</Th><Th /></Tr></thead>
           <tbody>
             {tipos.map((tipo) => (
               <React.Fragment key={tipo}>
@@ -141,7 +141,8 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
                       <Td className="text-right tabular text-fg-2">{Number(m.en_camino) > 0 ? cant(m.en_camino, unidad) : '—'}</Td>
                       <Td className="text-right tabular text-fg-3">{m.umbral_efectivo}</Td>
                       <Td className="text-fg-2">{m.ubicacion ?? ''}</Td>
-                      <Td>{av.nivel === 'falta' ? <Tag color="red">Falta</Tag> : av.nivel === 'limite' ? <Tag color="amber">Al límite</Tag> : Number(m.restos) > 0 ? <Tag color="gray">+{cant(m.restos, unidad)} en restos</Tag> : null}</Td>
+                      <Td>{av.nivel === 'falta' ? <Tag color="red">Falta</Tag> : av.nivel === 'limite' ? <Tag color="amber">Al límite</Tag> : Number(m.restos) > 0 ? <Tag color="gray">+{cant(m.restos, unidad)} en restos</Tag> : null}
+                        {!m.unidad_efectiva && <span className="ml-1 text-xs text-fg-3" title="Sin unidad de pedido: la propuesta no se redondea y no se ofrecen restos">sin unidad de pedido</span>}</Td>
                     </Tr>
                   )
                 })}
@@ -259,6 +260,8 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
   const [prop, setProp] = React.useState<Record<string, Propuesta>>({})
   const [filtro, setFiltro] = React.useState<'camino' | 'todos'>('camino')
   const [recibir, setRecibir] = React.useState<LineaPedido | null>(null)
+  const [cerrar, setCerrar] = React.useState<LineaPedido | null>(null)
+  const [motivoCerrar, setMotivoCerrar] = React.useState('')
   const [resto, setResto] = React.useState<{ m: MaterialEstado; cantidad: number } | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [texto, setTexto] = React.useState<string | null>(null)
@@ -294,7 +297,16 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
         // Reparto entre encargos: a cada uno lo suyo; si el pedido es «por encargo» (unidad pequeña), la unidad entera
         const u = Number(x.m.unidad_efectiva || 0)
         const porEnc = u > 0 && u <= aj.porEncargoMax
-        return { material_id: x.m.id, cantidad: n(x.pedir), encargos: x.lineas.map((l) => ({ id: l.encargo_id, cantidad: porEnc ? Math.ceil(Number(l.cantidad) / u - 1e-9) * u : Number(l.cantidad) })) }
+        // Solo pasan a «pedido» los encargos que quedan cubiertos (por orden de llegada) con lo pedido más lo libre del stock
+        const libre = Math.max(0, Number(x.m.stock) + Number(x.m.en_camino) - (Number(x.m.demanda) - Number(x.m.demanda_sin_pedir)))
+        let queda = n(x.pedir) + libre
+        const cubiertos = []
+        for (const l of x.lineas) {
+          const c = porEnc ? Math.ceil(Number(l.cantidad) / u - 1e-9) * u : Number(l.cantidad)
+          if (c > queda + 1e-9) continue
+          queda -= c; cubiertos.push({ id: l.encargo_id, cantidad: c })
+        }
+        return { material_id: x.m.id, cantidad: n(x.pedir), encargos: cubiertos }
       }))
       avisar({ tipo: 'ok', texto: `Pedido anotado${provId ? ` a ${nombreProv(provId)}` : ''}` })
       setTexto(textoPedido(provId, xs))
@@ -319,7 +331,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
               {puedeEditar && <Button size="sm" variant="primary" cargando={busy === provId} onClick={() => hacerPedido(provId, xs)}>Anotar pedido</Button>}
             </div>
             <Table>
-              <thead><Tr><Th className="w-8" /><Th>{vocab.material}</Th><Th className="text-right">Stock</Th><Th className="text-right">Pedido por {min(vocab.encargos)}</Th><Th className="text-right">Falta</Th><Th>Pedir</Th><Th>Para</Th></Tr></thead>
+              <thead><Tr><Th className="w-8" /><Th>{vocab.material}</Th><Th className="text-right">Stock</Th><Th className="text-right">Necesario para {min(vocab.encargos)}</Th><Th className="text-right">Falta</Th><Th>Pedir</Th><Th>Para</Th></Tr></thead>
               <tbody>
                 {xs.map((x) => {
                   const p = propuestaPedido(x.m)
@@ -331,7 +343,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
                       <Td className="text-right tabular text-fg-2">{cant(x.m.demanda, aj.unidad)}</Td>
                       <Td className="text-right tabular text-fg-2">{cant(p.falta, aj.unidad)}</Td>
                       <Td><Input className="h-6 w-[90px]" inputMode="decimal" value={x.pedir} onChange={(e) => setProp((s) => ({ ...s, [x.m.id]: { ...x, pedir: e.target.value } }))} />
-                        {x.m.unidad_efectiva ? <span className="ml-1 text-xs text-fg-3">de {x.m.unidad_efectiva} en {x.m.unidad_efectiva}</span> : null}</Td>
+                        {x.m.unidad_efectiva ? <span className="ml-1 text-xs text-fg-3">de {x.m.unidad_efectiva} en {x.m.unidad_efectiva}</span> : <span className="ml-1 text-xs text-fg-3">sin unidad de pedido</span>}</Td>
                       <Td className="text-sm text-fg-2">{x.lineas.length ? x.lineas.map((l) => <Link key={l.id} to={`/encargos/${l.encargo_id}`} className="mr-1.5 hover:underline">{num3(l.encargo)} {l.encargo?.cliente?.nombre}</Link>) : <span className="text-fg-3">stock</span>}</Td>
                     </Tr>
                   )
@@ -357,9 +369,13 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
                   <Td className="text-fg-2">{p.proveedor_nombre ?? '—'}</Td>
                   <Td className="font-medium">{nombreMaterial(p)}</Td>
                   <Td className="text-right tabular">{Number(p.recibido).toLocaleString('es-ES')} / {cant(p.cantidad, aj.unidad)}</Td>
-                  <Td><Tag color={p.estado === 'RECIBIDO' ? 'green' : p.estado === 'PARCIAL' ? 'amber' : 'blue'}>{p.estado === 'RECIBIDO' ? 'Recibido' : p.estado === 'PARCIAL' ? 'Parcial' : 'En camino'}</Tag></Td>
+                  <Td><Tag color={p.estado === 'RECIBIDO' ? 'green' : p.estado === 'CERRADA' ? 'gray' : p.estado === 'PARCIAL' ? 'amber' : 'blue'}>{p.estado === 'RECIBIDO' ? 'Recibido' : p.estado === 'CERRADA' ? 'Cerrado' : p.estado === 'PARCIAL' ? 'Parcial' : 'En camino'}</Tag>
+                    {p.estado === 'CERRADA' && p.cerrada_motivo && <div className="text-xs text-fg-3">{p.cerrada_motivo}</div>}</Td>
                   <Td className="text-sm text-fg-2">{p.encargos.map((e) => <Link key={e.id} to={`/encargos/${e.id}`} className="mr-1.5 hover:underline">{num3(e)} {e.cliente}</Link>)}</Td>
-                  <Td>{p.estado !== 'RECIBIDO' && <Button size="sm" onClick={() => setRecibir(p)}>He recibido…</Button>}</Td>
+                  <Td className="whitespace-nowrap">{p.estado !== 'RECIBIDO' && p.estado !== 'CERRADA' && <>
+                    <Button size="sm" onClick={() => setRecibir(p)}>He recibido…</Button>
+                    {puedeEditar && <Button size="sm" variant="ghost" onClick={() => { setCerrar(p); setMotivoCerrar('') }} title="El proveedor no servirá lo que falta: deja de contar como «en camino»">Cerrar</Button>}
+                  </>}</Td>
                 </Tr>
               ))}
             </tbody>
@@ -368,6 +384,14 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
       </section>
 
       <CapaCarga texto={busy ? 'Anotando el pedido…' : null} />
+      <Dialog open={!!cerrar} onOpenChange={(o) => !o && setCerrar(null)} title={`Cerrar el pedido · ${nombreMaterial(cerrar)}`}
+        description={cerrar ? `Faltan ${cant(cerrar.pendiente, aj.unidad)} que ya no se esperan: dejan de contar como «en camino» y ${min(vocab.encargos)} que lo esperaban vuelven a «por pedir».` : ''}
+        actions={[{ label: 'Cerrar el pedido', variant: 'danger', onClick: async () => {
+          if (!cerrar) return
+          try { await cerrarLineaPedido(cerrar.id, motivoCerrar); setCerrar(null); await onCambio(); avisar({ tipo: 'ok', texto: 'Pedido cerrado' }) } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+        } }]}>
+        <Input placeholder="Motivo (opcional): no hay existencias, se anula…" value={motivoCerrar} onChange={(e) => setMotivoCerrar(e.target.value)} />
+      </Dialog>
       <DialogoRecibir linea={recibir} unidad={aj.unidad} onClose={() => setRecibir(null)} onHecho={async (stock) => {
         const m = mats.find((x) => x.id === recibir?.material_id)
         await onCambio()
@@ -382,11 +406,12 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
   )
 }
 
-function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: LineaPedido | null; unidad: string; onClose: () => void; onHecho: (stock: number) => Promise<void> }) {
+export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: LineaPedido | null; unidad: string; onClose: () => void; onHecho: (stock: number) => Promise<void> }) {
   const { vocab } = useAuth()
   const avisar = useAvisos()
   const [v, setV] = React.useState(''); const [asignar, setAsignar] = React.useState(true); const [err, setErr] = React.useState<string | null>(null)
-  React.useEffect(() => { if (linea) { setV(String(linea.pendiente)); setAsignar(linea.encargos.length > 0); setErr(null) } }, [linea])
+  const vivos = (linea?.encargos ?? []).filter((e) => e.activo !== false)
+  React.useEffect(() => { if (linea) { setV(String(linea.pendiente)); setAsignar(linea.encargos.some((e) => e.activo !== false)); setErr(null) } }, [linea])
   return (
     <Dialog open={!!linea} onOpenChange={(o) => !o && onClose()} title={`He recibido · ${nombreMaterial(linea)}`} error={err}
       description={linea ? `Pedido ${cant(linea.cantidad, unidad)}; faltan ${cant(linea.pendiente, unidad)}. Puedes recibir por partes o más de lo pedido.` : ''}
@@ -401,10 +426,10 @@ function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: LineaPedid
         } catch (e) { setErr(mensajeError(e)) }
       } }]}>
       <FormRow label={`Ha llegado (${unidad})`}><Input className="h-7 w-[140px]" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} autoFocus /></FormRow>
-      {linea && linea.encargos.length > 0 && (
+      {linea && vivos.length > 0 && (
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-0.5" checked={asignar} onChange={(e) => setAsignar(e.target.checked)} />
-          <span>Asignarlo ya a sus {min(vocab.encargos)} ({linea.encargos.map((e) => num3(e)).join(', ')}): cuenta como recibido y se descuenta del stock.</span>
+          <span>Asignarlo ya a sus {min(vocab.encargos)} ({vivos.map((e) => num3(e)).join(', ')}): cuenta como recibido y se descuenta del stock.</span>
         </label>
       )}
     </Dialog>
@@ -436,7 +461,7 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
       </div>
       {movs === null ? <p className="p-4 text-fg-3">Cargando…</p> : movs.length === 0 ? <p className="p-6 text-center text-fg-3">Sin movimientos.</p> : (
         <Table>
-          <thead><Tr><Th>Fecha</Th><Th>{vocab.material}</Th><Th>Tipo</Th><Th className="text-right">Cantidad</Th><Th className="text-right">Stock</Th><Th>Nota</Th><Th /></Tr></thead>
+          <thead><Tr><Th>Fecha</Th><Th>{vocab.material}</Th><Th>Tipo</Th><Th className="text-right">Cantidad</Th><Th className="text-right">Efecto en stock</Th><Th>Nota</Th><Th /></Tr></thead>
           <tbody>
             {movs.map((m) => (
               <Tr key={m.id} className={cn(m.revertido && 'opacity-55')}>

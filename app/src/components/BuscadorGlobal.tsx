@@ -27,8 +27,8 @@ export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenCh
   React.useEffect(() => {
     if (!open || !tienda) return
     setQ(''); setSel(0)
-    Promise.all([listarEncargos(tienda.id), listarProductos(tienda.id), listarProveedores(tienda.id)])
-      .then(([enc, prod, prov]) => setBase({ enc, prod, prov })).catch(() => setBase({ enc: [], prod: [], prov: [] }))
+    Promise.all([listarEncargos(tienda.id), listarEncargos(tienda.id, { estado: 'ANULADO' }), listarProductos(tienda.id), listarProveedores(tienda.id)])
+      .then(([enc, anul, prod, prov]) => setBase({ enc: [...enc, ...anul], prod, prov })).catch(() => setBase({ enc: [], prod: [], prov: [] }))
   }, [open, tienda])
 
   // Clientes: en el servidor (pueden ser muchos), con una pequeña espera al teclear
@@ -47,7 +47,7 @@ export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenCh
     const enc = base.enc.filter((e) => coincide(q, [num3(e), e.numero, e.cliente_nombre, e.cliente_telefono, e.producto_nombre, e.proveedor_nombre]))
       .slice(0, 6).map((e) => ({
         grupo: vocab.encargos, id: 'e' + e.id, titulo: `${num3(e)} · ${e.cliente_nombre ?? ''}`,
-        detalle: [e.producto_nombre, e.etapa_actual_nombre].filter(Boolean).join(' · '), ir: `/encargos/${e.id}`,
+        detalle: [e.producto_nombre, e.estado === 'ANULADO' ? 'anulado' : e.etapa_actual_nombre].filter(Boolean).join(' · '), ir: `/encargos/${e.id}`,
       }))
     const prod = base.prod.filter((p) => coincide(q, [p.nombre])).slice(0, 4)
       .map((p) => ({ grupo: vocab.productos, id: 'p' + p.id, titulo: p.nombre, detalle: p.activo ? undefined : 'inactivo', ir: `/productos?q=${encodeURIComponent(p.nombre)}` }))

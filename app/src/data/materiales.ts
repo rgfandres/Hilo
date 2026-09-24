@@ -19,8 +19,9 @@ export interface Movimiento {
 }
 export interface LineaPedido {
   id: string; pedido_id: string; material_id: string; cantidad: number; fecha: string; proveedor_id: string | null; proveedor_nombre: string | null
-  pedido_notas: string | null; tipo: string; variante: string; recibido: number; pendiente: number; estado: 'PENDIENTE' | 'PARCIAL' | 'RECIBIDO'
-  encargos: { id: string; numero: number; serie: string | null; cliente: string | null; cantidad: number }[]
+  pedido_notas: string | null; tipo: string; variante: string; recibido: number; pendiente: number; estado: 'PENDIENTE' | 'PARCIAL' | 'RECIBIDO' | 'CERRADA'
+  encargos: { id: string; numero: number; serie: string | null; cliente: string | null; cantidad: number; activo?: boolean }[]
+  cerrada_en?: string | null; cerrada_motivo?: string | null
 }
 export interface Resto { id: string; material_id: string; cantidad: number; origen: string | null; encargo_id: string | null; notas: string | null; fecha: string }
 
@@ -49,9 +50,10 @@ export async function lineasDeEncargo(encargoId: string): Promise<LineaMaterial[
 }
 /** Líneas de todos los encargos activos de la tienda (para las bandejas) */
 export async function lineasDeTienda(tiendaId: string): Promise<LineaMaterial[]> {
-  const l = ok(await supabase.from('encargo_material').select('id,encargo_id,material_id,cantidad,estado,creado_en,encargo(numero,serie,estado,cliente(nombre))')
-    .eq('tienda_id', tiendaId).neq('estado', 'RECIBIDO')) as unknown as LineaMaterial[]
-  return l.filter((x) => x.encargo?.estado === 'ACTIVO')
+  // Solo encargos en curso (ni anulados ni terminados)
+  const l = ok(await supabase.from('v_linea_material').select('*').eq('tienda_id', tiendaId).order('creado_en')) as unknown as
+    (LineaMaterial & { numero: number; serie: string | null; cliente_nombre: string | null })[]
+  return l.map((x) => ({ ...x, encargo: { numero: x.numero, serie: x.serie, estado: 'ACTIVO', cliente: x.cliente_nombre ? { nombre: x.cliente_nombre } : null } }))
 }
 export async function anadirLinea(tiendaId: string, encargoId: string, materialId: string, cantidad: number) {
   ok(await supabase.from('encargo_material').insert({ tienda_id: tiendaId, encargo_id: encargoId, material_id: materialId, cantidad }))
@@ -80,6 +82,9 @@ export async function listarPedidos(tiendaId: string): Promise<LineaPedido[]> {
 }
 export async function crearPedido(tiendaId: string, proveedorId: string | null, lineas: { material_id: string; cantidad: number; encargos: { id: string; cantidad: number }[] }[], notas?: string) {
   return ok(await supabase.rpc('crear_pedido', { p_tienda: tiendaId, p_proveedor: proveedorId, p_lineas: lineas, p_notas: notas ?? null })) as string
+}
+export async function cerrarLineaPedido(lineaId: string, motivo?: string) {
+  ok(await supabase.rpc('cerrar_linea_pedido', { p_linea: lineaId, p_motivo: motivo ?? null }))
 }
 export async function recibirLinea(lineaId: string, cantidad: number, asignar: boolean): Promise<{ stock: number; asignados: number }> {
   return ok(await supabase.rpc('recibir_linea', { p_linea: lineaId, p_cantidad: cantidad, p_asignar: asignar })) as { stock: number; asignados: number }
@@ -151,3 +156,6 @@ export function propuestaPedido(m: MaterialEstado): { falta: number; pedir: numb
 }
 export const numEncargo = (e: { numero: number; serie?: string | null } | null | undefined) =>
   !e ? '—' : `${e.serie ?? ''}${String(e.numero).padStart(3, '0')}`
+
+/** Una sola regla de «bajo umbral» para todas las pantallas: stock por debajo del umbral o no alcanza para lo pedido */
+export const bajoUmbral = (m: MaterialEstado) => Number(m.stock) < Number(m.umbral_efectivo) || avisoStock(m).nivel !== null

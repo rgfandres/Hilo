@@ -40,7 +40,7 @@ export function AppShell() {
   const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, rol, verComo, setVerComo, nombresRol } = useAuth()
   const loc = useLocation()
   const logo = ((tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url as string | undefined) ?? null
-  const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number }>({ encargos: 0, atascados: 0 })
+  const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number; logistica: number }>({ encargos: 0, atascados: 0, logistica: 0 })
   const conMateriales = ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && rol !== 'LOGISTICA'
   const [porPedir, setPorPedir] = React.useState(0)
   const conexion = useConexion()
@@ -53,7 +53,9 @@ export function AppShell() {
     const leer = () => {
       if (document.hidden) return
       listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((rows) => {
-        if (vivo) setCuenta({ encargos: pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado).length })
+        // «Atascados» = demasiados días en manos de un proveedor (lo mismo que se ve en su pantalla)
+        if (vivo) setCuenta({ encargos: pendientesDe(rows, rol), atascados: rows.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,
+          logistica: rows.filter((r) => activo(r) && r.etapa_siguiente_rol === 'LOGISTICA').length })
       }).catch(() => {})
       if (conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')) listarMateriales(tienda.id).then((ms) => { if (vivo) setPorPedir(ms.filter((m) => m.activo && propuestaPedido(m).pedir > 0).length) }).catch(() => {})
     }
@@ -92,7 +94,7 @@ export function AppShell() {
 
   // Barra inferior del móvil: 4 destinos según el rol + «Más» (abre el menú completo)
   const destinos = rol === 'LOGISTICA'
-    ? [conLogistica ? { to: '/logistica', label: 'Mi trabajo', icon: IconTruck } : { to: '/encargos?b=mio', label: 'Mi trabajo', icon: IconListCheck }, { to: '/encargos', label: vocab.encargos, icon: IconLayoutList, n: cuenta.encargos },
+    ? [conLogistica ? { to: '/logistica', label: 'Mi trabajo', icon: IconTruck, n: cuenta.logistica } : { to: '/encargos?b=mio', label: 'Mi trabajo', icon: IconListCheck }, { to: '/encargos', label: vocab.encargos, icon: IconLayoutList, n: conLogistica ? undefined : cuenta.encargos },
        { to: '/proveedores', label: vocab.proveedores, icon: IconBuildingWarehouse }, { to: '/para-hoy', label: 'Para hoy', icon: IconClock }]
     : rol === 'ATENCION'
       ? [{ to: '/', label: 'Para hoy', icon: IconClock }, { to: '/clientes', label: vocab.clientes, icon: IconUser },
@@ -142,8 +144,8 @@ export function AppShell() {
         <Item to="/encargos" icon={<IconLayoutList size={14} />} count={cuenta.encargos} title="Pendientes para ti: tu trabajo y lo que hay que revisar">{vocab.encargos}</Item>
         <Item to="/clientes" icon={<IconUser size={14} />}>{vocab.clientes}</Item>
         <Item to="/productos" icon={<IconBox size={14} />}>{vocab.productos}</Item>
-        <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en una etapa de espera">{vocab.proveedores}</Item>
-        {conLogistica && rol !== 'ATENCION' && <Item to="/logistica" icon={<IconTruck size={14} />}>{nombresRol.LOGISTICA}</Item>}
+        <Item to="/proveedores" icon={<IconBuildingWarehouse size={14} />} count={rol === 'ADMIN' || rol === 'OPERATIVO' ? cuenta.atascados : 0} title="Atascados: demasiados días en manos de un proveedor">{vocab.proveedores}</Item>
+        {conLogistica && rol !== 'ATENCION' && <Item to="/logistica" icon={<IconTruck size={14} />} count={rol === 'LOGISTICA' ? cuenta.logistica : 0}>{nombresRol.LOGISTICA}</Item>}
         {hoja.activo && rol !== 'LOGISTICA' && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
         {conMateriales && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
         <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>

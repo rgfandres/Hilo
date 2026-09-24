@@ -31,7 +31,7 @@ export function AjustesGuia() {
     if (!tienda) return
     plantillas(tienda.id).then((ps) => {
       const m = new Map<string, CampoMini>()
-      for (const p of ps) for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, { clave: c.clave, etiqueta: c.etiqueta + (c.medida && c.unidad ? ` (${c.unidad})` : ''), entidad: p.entidad, tipo: c.tipo, medida: c.medida, unidad: c.unidad })
+      for (const p of ps) for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, { clave: c.clave, etiqueta: c.etiqueta + (c.medida && c.unidad && !c.etiqueta.includes(`(${c.unidad})`) ? ` (${c.unidad})` : ''), entidad: p.entidad, tipo: c.tipo, medida: c.medida, unidad: c.unidad })
       setCampos([...m.values()])
     }).catch(() => {})
   }, [tienda])

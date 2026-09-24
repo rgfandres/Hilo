@@ -10,6 +10,7 @@ import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
 import { ajustesFicha, fichaProducto } from '@/data/catalogos'
 import { AvisoGuia, useGuia } from './Guia'
 import { guiaDe } from '@/data/guia'
+import { supabase } from '@/lib/supabase'
 import { CamposForm, NumeroInput, aTexto, limpiar } from './CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
@@ -63,10 +64,18 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
 
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
   // Guía de medidas: aquí solo se propone (no se cambia lo ya elegido); «Usar» lo aplica
-  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>, periodo?.ajustes).destino ?? ''
+  // La guía que rige es la del periodo del encargo (puede no ser el activo)
+  const [pAj, setPAj] = React.useState<Record<string, unknown> | null | undefined>(undefined)
+  React.useEffect(() => {
+    if (!open) return
+    if (!encargo.periodo_id || encargo.periodo_id === periodo?.id) { setPAj(periodo?.ajustes ?? null); return }
+    supabase.from('periodo').select('ajustes').eq('id', encargo.periodo_id).maybeSingle()
+      .then(({ data }) => setPAj((data?.ajustes as Record<string, unknown> | null) ?? null))
+  }, [open, encargo.periodo_id, periodo])
+  const destinoGuia = guiaDe(tienda?.ajustes as Record<string, unknown>, pAj).destino ?? ''
   const datosGuia = React.useMemo(() => ({ ...f.dCli, ...f.dEnc }), [f.dCli, f.dEnc])
   const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [camposCli, camposEnc])
-  const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(f.dEnc[destinoGuia] ?? ''), inicialTocado: true, setValor: () => {} })
+  const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(f.dEnc[destinoGuia] ?? ''), inicialTocado: true, setValor: () => {}, periodoAjustes: pAj ?? null })
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
   const [receta, setReceta] = React.useState<string | null>(null)
   React.useEffect(() => { setReceta(null); if (open && f.producto) fichaProducto(f.producto).then((p) => setReceta(p?.receta ?? null)).catch(() => {}) }, [open, f.producto])

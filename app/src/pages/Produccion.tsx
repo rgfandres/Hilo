@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { IconPencil, IconPrinter } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustesHoja, imprimirHoja, listarImpresiones, listarLineas, marcarImprimir, materialDeEncargos, notasProduccion, registrarImpresion,
+  ajustesHoja, marcarAvisoVisto, imprimirHoja, listarImpresiones, listarLineas, marcarImprimir, materialDeEncargos, notasProduccion, registrarImpresion,
   type ContenidoImpresion, type Impresion, type LineaHoja,
 } from '@/data/produccion'
 import { actualizarEncargo, crearHito, listarEncargos, listarEtapas, mensajeError, ponerNotaCampo } from '@/data/encargos'
@@ -68,7 +68,7 @@ export function Produccion() {
     && !todas.some((l) => l.encargo_id === e.id && l.coherencia === 'ENVIADO'))
   const productos = new Map<string, { nombre: string; n: number; pend: number }>()
   for (const l of todas) {
-    if (l.coherencia === 'ANULADO' && l.impreso_en) continue
+    if (l.coherencia === 'ANULADO' && l.impreso_en && l.aviso_anulado_visto) continue
     const k = l.producto_id ?? SIN
     const x = productos.get(k) ?? { nombre: l.producto_nombre ?? `Sin ${min(vocab.producto)}`, n: 0, pend: 0 }
     x.n++; if (!l.impreso_en) x.pend++
@@ -84,7 +84,10 @@ export function Produccion() {
   React.useEffect(() => { if (tienda && prod) listarImpresiones(tienda.id, prodId).then(setImps).catch(() => {}) }, [tienda, prod, prodId, lineas])
   React.useEffect(() => { setSelListos(new Set()) }, [prod])
 
-  const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !(l.coherencia === 'ANULADO' && l.impreso_en))
+  // Un encargo anulado después de imprimir sigue visible hasta que alguien confirme que avisó al taller
+  const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !(l.coherencia === 'ANULADO' && l.impreso_en && l.aviso_anulado_visto))
+  const anuladosImpresos = delProd.filter((l) => l.coherencia === 'ANULADO' && l.impreso_en)
+  const nImprimibles = delProd.filter((l) => l.imprimir && l.coherencia === 'ENVIADO').length
   const vis = delProd.filter((l) => ver === 'todas' || !l.impreso_en)
   const listos = listosTodos.filter((e) => (e.producto_id ?? SIN) === prod)
   const nEnv = delProd.filter((l) => l.coherencia === 'ENVIADO').length
@@ -120,9 +123,9 @@ export function Produccion() {
       })),
     }
   }
-  async function imprimir() {
+  async function imprimir(soloCorrectas = false) {
     if (!tienda) return
-    const ls = delProd.filter((l) => l.imprimir)
+    const ls = delProd.filter((l) => l.imprimir && (!soloCorrectas || l.coherencia === 'ENVIADO'))
     if (!ls.length) { avisar({ tipo: 'aviso', texto: 'Marca antes las líneas que quieres imprimir' }); return }
     const malas = ls.filter((l) => l.coherencia !== 'ENVIADO')
     if (malas.length) { setBloqueo(malas.map((l) => `${num3(l)} ${l.cliente_nombre ?? ''}: ${l.motivos.join(', ') || COH[l.coherencia].txt}`)); return }
@@ -168,9 +171,20 @@ export function Produccion() {
               <span><b className="tabular">{listos.length}</b> listos para enviar</span>
               <div className="flex-1" />
               <Segmented value={ver} onChange={(k) => setVer(k as typeof ver)} items={[{ key: 'todas', label: 'Todas' }, { key: 'pendientes', label: 'Sin imprimir' }]} />
-              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={imprimir}><IconPrinter size={14} /> Imprimir marcadas ({delProd.filter((l) => l.imprimir).length})</Button>}
+              {gestion && <Button variant="primary" cargando={busy === 'imprimir'} onClick={() => imprimir()}><IconPrinter size={14} /> Imprimir marcadas ({nImprimibles})</Button>}
             </div>
 
+            {anuladosImpresos.length > 0 && (
+              <section className="flex flex-col gap-1 rounded-md bg-danger-bg p-3 text-sm text-danger-fg">
+                <b>Anulados después de imprimir: avisa a quien tenga la hoja</b>
+                {anuladosImpresos.map((l) => (
+                  <div key={l.id} className="flex flex-wrap items-center gap-2">
+                    <span>{num3(l)} {l.cliente_nombre} · impreso el {fechaCorta(l.impreso_en)}</span>
+                    {gestion && <Button size="sm" variant="ghost" onClick={async () => { await marcarAvisoVisto(l.id); await cargar() }}>Ya he avisado</Button>}
+                  </div>
+                ))}
+              </section>
+            )}
             {listos.length > 0 && (
               <section className="flex flex-col gap-1 rounded-md border border-border p-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -259,7 +273,8 @@ export function Produccion() {
       <CapaCarga texto={busy === 'enviar' ? 'Enviando a producción…' : busy === 'imprimir' ? 'Registrando la impresión…' : null} />
       <Dialog open={!!bloqueo} onOpenChange={(o) => !o && setBloqueo(null)} title="No se puede imprimir todavía"
         description="Solo se imprime lo enviado a producción y coherente con su encargo. Revisa o desmarca estas líneas:"
-        actions={[{ label: 'Entendido', onClick: () => setBloqueo(null) }]}>
+        actions={[{ label: 'Entendido', variant: 'default', onClick: () => setBloqueo(null) },
+          ...(nImprimibles ? [{ label: `Imprimir solo las correctas (${nImprimibles})`, onClick: async () => { setBloqueo(null); await imprimir(true) } }] : [])]}>
         <ul className="m-0 pl-4 text-sm">{(bloqueo ?? []).map((t) => <li key={t}>{t}</li>)}</ul>
       </Dialog>
       <Dialog open={!!comp} onOpenChange={(o) => !o && setComp(null)} title={`${fic.etiqueta} · ${comp ? num3(comp.l) : ''}`}

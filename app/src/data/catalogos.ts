@@ -79,7 +79,7 @@ export async function encargosDeCliente(clienteId: string) {
 // ---------- Proveedores
 export interface ProveedorFila {
   id: string; tienda_id: string; nombre: string; activo: boolean; notas: string | null
-  telefono: string | null; email_contacto: string | null; accesos: number; en_su_mano: number; asignados: number
+  telefono: string | null; email_contacto: string | null; accesos: number; en_su_mano: number; asignados: number; atascados?: number
 }
 export async function listarProveedoresCat(tiendaId: string) {
   return ok(await supabase.from('v_proveedores').select('*').eq('tienda_id', tiendaId).order('nombre')) as ProveedorFila[]

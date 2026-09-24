@@ -17,6 +17,8 @@ import { useDobleToque } from '@/lib/movil'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { cn, fechaCorta, num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
+import { ajustesMaterial, cant, listarPedidos, nombreMaterial, type LineaPedido } from '@/data/materiales'
+import { DialogoRecibir } from '@/pages/Materiales'
 
 interface Bandeja { key: string; label: string; tipo: 'etapa' | 'check' | 'historico'; etapas: Etapa[]; ref?: string; destino?: string; subtitulo: string }
 
@@ -176,6 +178,7 @@ export function Logistica() {
         {encs === null ? <p className="text-fg-3">Cargando…</p> : (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-sm text-fg-2 lg:hidden">{actual?.subtitulo}</p>
+            <LlegadasMaterial />
             {porProd.size > 1 && (
               <div className="flex items-center gap-2">
                 <Select className="w-auto max-w-full" value={prod} onChange={(x) => setProd(x.target.value)} aria-label={vocab.producto}>
@@ -347,5 +350,47 @@ function FichaLogistica({ id, provs, ps, onClose, onCambio }: {
         <Link to={`/encargos/${e.id}`} className="text-sm text-fg-2 underline">Abrir la ficha completa</Link>
       </>}
     </Sheet>
+  )
+}
+
+/** Material en camino: Logística registra lo que llega (sin entrar en Materiales). */
+function LlegadasMaterial() {
+  const { tienda, vocab } = useAuth()
+  const am = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
+  const [lineas, setLineas] = React.useState<LineaPedido[]>([])
+  const [abierto, setAbierto] = React.useState(false)
+  const [recibir, setRecibir] = React.useState<LineaPedido | null>(null)
+  const cargar = React.useCallback(async () => {
+    if (!tienda || !am.activo) return
+    setLineas((await listarPedidos(tienda.id)).filter((l) => l.estado === 'PENDIENTE' || l.estado === 'PARCIAL'))
+  }, [tienda, am.activo])
+  React.useEffect(() => { cargar().catch(() => setLineas([])) }, [cargar])
+  useTiempoReal(tienda?.id, () => cargar().catch(() => {}))
+  if (!am.activo || lineas.length === 0) return null
+  return (
+    <section className="rounded-md border border-border">
+      <button className="flex h-9 w-full items-center gap-2 px-3 text-left font-medium" onClick={() => setAbierto((a) => !a)}>
+        <span className="flex-1">{vocab.materiales} en camino</span>
+        <Tag color="amber">{lineas.length}</Tag>
+        <span className="text-sm text-fg-3">{abierto ? 'Ocultar' : 'Ver'}</span>
+      </button>
+      {abierto && (
+        <ul className="m-0 flex list-none flex-col border-t border-border p-0">
+          {lineas.map((l) => (
+            <li key={l.id} className="flex flex-wrap items-center gap-2 border-b border-border-light px-3 py-2 last:border-b-0">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{nombreMaterial(l)}</div>
+                <div className="text-sm text-fg-3">
+                  {l.proveedor_nombre ?? `Sin ${min(vocab.proveedor)}`} · pedido {fechaCorta(l.fecha)} · faltan {cant(l.pendiente, am.unidad)}
+                  {l.encargos.some((e) => e.activo !== false) && <> · para {l.encargos.filter((e) => e.activo !== false).map((e) => num3(e)).join(', ')}</>}
+                </div>
+              </div>
+              <Button size="sm" onClick={() => setRecibir(l)}>He recibido…</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <DialogoRecibir linea={recibir} unidad={am.unidad} onClose={() => setRecibir(null)} onHecho={async () => { await cargar() }} />
+    </section>
   )
 }

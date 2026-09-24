@@ -1,8 +1,9 @@
+import { supabase } from '@/lib/supabase'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { creadosEn, movimientosIntervalo, recibidosProveedor, terminados, type HitoInforme, type Intervalo } from '@/data/informes'
-import { ajustesMaterial, avisoStock, cant, listarMateriales, nombreMaterial, type MaterialEstado } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, bajoUmbral, cant, listarMateriales, nombreMaterial, type MaterialEstado } from '@/data/materiales'
 import type { EncargoEstado } from '@/lib/types'
 import { SectionLabel } from '@/ui'
 import { ajustesDinero, dinero, pendiente } from '@/lib/utils'
@@ -22,8 +23,24 @@ function Cifra({ titulo, valor, nota }: { titulo: string; valor: string; nota?: 
 export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Intervalo; encargos: EncargoEstado[] }) {
   const { tienda, vocab } = useAuth()
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
+  // Importes de todos los encargos que salen en el informe (de cualquier periodo, también anulados)
+  const [importes, setImportes] = React.useState<Map<string, { importe: number | null }>>(new Map())
+  const ids = React.useMemo(() => [...new Set(hs.map((h) => h.encargo_id))], [hs])
+  React.useEffect(() => {
+    if (!din.usa || !ids.length) return
+    let vivo = true
+    ;(async () => {
+      const m = new Map<string, { importe: number | null }>()
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data } = await supabase.from('encargo').select('id,importe').in('id', ids.slice(i, i + 200))
+        for (const x of (data ?? []) as { id: string; importe: number | null }[]) m.set(x.id, x)
+      }
+      if (vivo) setImportes(m)
+    })().catch(() => {})
+    return () => { vivo = false }
+  }, [ids, din.usa])
   if (!din.usa) return null
-  const porId = new Map(encargos.map((e) => [e.id, e]))
+  const porId = new Map<string, { importe: number | null }>([...importes, ...encargos.map((e) => [e.id, e] as [string, EncargoEstado])])
   const suma = (ids: Iterable<string>) => {
     let t = 0, sin = 0, n = 0
     for (const id of ids) { const e = porId.get(id); if (!e) continue; n++; if (e.importe == null) sin++; else t += Number(e.importe) }
@@ -75,7 +92,7 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
   }
   const filas = [...acc.values()].sort((a, b) => b.CONSUMO - a.CONSUMO || a.nombre.localeCompare(b.nombre, 'es'))
   const activos = mats.filter((m) => m.activo)
-  const bajos = activos.filter((m) => Number(m.stock) <= Number(m.umbral_efectivo)).sort((a, b) => (Number(a.stock) - Number(a.umbral_efectivo)) - (Number(b.stock) - Number(b.umbral_efectivo))).slice(0, 12)
+  const bajos = activos.filter(bajoUmbral).sort((a, b) => (Number(a.stock) - Number(a.umbral_efectivo)) - (Number(b.stock) - Number(b.umbral_efectivo))).slice(0, 12)
   const sinStock = activos.filter((m) => Number(m.stock) <= 0).length
   const restos = mats.reduce((a, m) => a + Number(m.restos), 0)
   return (
@@ -87,7 +104,7 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
         </select>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Cifra titulo="Bajo umbral" valor={String(activos.filter((m) => Number(m.stock) <= Number(m.umbral_efectivo)).length)} />
+        <Cifra titulo="Bajo umbral" valor={String(activos.filter(bajoUmbral).length)} />
         <Cifra titulo="Sin stock" valor={String(sinStock)} />
         <Cifra titulo="En restos" valor={cant(restos, aj.unidad)} />
       </div>

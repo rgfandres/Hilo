@@ -40,7 +40,7 @@ export function Proveedores() {
       <div className="min-h-0 flex-1 overflow-auto">
         <Table>
           <thead><tr>
-            <Th className="w-[240px]">Nombre</Th><Th className="w-[160px]">En su mano</Th><Th className="w-[160px]">Asignados</Th>
+            <Th className="w-[240px]">Nombre</Th><Th className="w-[140px]">En su mano</Th><Th className="w-[120px]" title="Demasiados días en su mano">Atascados</Th><Th className="w-[140px]" title="En curso, sin contar lo terminado">Asignados</Th>
             <Th className="w-[150px]">Teléfono</Th><Th>Acceso al portal</Th>
           </tr></thead>
           <tbody>
@@ -48,12 +48,13 @@ export function Proveedores() {
               <Tr key={p.id} className="cursor-pointer" onClick={() => nav(`/proveedores/${p.id}`)}>
                 <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactiv{gr.o('proveedor')}</Tag>}</Td>
                 <Td>{p.en_su_mano > 0 ? <span className="font-medium">{p.en_su_mano}</span> : <span className="text-fg-3">—</span>}</Td>
+                <Td>{p.atascados ? <span className="font-medium text-danger-fg">{p.atascados}</span> : <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-2">{p.asignados || <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-2">{p.telefono ?? <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-3">{p.accesos === 0 ? 'sin acceso' : `${p.accesos} ${p.accesos === 1 ? 'correo' : 'correos'}`}</Td>
               </Tr>
             ))}
-            {lista && visibles.length === 0 && <tr><td colSpan={5} className="h-24 text-center text-fg-3">Todavía no hay {min(vocab.proveedores)}.</td></tr>}
+            {lista && visibles.length === 0 && <tr><td colSpan={6} className="h-24 text-center text-fg-3">Todavía no hay {min(vocab.proveedores)}.</td></tr>}
           </tbody>
         </Table>
       </div>
@@ -94,7 +95,7 @@ export function Proveedor() {
 
   const tabla = (lista: EncargoEstado[]) => (
     <Table>
-      <thead><tr><Th className="w-12">Nº</Th><Th className="w-[200px]">{vocab.cliente}</Th><Th className="w-[160px]">{vocab.producto}</Th><Th className="w-[200px]">Etapa</Th><Th>Desde</Th></tr></thead>
+      <thead><tr><Th className="w-12">Nº</Th><Th className="w-[200px]">{vocab.cliente}</Th><Th className="w-[160px]">{vocab.producto}</Th><Th className="w-[200px]">Etapa</Th><Th>En la etapa</Th></tr></thead>
       <tbody>
         {lista.map((e) => (
           <Tr key={e.id} className="cursor-pointer" onClick={() => nav(`/encargos/${e.id}`)}>
@@ -102,7 +103,7 @@ export function Proveedor() {
             <Td className="titular font-medium">{e.cliente_nombre}</Td>
             <Td>{e.producto_nombre ?? <span className="text-fg-3">—</span>}</Td>
             <Td>{e.en_revision ? <Tag color="red">Incidencia</Tag> : <Tag color={tagColorFromHex(et(e)?.color)}>{e.etapa_actual_nombre ?? 'Sin empezar'}</Tag>}</Td>
-            <Td className="text-fg-3">{relativo(e.actualizado_en)}</Td>
+            <Td className={e.atascado ? 'text-danger-fg' : 'text-fg-3'}>{e.dias_en_etapa == null ? '—' : `${e.dias_en_etapa} ${e.dias_en_etapa === 1 ? 'día' : 'días'}`}</Td>
           </Tr>
         ))}
       </tbody>

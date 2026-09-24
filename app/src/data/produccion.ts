@@ -8,6 +8,8 @@ export interface LineaHoja {
   numero: number; serie: string | null; encargo_estado: string; complementos: string | null; datos: Record<string, unknown>
   cliente_nombre: string | null; producto_nombre: string | null; proveedor_nombre: string | null; etapa_actual_nombre: string | null
   motivos: string[]; coherencia: Coherencia
+  /** Anulado después de imprimir: ya se ha avisado al taller */
+  aviso_anulado_visto?: boolean
 }
 export interface Impresion { id: string; producto_id: string | null; fecha: string; usuario_id: string | null; n_lineas: number; contenido: ContenidoImpresion }
 export interface ContenidoImpresion {
@@ -29,6 +31,9 @@ export function ajustesHoja(aj: Record<string, unknown> | null | undefined) {
 
 export async function listarLineas(tiendaId: string): Promise<LineaHoja[]> {
   return ok(await supabase.from('v_linea_produccion').select('*').eq('tienda_id', tiendaId).order('enviado_en')) as LineaHoja[]
+}
+export async function marcarAvisoVisto(id: string) {
+  ok(await supabase.from('linea_produccion').update({ aviso_anulado_visto: true }).eq('id', id))
 }
 export async function marcarImprimir(ids: string[], v: boolean) {
   ok(await supabase.from('linea_produccion').update({ imprimir: v }).in('id', ids))

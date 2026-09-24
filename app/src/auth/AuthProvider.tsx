@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { setSoloLectura, supabase } from '@/lib/supabase'
 import { setLocale } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
+import { contextoErrores } from '@/data/encargos'
 import { gramatica, generosDe, rolesDe, vocabDe, type Gramatica, type Vocab } from '@/lib/vocab'
 
 interface AuthState {
@@ -145,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSoloLectura(rolReal === 'ADMIN' && verComo ? 'Estás viendo la app como otro rol: solo lectura. Sal de «Ver como» para cambiar algo.' : null)
   }, [verComo, rolReal])
 
+  contextoErrores(tienda?.ajustes as Record<string, unknown> | undefined)
   const value: AuthState = {
     loading, session, tiendas, tienda, rol, periodo, esProveedor,
     vocab: vocabDe(tienda?.ajustes),
