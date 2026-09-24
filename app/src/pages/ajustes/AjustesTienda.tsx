@@ -387,7 +387,7 @@ export function AjustesMateriales() {
             <FormRow label="Qué se propone pedir" ayuda="Siempre redondeado a lo que vende de una vez el proveedor (su pedido mínimo).">
               <Select className="w-[260px]" value={f.pedirMat} onChange={(e) => setF({ ...f, pedirMat: e.target.value })}>
                 <option value="umbral">Lo que falta y además el aviso de pedir</option>
-                <option value="falta">Solo lo que falta (si solo está al límite, una unidad)</option>
+                <option value="falta">Solo lo que esperan los encargos (si queda al límite, una unidad)</option>
               </Select>
             </FormRow>
             <FormRow label="Número del menú" ayuda={`Lo que cuenta el número rojo junto a ${f.vocab.materiales} en el menú.`}>

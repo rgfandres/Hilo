@@ -135,6 +135,9 @@ export function NuevoEncargo() {
       setFicha(f)
       if (f && conMaterial && f.material_tipo)
         setMLineas((xs) => xs.length === 0 || (xs.length === 1 && !xs[0].material_id) ? [{ tipo: f.material_tipo!, material_id: '', cantidad: f.consumo != null ? String(f.consumo) : '' }] : xs)
+      // Sin tipo en la ficha técnica, el consumo (escandallo) se propone igual en la primera línea que no lo tenga
+      else if (f && conMaterial && f.consumo != null)
+        setMLineas((xs) => xs.map((x, i) => (i === 0 && !String(x.cantidad).trim() ? { ...x, cantidad: String(f.consumo) } : x)))
     }).catch(() => {})
   }, [producto, conMaterial])
 
@@ -371,7 +374,7 @@ export function NuevoEncargo() {
                 <Button size="sm" variant="ghost" type="button" className="self-end" onClick={() => setMLineas((xs) => xs.filter((_, j) => j !== i))}>Quitar</Button>
               </div>
             ))}
-            <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: '', material_id: '', cantidad: '' }])}>+ Añadir {min(vocab.material)}</Button>
+            <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: ficha?.material_tipo ?? '', material_id: '', cantidad: xs.length === 0 && ficha?.consumo != null ? String(ficha.consumo) : '' }])}>+ Añadir {min(vocab.material)}</Button>
           </div>
         )}
 

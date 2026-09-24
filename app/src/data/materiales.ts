@@ -205,6 +205,8 @@ export function propuestaPedido(m: MaterialEstado): { falta: number; pedir: numb
   const redondeo = (x: number) => (u > 0 ? Math.ceil(x / u - 1e-9) * u : Math.ceil(x * 100) / 100)
   const queda = Number(m.stock) + Number(m.en_camino) - Number(m.demanda)
   if (MODO_PEDIDO === 'falta') {
+    // Solo se pide para encargos: lo que está bajo el umbral sin que nadie lo espere se ve en el catálogo, no se propone
+    if (Number(m.demanda) <= 0.001) return { falta: 0, pedir: 0 }
     if (queda < -0.001) return { falta: Math.round(-queda * 100) / 100, pedir: redondeo(-queda) }
     if (queda < Number(m.umbral_efectivo) - 0.001) return { falta: 0, pedir: u > 0 ? u : Math.ceil((Number(m.umbral_efectivo) - queda) * 100) / 100 }
     return { falta: 0, pedir: 0 }
