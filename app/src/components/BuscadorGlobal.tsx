@@ -16,7 +16,7 @@ interface Resultado { grupo: string; id: string; titulo: string; detalle?: strin
  * productos y proveedores. Flechas para moverse, Enter para abrir, Esc para cerrar.
  */
 export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const nav = useNavigate()
   const [q, setQ] = React.useState('')
   const [sel, setSel] = React.useState(0)
@@ -47,14 +47,14 @@ export function BuscadorGlobal({ open, onOpenChange }: { open: boolean; onOpenCh
     const enc = base.enc.filter((e) => coincide(q, [num3(e), e.numero, e.cliente_nombre, e.cliente_telefono, e.producto_nombre, e.proveedor_nombre]))
       .slice(0, 6).map((e) => ({
         grupo: vocab.encargos, id: 'e' + e.id, titulo: `${num3(e)} · ${e.cliente_nombre ?? ''}`,
-        detalle: [e.producto_nombre, e.estado === 'ANULADO' ? 'anulado' : e.etapa_actual_nombre].filter(Boolean).join(' · '), ir: `/encargos/${e.id}`,
+        detalle: [e.producto_nombre, e.estado === 'ANULADO' ? `anulad${gr.o('encargo')}` : e.etapa_actual_nombre].filter(Boolean).join(' · '), ir: `/encargos/${e.id}`,
       }))
     const prod = base.prod.filter((p) => coincide(q, [p.nombre])).slice(0, 4)
-      .map((p) => ({ grupo: vocab.productos, id: 'p' + p.id, titulo: p.nombre, detalle: p.activo ? undefined : 'inactivo', ir: `/productos?q=${encodeURIComponent(p.nombre)}` }))
+      .map((p) => ({ grupo: vocab.productos, id: 'p' + p.id, titulo: p.nombre, detalle: p.activo ? undefined : `inactiv${gr.o('producto')}`, ir: `/productos?q=${encodeURIComponent(p.nombre)}` }))
     const prov = base.prov.filter((p) => coincide(q, [p.nombre])).slice(0, 4)
-      .map((p) => ({ grupo: vocab.proveedores, id: 'v' + p.id, titulo: p.nombre, detalle: p.activo ? undefined : 'inactivo', ir: `/proveedores/${p.id}` }))
+      .map((p) => ({ grupo: vocab.proveedores, id: 'v' + p.id, titulo: p.nombre, detalle: p.activo ? undefined : `inactiv${gr.o('proveedor')}`, ir: `/proveedores/${p.id}` }))
     return [...enc, ...clientes.slice(0, 6), ...prod, ...prov]
-  }, [base, q, clientes, vocab])
+  }, [base, q, clientes, vocab, gr])
 
   React.useEffect(() => { setSel(0) }, [q])
 

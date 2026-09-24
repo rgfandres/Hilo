@@ -44,7 +44,7 @@ export function Portal() {
   const nombreProv = lista?.[0]?.proveedor_nombre
   const filtro = q.trim().toLowerCase()
   const visibles = (lista ?? []).filter((e) => e.carpeta === carpeta).filter((e) => !filtro
-    || num3(e.numero).includes(filtro) || (e.cliente_nombre ?? '').toLowerCase().includes(filtro) || (e.producto_nombre ?? '').toLowerCase().includes(filtro))
+    || num3(e).toLowerCase().includes(filtro) || (e.cliente_nombre ?? '').toLowerCase().includes(filtro) || (e.producto_nombre ?? '').toLowerCase().includes(filtro))
   const n = (c: string) => (lista ?? []).filter((e) => e.carpeta === c).length
 
   async function marcar(e: EncargoPortal) {
@@ -53,7 +53,7 @@ export function Portal() {
     setArmado(null); setBusy(e.id); setErr(null)
     try {
       await crearHito(e.id, e.siguiente_clave)
-      setUndo({ id: e.id, msg: `${num3(e.numero)} · ${e.siguiente_nombre}` })
+      setUndo({ id: e.id, msg: `${num3(e)} · ${e.siguiente_nombre}` })
       await cargar()
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(null) }
   }
@@ -72,7 +72,7 @@ export function Portal() {
   function textoFicha(e: EncargoPortal) {
     const { enc, cli } = campos(e)
     return [
-      `${vocab.encargo} ${num3(e.numero)}${e.cliente_nombre ? ` · ${e.cliente_nombre}` : ''}`,
+      `${vocab.encargo} ${num3(e)}${e.cliente_nombre ? ` · ${e.cliente_nombre}` : ''}`,
       e.producto_nombre ? `${vocab.producto}: ${e.producto_nombre}` : null,
       ...enc.map((c) => `${c.etiqueta}: ${formatearValor(c, e.datos[c.clave])}`),
       cli.length ? '' : null,
@@ -91,10 +91,10 @@ export function Portal() {
       const i = l.indexOf(': ')
       return `<tr><td style="color:#666;padding:4px 16px 4px 0">${esc(l.slice(0, i))}</td><td style="padding:4px 0;font-weight:500">${esc(l.slice(i + 2))}</td></tr>`
     }).join('')
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(vocab.encargo)} ${num3(e.numero)}</title></head>
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(vocab.encargo)} ${num3(e)}</title></head>
       <body style="font-family:Inter,system-ui,sans-serif;font-size:14px;color:#333;padding:32px">
       <div style="color:#999;font-size:12px">${esc(tienda?.nombre ?? '')}</div>
-      <h1 style="font-size:22px;margin:4px 0 16px">${esc(vocab.encargo)} ${num3(e.numero)}${e.cliente_nombre ? ' · ' + esc(e.cliente_nombre) : ''}</h1>
+      <h1 style="font-size:22px;margin:4px 0 16px">${esc(vocab.encargo)} ${num3(e)}${e.cliente_nombre ? ' · ' + esc(e.cliente_nombre) : ''}</h1>
       <table style="border-collapse:collapse">${filas}</table></body></html>`)
     w.document.close(); w.focus(); w.print()
   }
@@ -121,7 +121,7 @@ export function Portal() {
         {(['EN_CURSO', 'ENTREGADOS'] as const).map((c) => (
           <button key={c} onClick={() => { setCarpeta(c); setAbierto(null) }}
             className={cn('-mb-px flex h-9 items-center gap-1.5 border-b px-2 font-medium', carpeta === c ? 'border-gray-12 text-fg' : 'border-transparent text-fg-3')}>
-            {c === 'EN_CURSO' ? 'En curso' : 'Entregados'} <span className="text-fg-3">{n(c)}</span>
+            {c === 'EN_CURSO' ? 'En curso' : `Terminad${gr.o('encargo', true)} por mí`} <span className="text-fg-3">{n(c)}</span>
           </button>
         ))}
       </div>
@@ -154,8 +154,8 @@ export function Portal() {
                   <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setAbierto(abiertoAqui ? null : e.id)} aria-expanded={abiertoAqui}>
                     {abiertoAqui ? <IconChevronDown size={14} className="shrink-0 text-fg-3" /> : <IconChevronRight size={14} className="shrink-0 text-fg-3" />}
                     <div className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium"><span className="text-fg-3 tabular">{num3(e.numero)}</span> · {e.cliente_nombre ?? `${vocab.encargo} ${num3(e.numero)}`}</span>
-                      <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? 'Entregado' : null), relativo(e.actualizado_en)].filter(Boolean).join(' · ')}</span>
+                      <span className="truncate font-medium"><span className="text-fg-3 tabular">{num3(e)}</span> · {e.cliente_nombre ?? `${vocab.encargo} ${num3(e)}`}</span>
+                      <span className="truncate text-sm text-fg-3">{[e.producto_nombre, e.etapa_actual_nombre ?? (e.carpeta === 'ENTREGADOS' ? `Devuelt${gr.o('encargo')}` : null), relativo(e.actualizado_en)].filter(Boolean).join(' · ')}</span>
                     </div>
                   </button>
                   {e.siguiente_clave && e.carpeta === 'EN_CURSO' && (

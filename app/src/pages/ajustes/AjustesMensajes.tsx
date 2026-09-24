@@ -10,6 +10,8 @@ import {
 import { Button, Dialog, Input, Select, Textarea } from '@/ui'
 import { Bloque, Estado } from './Ajustes'
 import { min } from '@/lib/vocab'
+import { ajustesDinero } from '@/lib/utils'
+import { useCambiosSinGuardar } from '@/lib/salir'
 
 type EtapaOpcion = { id: string; label: string }
 
@@ -36,12 +38,17 @@ export function AjustesMensajes() {
   }, [tienda])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
+  // Solo los marcadores que tienen sentido en esta tienda (sin reseña configurada o sin importes, no se ofrecen)
+  const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
+  const usaDinero = ajustesDinero(ajT).usa
+  const marcadores = MARCADORES.filter((m) => !(m.k === 'enlace_resena' && !ajT.enlace_resena) && !(['importe', 'a_cuenta', 'pendiente'].includes(m.k) && !usaDinero))
+    .concat(campos.map((c) => ({ k: c.clave, ayuda: c.etiqueta })))
   // Ejemplo para la vista previa
   const ejemplo: Record<string, unknown> = {
     nombre: 'Ana García', nombre_pila: 'Ana', numero: '042', proveedor: vocab.proveedor,
     etapa: etapas[0]?.label ?? 'Etapa', tienda: tienda?.nombre, enlace_resena: (tienda?.ajustes as Record<string, unknown>)?.enlace_resena ?? 'https://…',
     ...Object.fromEntries(campos.map((c) => [c.clave, c.etiqueta.toLowerCase()])),
-    producto: 'Nombre de ejemplo',
+    producto: 'Nombre de ejemplo', importe: '120,00 €', a_cuenta: '40,00 €', pendiente: '80,00 €',
     ...marcadoresConcordancia(vocab.producto, gr.genero.producto, 'Nombre de ejemplo'),
   }
 
@@ -63,8 +70,7 @@ export function AjustesMensajes() {
         ayuda={`Consejo: para que los artículos concuerden, usa {tu_producto} en vez de «tu {producto}» y termina los adjetivos con {o} (list{o}). Textos preparados para avisar ${gr.con('cliente', 'al')} por WhatsApp o correo. Si los unes a una etapa, se sugieren al llegar a ella. Nunca se envían solos.`}>
         <div className="flex flex-wrap gap-1.5 text-sm">
           <span className="text-fg-3">Marcadores:</span>
-          {MARCADORES.map((m) => <code key={m.k} title={m.ayuda} className="rounded-sm bg-bg-4 px-1.5">{`{${m.k}}`}</code>)}
-          {campos.map((c) => <code key={c.clave} title={c.etiqueta} className="rounded-sm bg-bg-4 px-1.5 text-fg-3">{`{${c.clave}}`}</code>)}
+          {marcadores.map((m) => <code key={m.k} title={m.ayuda} className="rounded-sm bg-bg-4 px-1.5">{`{${m.k}}`}</code>)}
         </div>
         <Estado ok={ok} err={err} />
       </Bloque>
@@ -72,7 +78,7 @@ export function AjustesMensajes() {
       <div className="flex flex-col gap-3">
         {lista.length === 0 && <p className="text-fg-3">No hay plantillas todavía.</p>}
         {lista.map((p) => (
-          <TarjetaPlantilla key={p.id} p={p} etapas={etapas} ejemplo={ejemplo}
+          <TarjetaPlantilla key={p.id} p={p} etapas={etapas} ejemplo={ejemplo} marcadores={marcadores}
             onGuardar={async (patch) => { setErr(null); setOk(null); try { await actualizarPlantilla(p.id, patch); await cargar(); setOk(`«${patch.nombre ?? p.nombre}» guardada`) } catch (x) { setErr(mensajeError(x)) } }}
             onBorrar={() => setBorrar(p)} />
         ))}
@@ -88,8 +94,8 @@ export function AjustesMensajes() {
   )
 }
 
-function TarjetaPlantilla({ p, etapas, ejemplo, onGuardar, onBorrar }: {
-  p: PlantillaMensaje; etapas: EtapaOpcion[]; ejemplo: Record<string, unknown>
+function TarjetaPlantilla({ p, etapas, ejemplo, marcadores, onGuardar, onBorrar }: {
+  p: PlantillaMensaje; etapas: EtapaOpcion[]; ejemplo: Record<string, unknown>; marcadores: { k: string; ayuda: string }[]
   onGuardar: (patch: Partial<PlantillaMensaje>) => Promise<void>; onBorrar: () => void
 }) {
   const inicial = React.useMemo(() => ({ nombre: p.nombre, etapa_id: p.etapa_id ?? '', canal: p.canal, texto: p.texto }), [p])
@@ -97,6 +103,7 @@ function TarjetaPlantilla({ p, etapas, ejemplo, onGuardar, onBorrar }: {
   const ref = React.useRef<HTMLTextAreaElement>(null)
   React.useEffect(() => setF(inicial), [inicial])
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
+  useCambiosSinGuardar(sucio)
 
   function insertar(m: string) {
     const t = ref.current
@@ -127,7 +134,7 @@ function TarjetaPlantilla({ p, etapas, ejemplo, onGuardar, onBorrar }: {
       <Textarea ref={ref} value={f.texto} onChange={(e) => setF({ ...f, texto: e.target.value })} />
       <div className="flex flex-wrap items-center gap-1">
         <span className="mr-1 text-sm text-fg-3">Insertar:</span>
-        {MARCADORES.map((m) => (
+        {marcadores.map((m) => (
           <button key={m.k} type="button" title={m.ayuda} onClick={() => insertar(m.k)} className="h-6 rounded-sm border border-border px-1.5 text-sm text-fg-2 hover:bg-bg-3">{m.k}</button>
         ))}
       </div>

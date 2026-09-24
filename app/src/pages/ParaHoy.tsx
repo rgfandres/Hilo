@@ -6,8 +6,8 @@ import { listarEncargos, listarEtapas, mensajeError } from '@/data/encargos'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, OpcionCheck, Popover, Tag, SectionLabel, tagColorFromHex } from '@/ui'
-import { cn, num3, locale } from '@/lib/utils'
-import { min } from '@/lib/vocab'
+import { cn, num3, locale, zona } from '@/lib/utils'
+import { min, textosFin } from '@/lib/vocab'
 import { filtrosAUrl } from '@/data/lista'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, miTrabajo, motivosRevision } from '@/lib/bandejas'
@@ -67,18 +67,19 @@ export function ParaHoy() {
   const mios = rows.filter((r) => miTrabajo(r, rol))
   const revisar = rows.filter(enRevisar)
   const listos = rows.filter(listoParaEntregar)
+  const fin = textosFin(etapas, gr)
   const fuera = rows.filter(enProveedor)
   const bloq = enCurso.filter(bloqueado)
-  const hoy = new Date().toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })
+  const hoy = new Date().toLocaleDateString(locale(), { timeZone: zona(), weekday: 'long', day: 'numeric', month: 'long' })
   const prov = min(vocab.proveedor)
 
   const indicadores = [
     { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar, en el periodo activo' },
     { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
-    { k: 'listos', label: 'Listos para entregar', n: listos.length, to: aLista({ b: 'listos', desde: 'Listos para entregar' }), title: 'Solo falta el último paso', tono: 'ok' },
+    { k: 'listos', label: fin.listos, n: listos.length, to: aLista({ b: 'listos', desde: fin.listos }), title: fin.listosTitulo, tono: 'ok' },
     { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: 'Incidencias, marcados a mano, estancados y atascados', tono: 'danger' },
     { k: 'fuera', label: `En ${prov}`, n: fuera.length, to: aLista({ b: 'proveedor', desde: `En ${prov}` }), title: `En una etapa que ve ${gr.con('proveedor', 'el')}` },
-    { k: 'bloq', label: 'Bloqueados', n: bloq.length, to: aLista({ b: 'bloqueados', desde: 'Bloqueados' }), title: 'El siguiente paso tiene una condición que bloquea', tono: 'warn' },
+    { k: 'bloq', label: `Bloquead${gr.o('encargo', true)}`, n: bloq.length, to: aLista({ b: 'bloqueados', desde: `Bloquead${gr.o('encargo', true)}` }), title: 'El siguiente paso tiene una condición que bloquea', tono: 'warn' },
   ]
 
   // Resumen por etapa (en orden del flujo) y por proveedor («Sin …» al final)
@@ -104,7 +105,7 @@ export function ParaHoy() {
 
   const BLOQUES: { k: Bloque; label: string }[] = [
     { k: 'indicadores', label: 'Indicadores' }, { k: 'mio', label: 'Mi trabajo' }, { k: 'atencion', label: 'Necesitan atención' },
-    { k: 'listos', label: 'Listos para entregar' }, { k: 'etapas', label: 'Por etapa' }, { k: 'proveedores', label: `Por ${prov}` },
+    { k: 'listos', label: fin.listos }, { k: 'etapas', label: 'Por etapa' }, { k: 'proveedores', label: `Por ${prov}` },
   ]
 
   return (
@@ -124,7 +125,7 @@ export function ParaHoy() {
             Tienes <Link to="/encargos" className="font-medium text-fg underline decoration-border-strong">{enCurso.length} {min(enCurso.length === 1 ? vocab.encargo : vocab.encargos)} en curso</Link>.
             {mios.length + revisar.length > 0
               ? ` ${mios.length ? `${mios.length} ${mios.length === 1 ? 'espera' : 'esperan'} un paso tuyo` : ''}${mios.length && revisar.length ? ' y ' : ''}${revisar.length ? `${revisar.length} ${revisar.length === 1 ? 'necesita' : 'necesitan'} revisión` : ''}.`
-              : ' Ninguno necesita nada de ti ahora mismo.'}
+              : ` Ningun${gr.genero.encargo === 'f' ? 'a' : 'o'} necesita nada de ti ahora mismo.`}
           </p>
 
           {ver('indicadores') && (
@@ -164,7 +165,7 @@ export function ParaHoy() {
 
           {ver('listos') && listos.length > 0 && (
             <section className="flex flex-col gap-1.5">
-              <SectionLabel className="px-2">Listos para entregar</SectionLabel>
+              <SectionLabel className="px-2">{fin.listos}</SectionLabel>
               <div className="border-t border-border-light">
                 {listos.slice(0, 10).map((e) => <Fila key={e.id} e={e} motivo={<Tag color="green">{e.etapa_actual_nombre}</Tag>} />)}
               </div>

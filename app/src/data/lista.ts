@@ -84,7 +84,7 @@ export function filtrar(rows: EncargoEstado[], q: string, filtros: Filtros, dims
     }
     if (!q.trim()) return true
     return coincide(q, [
-      num3(e.numero), e.numero, e.cliente_nombre, e.cliente_telefono, e.producto_nombre, e.proveedor_nombre,
+      num3(e), e.numero, e.cliente_nombre, e.cliente_telefono, e.producto_nombre, e.proveedor_nombre,
       e.etapa_actual_nombre, ...Object.values(e.datos ?? {}).map((v) => (Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? '' : String(v))),
     ])
   })

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { setSoloLectura, supabase } from '@/lib/supabase'
-import { setLocale } from '@/lib/utils'
+import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
 import { contextoErrores } from '@/data/encargos'
 import { gramatica, generosDe, rolesDe, vocabDe, type Gramatica, type Vocab } from '@/lib/vocab'
@@ -131,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Acento y formato local por tienda
   React.useEffect(() => {
     setLocale((tienda?.ajustes?.locale as string | undefined) ?? 'es-ES')
+    setZona(tienda?.ajustes?.zona_horaria as string | undefined)
     const c = (tienda?.ajustes?.color_primario as string | undefined) ?? '#333333'
     document.documentElement.style.setProperty('--accent', c)
   }, [tienda])

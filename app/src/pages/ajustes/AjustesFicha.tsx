@@ -3,9 +3,9 @@ import { useAuth } from '@/auth/AuthProvider'
 import { camposDe, plantillas as leerCampos, type PlantillaCampos } from '@/data/config'
 import { mensajeError } from '@/data/encargos'
 import { MARCADORES_FICHA, fichaHTML, guardarPlantillaFicha, obtenerPlantillaFicha, plantillaDefecto, type DatosFicha } from '@/data/ficha'
-import { Button, Textarea } from '@/ui'
-import { Bloque, Estado } from './Ajustes'
-import { ponerAjustePeriodo } from '@/data/ajustes'
+import { Button, Select, Textarea } from '@/ui'
+import { BarraGuardar, Bloque, Estado } from './Ajustes'
+import { listarTipos, ponerAjustePeriodo } from '@/data/ajustes'
 import { SelectorAmbito, useAmbito } from '@/components/Ambito'
 
 /**
@@ -23,11 +23,13 @@ export function AjustesFicha() {
   const defecto = plantillaDefecto(vocab)
   const amb = useAmbito('ficha')
   const [deTienda, setDeTienda] = React.useState<string | null>(null)
+  const [tiposT, setTiposT] = React.useState<{ id: string; nombre: string }[]>([])
+  const [tipoSel, setTipoSel] = React.useState('')
 
   React.useEffect(() => {
     if (!tienda) return
-    Promise.all([obtenerPlantillaFicha(tienda.id), leerCampos(tienda.id)])
-      .then(([t, p]) => { setDeTienda(t); setPs(p) })
+    Promise.all([obtenerPlantillaFicha(tienda.id), leerCampos(tienda.id), listarTipos(tienda.id)])
+      .then(([t, p, ts]) => { setDeTienda(t); setPs(p); const act = ts.filter((x) => x.activo); setTiposT(act); setTipoSel((s) => s || act[0]?.id || '') })
       .catch((x) => setErr(mensajeError(x)))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tienda])
@@ -38,17 +40,18 @@ export function AjustesFicha() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deTienda, amb.ambito, amb.propio])
 
-  const tipos = [...new Set(ps.filter((p) => p.tipo_encargo_id).map((p) => p.tipo_encargo_id!))]
-  const camposEnc = camposDe(ps, 'ENCARGO', tipos[0] ?? null)
+  // Vista previa con los campos del tipo elegido; los marcadores, de todos los tipos
+  const camposEnc = camposDe(ps, 'ENCARGO', tipoSel || null)
+  const camposTodos = tiposT.length ? tiposT.flatMap((t) => camposDe(ps, 'ENCARGO', t.id)) : camposEnc
   const camposCli = camposDe(ps, 'CLIENTE')
   const ejemplo: DatosFicha = {
     tienda: tienda?.nombre ?? '', numero: 1, nombre: `${vocab.cliente} de ejemplo`, telefono: '600 000 000', email: null,
-    producto: `${vocab.producto} de ejemplo`, proveedor: null, etapa: 'Primera etapa', tipo: null,
+    producto: `${vocab.producto} de ejemplo`, proveedor: null, etapa: 'Primera etapa', tipo: tiposT.find((t) => t.id === tipoSel)?.nombre ?? null,
     camposEncargo: camposEnc, datosEncargo: {}, camposCliente: camposCli, datosCliente: {},
     hilo: [{ etapa: 'Primera etapa', fecha: new Date().toISOString(), nota: null }],
   }
   const vista = fichaHTML(texto, ejemplo)
-  const campos = [...camposEnc, ...camposCli].filter((c, i, a) => a.findIndex((x) => x.clave === c.clave) === i)
+  const campos = [...camposTodos, ...camposCli].filter((c, i, a) => a.findIndex((x) => x.clave === c.clave) === i)
 
   function insertar(k: string) {
     const t = area.current
@@ -93,13 +96,17 @@ export function AjustesFicha() {
       </div>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Textarea ref={area} value={texto} onChange={(e) => setTexto(e.target.value)} className="min-h-[420px] font-mono text-sm" aria-label="Plantilla de la ficha" />
-        <iframe title="Vista previa de la ficha" srcDoc={vista} className="min-h-[420px] w-full rounded-sm border border-border bg-white" />
+        <div className="flex flex-col gap-1">
+          {tiposT.length > 1 && (
+            <Select className="h-7 w-auto self-start" value={tipoSel} onChange={(e) => setTipoSel(e.target.value)} aria-label="Tipo para la vista previa">
+              {tiposT.map((t) => <option key={t.id} value={t.id}>Vista previa: {t.nombre}</option>)}
+            </Select>
+          )}
+          <iframe title="Vista previa de la ficha" srcDoc={vista} className="min-h-[420px] w-full rounded-sm border border-border bg-white" />
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" disabled={!sucio} onClick={() => guardar(texto)}>Guardar</Button>
-        {guardado != null && <Button variant="ghost" onClick={() => guardar(null)}>{amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}</Button>}
-        <Estado ok={ok} err={err} />
-      </div>
+      <BarraGuardar sucio={sucio} ok={ok} err={err} onGuardar={() => guardar(texto)} onDescartar={() => setTexto(guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))}
+        extra={guardado != null && <Button variant="ghost" onClick={() => guardar(null)}>{amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}</Button>} />
     </Bloque>
   )
 }

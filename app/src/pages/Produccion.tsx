@@ -15,12 +15,12 @@ import { NotaCampo } from '@/components/NotaCampo'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
 import { Button, CapaCarga, Dialog, Input, Segmented, Table, Tabs, Tag, Td, Th, Tr, useAvisos, type TagColor } from '@/ui'
 import { useTiempoReal } from '@/lib/tiempoReal'
-import { cn, fechaCorta, num3 } from '@/lib/utils'
-import { min } from '@/lib/vocab'
+import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
+import { generoAuto, min } from '@/lib/vocab'
 
 const COH: Record<LineaHoja['coherencia'], { txt: string; color: TagColor }> = {
-  ENVIADO: { txt: 'Enviado', color: 'green' }, NO_ENVIADO: { txt: 'No enviado', color: 'amber' },
-  REVISAR: { txt: 'Revisar', color: 'red' }, ANULADO: { txt: 'Anulado', color: 'gray' },
+  ENVIADO: { txt: 'Enviad', color: 'green' }, NO_ENVIADO: { txt: 'No enviad', color: 'amber' },
+  REVISAR: { txt: 'Revisar', color: 'red' }, ANULADO: { txt: 'Anulad', color: 'gray' },
 }
 const SIN = '_'
 
@@ -30,9 +30,11 @@ const SIN = '_'
  */
 export function Produccion() {
   const { tienda, vocab, rol, gr } = useAuth()
+  const cohTxt = (c: LineaHoja['coherencia']) => c === 'REVISAR' ? 'Revisar' : COH[c].txt + gr.o('encargo')
   const avisar = useAvisos()
   const aj = tienda?.ajustes as Record<string, unknown>
   const hoja = ajustesHoja(aj)
+  const laHoja = `${generoAuto(hoja.nombre) === 'f' ? 'la' : 'el'} ${min(hoja.nombre)}`
   const fic = ajustesFicha(aj)
   const mat = ajustesMaterial(aj)
   const gestion = rol === 'ADMIN' || rol === 'OPERATIVO'
@@ -115,7 +117,7 @@ export function Produccion() {
   function contenido(ls: LineaHoja[]): ContenidoImpresion {
     const cols = ['Nº', vocab.cliente, ...(mat.activo ? [vocab.material] : []), fic.etiqueta, ...(hoja.campoCol && !hoja.curva.length ? [etiquetaCol] : []), 'Nota']
     return {
-      titulo: hoja.nombre, producto: nombreProd, tienda: tienda?.nombre ?? '', fecha: new Date().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }),
+      titulo: hoja.nombre, producto: nombreProd, tienda: tienda?.nombre ?? '', fecha: new Date().toLocaleString(locale(), { timeZone: zona(), dateStyle: 'medium', timeStyle: 'short' }),
       columnas: cols, curva: hoja.campoCol ? hoja.curva : [],
       filas: ls.map((l) => ({
         valor: valor(l),
@@ -128,7 +130,7 @@ export function Produccion() {
     const ls = delProd.filter((l) => l.imprimir && (!soloCorrectas || l.coherencia === 'ENVIADO'))
     if (!ls.length) { avisar({ tipo: 'aviso', texto: 'Marca antes las líneas que quieres imprimir' }); return }
     const malas = ls.filter((l) => l.coherencia !== 'ENVIADO')
-    if (malas.length) { setBloqueo(malas.map((l) => `${num3(l)} ${l.cliente_nombre ?? ''}: ${l.motivos.join(', ') || COH[l.coherencia].txt}`)); return }
+    if (malas.length) { setBloqueo(malas.map((l) => `${num3(l)} ${l.cliente_nombre ?? ''}: ${l.motivos.join(', ') || cohTxt(l.coherencia)}`)); return }
     const c = contenido(ls)
     setBusy('imprimir')
     try {
@@ -143,7 +145,7 @@ export function Produccion() {
       <>
         <PageHeader title={hoja.nombre} />
         <div className="flex flex-col items-center gap-3 py-16 text-center text-fg-3">
-          <span>La {min(hoja.nombre)} está apagada.</span>
+          <span>{laHoja.charAt(0).toUpperCase() + laHoja.slice(1)} está apagad{generoAuto(hoja.nombre) === 'f' ? 'a' : 'o'}.</span>
           {rol === 'ADMIN' && <Button asChild><Link to="/ajustes/tienda">Activarla en Ajustes → Tienda</Link></Button>}
         </div>
       </>
@@ -155,7 +157,7 @@ export function Produccion() {
     <>
       <PageHeader title={hoja.nombre} subtitle={lineas ? (() => { const n = todas.filter((l) => !l.impreso_en && l.coherencia !== 'ANULADO').length; return n ? `${n} ${n === 1 ? 'línea' : 'líneas'} sin imprimir` : 'Todo impreso' })() : undefined} />
       {etProd.size === 0 && lineas && (
-        <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a la {min(hoja.nombre)}. Márcalo en Ajustes → Flujos → la etapa → «Envía a la {min(hoja.nombre)}».</p>
+        <p className="m-3 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa envía todavía a {laHoja}. Márcalo en Ajustes → Flujos → la etapa → «Envía a {laHoja}».</p>
       )}
       {tabs.length > 0 && <Tabs items={tabs} value={prod} onChange={(k) => setSp((s) => { s.set('p', k); return s }, { replace: true })} />}
       {err && <div className="m-3 rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
@@ -176,7 +178,7 @@ export function Produccion() {
 
             {anuladosImpresos.length > 0 && (
               <section className="flex flex-col gap-1 rounded-md bg-danger-bg p-3 text-sm text-danger-fg">
-                <b>Anulados después de imprimir: avisa a quien tenga la hoja</b>
+                <b>Anulad{gr.o('encargo', true)} después de imprimir: avisa a quien tenga {laHoja}</b>
                 {anuladosImpresos.map((l) => (
                   <div key={l.id} className="flex flex-wrap items-center gap-2">
                     <span>{num3(l)} {l.cliente_nombre} · impreso el {fechaCorta(l.impreso_en)}</span>
@@ -188,7 +190,7 @@ export function Produccion() {
             {listos.length > 0 && (
               <section className="flex flex-col gap-1 rounded-md border border-border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">Listos para enviar a producción</span>
+                  <span className="font-medium">List{gr.o('encargo', true)} para enviar a producción</span>
                   <button className="text-sm text-fg-3 hover:text-fg hover:underline" onClick={() => setSelListos(new Set(listos.filter((e) => !(e.puertas_pendientes ?? []).some((p) => p.dura) && (rol === 'ADMIN' || rol === 'OPERATIVO' || rol === e.etapa_siguiente_rol)).map((e) => e.id)))}>Marcar todos</button>
                   <div className="flex-1" />
                   <Button size="sm" variant="primary" disabled={!selListos.size} cargando={busy === 'enviar'} onClick={enviarListos}>Enviar {selListos.size || ''}</Button>
@@ -237,7 +239,7 @@ export function Produccion() {
                         ? hoja.curva.map((t) => <Td key={t} className="text-center">{valor(l) === t ? '●' : ''}</Td>)
                         : <Td>{valor(l) || '—'}</Td>)}
                       <Td title={l.motivos.join(' · ')}>
-                        <Tag color={COH[l.coherencia].color}>{COH[l.coherencia].txt}</Tag>
+                        <Tag color={COH[l.coherencia].color}>{cohTxt(l.coherencia)}</Tag>
                         {l.motivos.length > 0 && <div className="mt-0.5 max-w-[220px] text-xs text-fg-3">{l.motivos.join(' · ')}</div>}
                       </Td>
                       <Td>
@@ -259,7 +261,7 @@ export function Produccion() {
                 <span className="text-xs font-medium uppercase tracking-wide text-fg-3">Impresiones</span>
                 {imps.map((i) => (
                   <div key={i.id} className="flex items-center gap-3 text-sm">
-                    <span className="text-fg-2">{new Date(i.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                    <span className="text-fg-2">{new Date(i.fecha).toLocaleString(locale(), { timeZone: zona(), dateStyle: 'medium', timeStyle: 'short' })}</span>
                     <span>{i.n_lineas} {i.n_lineas === 1 ? 'línea' : 'líneas'}</span>
                     <button className="text-fg-2 underline hover:text-fg" onClick={() => { if (!imprimirHoja(i.contenido)) avisar({ tipo: 'aviso', texto: 'Permite las ventanas emergentes para reimprimir' }) }}>Reimprimir</button>
                   </div>

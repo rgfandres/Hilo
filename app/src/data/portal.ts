@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
 export interface EncargoPortal {
-  id: string; numero: number; proveedor_id: string; proveedor_nombre: string
+  id: string; numero: number; serie?: string | null; proveedor_id: string; proveedor_nombre: string
   cliente_nombre: string | null; producto_nombre: string | null; producto_foto_url: string | null
   tipo_encargo_id: string; datos: Record<string, unknown>; cliente_datos: Record<string, unknown>
   etapa_actual_nombre: string | null; carpeta: 'EN_CURSO' | 'ENTREGADOS'

@@ -84,7 +84,9 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   async function guardar(confirmadoQuitar = false) {
     if (f.proveedor !== inicial.proveedor && !f.proveedor && !confirmadoQuitar) { setQuitarProv(true); return }
     if (!soloProveedor && !f.nombre.trim()) { setErr(`El nombre ${gr.con('cliente', 'del')} es obligatorio`); return }
-    const falta = [...camposEnc.filter((c) => c.obligatorio && !f.dEnc[c.clave]), ...camposCli.filter((c) => c.obligatorio && !f.dCli[c.clave])]
+    // Solo se exige lo que se ha tocado: un obligatorio que ya venía vacío no impide guardar otro cambio
+    const vaciado = (antes: Record<string, unknown>, ahora: Record<string, unknown>) => (c: Campo) => c.obligatorio && !ahora[c.clave] && !!antes[c.clave]
+    const falta = [...camposEnc.filter(vaciado(inicial.dEnc, f.dEnc)), ...camposCli.filter(vaciado(inicial.dCli, f.dCli))]
     if (!soloProveedor && falta.length) { setErr(`Falta: ${falta.map((c) => c.etiqueta).join(', ')}`); return }
     if (f.aCuenta !== '' && Number(f.aCuenta) > 0 && f.importe === '') { setErr('Si hay algo entregado a cuenta, pon también el importe'); return }
     if (f.importe !== '' && f.aCuenta !== '' && Number(f.aCuenta) > Number(f.importe)) { setErr('Lo entregado a cuenta no puede ser mayor que el importe'); return }
@@ -149,7 +151,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
           </FormRow>}
           {!soloProveedor && <CamposForm campos={guia.adaptar(camposEnc)} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
           {!soloProveedor && camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(f.dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setF((s) => ({ ...s, dEnc: { ...s.dEnc, [destinoGuia]: guia.sug!.valor } })) }} />}
-          {!soloProveedor && (
+          {!soloProveedor && (fic.usaComplementos || f.comp) && (
             <FormRow label={fic.etiqueta} ayuda={receta ? `Receta de ${gr.con('producto', 'este')}: ${receta}. Aquí solo la variante.` : undefined}>
               <Input className="h-7" value={f.comp} onChange={(e) => setF((s) => ({ ...s, comp: e.target.value }))} placeholder={receta ? 'Color, acabado…' : 'Opcional'} />
             </FormRow>

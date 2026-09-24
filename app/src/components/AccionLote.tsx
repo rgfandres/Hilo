@@ -5,14 +5,15 @@ import type { EncargoEstado, Etapa, Rol } from '@/lib/types'
 import { Button, CapaCarga, Dialog, Select, useAvisos } from '@/ui'
 import { num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
+import { useAuth } from '@/auth/AuthProvider'
 
-type Motivo = 'anulado' | 'tipo' | 'yaEsta' | 'permiso' | 'bloqueado'
+type Motivo = 'anulado' | 'tipo' | 'yaEsta' | 'permiso' | 'bloqueado' | 'salto'
 interface Plan {
   pasan: { e: EncargoEstado; salta: string[]; avisos: string[] }[]
   fuera: { e: EncargoEstado; motivo: Motivo; detalle?: string }[]
 }
 const TEXTO_MOTIVO: Record<Motivo, string> = {
-  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado',
+  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado', salto: 'se saltaría etapas (solo Administración puede saltar)',
 }
 
 /**
@@ -42,6 +43,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
   const [abierto, setAbierto] = React.useState(false)
   const [conAvisos, setConAvisos] = React.useState(false)
   const [progreso, setProgreso] = React.useState<string | null>(null)
+  const { gr } = useAuth()
   const et = destinos.find((d) => d.id === destino)
 
   const plan = React.useMemo((): Plan => {
@@ -58,6 +60,8 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
       const duras = esSiguiente ? (e.puertas_pendientes ?? []).filter((x) => x.dura) : []
       if (duras.length) { p.fuera.push({ e, motivo: 'bloqueado', detalle: duras.map((x) => x.mensaje).join(' · ') }); continue }
       const salta = delFlujo.filter((x) => x.orden > actual && x.orden < et.orden).map((x) => x.nombre)
+      // Saltar etapas intermedias solo lo hace Administración (y se le dice cuáles se salta)
+      if (salta.length && rol !== 'ADMIN') { p.fuera.push({ e, motivo: 'salto', detalle: salta.join(', ') }); continue }
       const avisos = esSiguiente ? (e.puertas_pendientes ?? []).filter((x) => !x.dura).map((x) => x.mensaje) : []
       p.pasan.push({ e, salta, avisos })
     }
@@ -82,13 +86,13 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
     await onHecho()
     if (hechos.length) {
       avisar({
-        tipo: 'ok', texto: `${hechos.length} pasad${hechos.length === 1 ? 'o' : 'os'} a «${et.nombre}»`,
+        tipo: 'ok', texto: `${hechos.length} pasad${gr.o('encargo', hechos.length !== 1)} a «${et.nombre}»`,
         accion: {
           label: 'Deshacer', onClick: async () => {
             let mal = 0
             for (const e of hechos) { try { await deshacerUltimoHito(e.id) } catch { mal++ } }
             await onHecho()
-            avisar(mal ? { tipo: 'error', texto: `No se pudieron deshacer ${mal}. Revísalos uno a uno.` } : { tipo: 'info', texto: 'Deshecho' })
+            avisar(mal ? { tipo: 'error', texto: `No se pudieron deshacer ${mal}. Revísal${gr.o('encargo', true)} un${gr.o('encargo')} a un${gr.o('encargo')}.` } : { tipo: 'info', texto: 'Deshecho' })
           },
         },
       })
@@ -104,7 +108,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
     <>
       <div role="toolbar" aria-label="Acciones con la selección"
         className="fixed bottom-4 left-1/2 z-30 flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-md border border-border bg-bg px-3 py-2 shadow-strong max-md:bottom-[calc(64px+env(safe-area-inset-bottom))]">
-        <span className="font-medium tabular">{seleccion.length} seleccionad{seleccion.length === 1 ? 'o' : 'os'}</span>
+        <span className="font-medium tabular">{seleccion.length} seleccionad{gr.o('encargo', seleccion.length !== 1)}</span>
         <button className="text-sm text-fg-3 underline-offset-2 hover:text-fg hover:underline" onClick={onTodos}>Marcar los de esta página</button>
         {seleccion.length > 0 && destinos.length > 0 && <>
           <span className="text-fg-3">· Pasar a</span>
@@ -124,7 +128,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
       <CapaCarga texto={progreso && `Pasando ${progreso}`} />
       <Dialog open={abierto} onOpenChange={(o) => { if (!progreso) setAbierto(o) }}
         title={et ? `Pasar a «${et.nombre}»` : 'Pasar'}
-        description={vanA.length ? `${vanA.length === 1 ? 'Pasará 1' : `Pasarán ${vanA.length}`} ${vanA.length === 1 ? min(vocabEncargo) : min(vocabEncargos)}. Se hace de uno en uno y luego se puede deshacer todo junto.` : 'Ninguno de los seleccionados puede pasar a esa etapa.'}
+        description={vanA.length ? `${vanA.length === 1 ? 'Pasará 1' : `Pasarán ${vanA.length}`} ${vanA.length === 1 ? min(vocabEncargo) : min(vocabEncargos)}. Se hace de uno en uno y luego se puede deshacer todo junto.` : `Ningun${gr.o('encargo')} de ${gr.con('encargo', 'los')} seleccionad${gr.o('encargo', true)} puede pasar a esa etapa.`}
         actions={[{ label: progreso ? `Pasando ${progreso}` : `Pasar ${vanA.length}`, disabled: !vanA.length, onClick: ejecutar }]}>
         <div className="flex max-h-[45vh] flex-col gap-2 overflow-auto text-sm">
           {vanA.length > 0 && <p className="m-0"><b>Pasan:</b> {lista(vanA.map((x) => x.e))}</p>}
@@ -136,10 +140,10 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
           {conAvisoN > 0 && (
             <label className="flex items-start gap-2 rounded-sm bg-bg-3 px-2.5 py-1.5">
               <input type="checkbox" className="mt-0.5" checked={conAvisos} onChange={(x) => setConAvisos(x.target.checked)} />
-              <span>{conAvisoN} tienen avisos ({[...new Set(plan.pasan.flatMap((x) => x.avisos))].slice(0, 3).join(' · ')}). Pasarlos también.</span>
+              <span>{conAvisoN} tienen avisos ({[...new Set(plan.pasan.flatMap((x) => x.avisos))].slice(0, 3).join(' · ')}). Pasarl{gr.o('encargo', true)} también.</span>
             </label>
           )}
-          {(['bloqueado', 'yaEsta', 'permiso', 'tipo', 'anulado'] as Motivo[]).map((m) => {
+          {(['bloqueado', 'salto', 'yaEsta', 'permiso', 'tipo', 'anulado'] as Motivo[]).map((m) => {
             const xs = porMotivo(m)
             if (!xs.length) return null
             return (

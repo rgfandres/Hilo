@@ -15,16 +15,16 @@ import { DialogoResto } from '@/components/Material'
 import { Interruptor } from '@/pages/ajustes/Ajustes'
 import { Button, CapaCarga, Dialog, FormRow, Input, Segmented, Select, Sheet, Table, Tabs, Tag, Td, Th, Tr, useAvisos, Textarea } from '@/ui'
 import { copiarTexto, compartir } from '@/lib/copiar'
-import { cn, num3 } from '@/lib/utils'
+import { cn, num3, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
 type Vista = 'catalogo' | 'pedidos' | 'movimientos' | 'restos'
 const n = (x: string) => Number(String(x).replace(',', '.'))
-const fecha = (s: string) => new Date(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+const fecha = (s: string) => new Date(s).toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short' })
 
 /** Materiales: catálogo con stock, pedidos a proveedor, libro de movimientos y restos. */
 export function Materiales() {
-  const { tienda, vocab, rol } = useAuth()
+  const { tienda, vocab, rol, gr } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [sp, setSp] = useSearchParams()
   const vista = (sp.get('v') as Vista) || 'catalogo'
@@ -95,7 +95,7 @@ export function Materiales() {
 function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
   mats: MaterialEstado[]; provs: ProveedorFila[]; puedeEditar: boolean; unidad: string; onCambio: () => Promise<void>
 }) {
-  const { vocab } = useAuth()
+  const { vocab, gr } = useAuth()
   const [q, setQ] = React.useState('')
   const [filtro, setFiltro] = React.useState<'todos' | 'bajo' | 'inactivos'>('todos')
   const [editar, setEditar] = React.useState<MaterialEstado | 'nuevo' | null>(null)
@@ -121,7 +121,7 @@ function Catalogo({ mats, provs, puedeEditar, unidad, onCambio }: {
         <div className="flex-1" />
         {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.material}</Button>}
       </div>
-      {vis.length === 0 ? <p className="p-6 text-center text-fg-3">{mats.length ? 'Nada coincide.' : `Todavía no hay ${min(vocab.materiales)}. Añade el primero o créalo al asignarlo a un ${min(vocab.encargo)}.`}</p> : (
+      {vis.length === 0 ? <p className="p-6 text-center text-fg-3">{mats.length ? 'Nada coincide.' : `Todavía no hay ${min(vocab.materiales)}. Añade ${gr.genero.material === 'f' ? 'la primera' : 'el primero'} o cré${gr.genero.material === 'f' ? 'ala' : 'alo'} al asignarl${gr.o('material')} a ${gr.con('encargo', 'un')}.`}</p> : (
         <Table>
           <thead><Tr><Th>Variante</Th><Th>Proveedor</Th><Th className="text-right">Stock</Th><Th className="text-right">Necesario para {min(vocab.encargos)}</Th><Th className="text-right">En camino</Th><Th className="text-right">Umbral</Th><Th>Ubicación</Th><Th /></Tr></thead>
           <tbody>
@@ -180,7 +180,7 @@ function DialogoStock({ m, unidad, onClose, onSaved }: { m: MaterialEstado | nul
 function FichaMaterial({ m, mats, provs, soloLectura, onClose, onSaved }: {
   m: MaterialEstado | 'nuevo' | null; mats: MaterialEstado[]; provs: ProveedorFila[]; soloLectura: boolean; onClose: () => void; onSaved: () => Promise<void>
 }) {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const nuevo = m === 'nuevo'
   const vacio = { tipo: '', variante: '', proveedor_id: '', umbral: '', unidad_pedido: '', ubicacion: '', notas: '', activo: true }
@@ -214,7 +214,7 @@ function FichaMaterial({ m, mats, provs, soloLectura, onClose, onSaved }: {
       await onSaved(); onClose()
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }
   }
-  const titulo = nuevo ? `Nuevo ${min(vocab.material)}` : nombreMaterial(m as MaterialEstado | null)
+  const titulo = nuevo ? gr.Con('material', 'nuevo') : nombreMaterial(m as MaterialEstado | null)
   return (
     <Sheet open={!!m} onOpenChange={(o) => !o && onClose()} side="right" title={titulo} className="flex flex-col gap-3">
       <div className="text-md font-semibold">{titulo}</div>
@@ -254,7 +254,7 @@ interface Propuesta { m: MaterialEstado; pedir: string; incluir: boolean; lineas
 function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
   mats: MaterialEstado[]; lineas: LineaMaterial[]; pedidos: LineaPedido[]; provs: ProveedorFila[]; puedeEditar: boolean; onCambio: () => Promise<void>
 }) {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const avisar = useAvisos()
   const [prop, setProp] = React.useState<Record<string, Propuesta>>({})
@@ -319,7 +319,7 @@ function Pedidos({ mats, lineas, pedidos, provs, puedeEditar, onCambio }: {
     <div className="flex flex-col gap-5 p-4">
       <section className="flex flex-col gap-2">
         <h2 className="m-0 text-md font-semibold">Por pedir</h2>
-        {porProv.size === 0 && <p className="m-0 text-fg-3">Nada que pedir: el stock y lo que está en camino cubren lo pedido por los {min(vocab.encargos)} y el umbral.</p>}
+        {porProv.size === 0 && <p className="m-0 text-fg-3">Nada que pedir: el stock y lo que está en camino cubren lo pedido por {gr.con('encargo', 'los')} y el umbral.</p>}
         {[...porProv.entries()].map(([provId, xs]) => (
           <div key={provId} className="flex flex-col gap-1 rounded-md border border-border p-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -440,7 +440,7 @@ export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: Lin
 const TIPO_MOV: Record<Movimiento['tipo'], string> = { PEDIDO: 'Pedido', RECEPCION: 'Recepción', CONSUMO: 'Consumo', AJUSTE: 'Ajuste', RESTO: 'Resto', REVERSO: 'Revertido' }
 
 function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEstado[]; puedeEditar: boolean; unidad: string; onCambio: () => Promise<void> }) {
-  const { tienda, vocab } = useAuth()
+  const { tienda, vocab, gr } = useAuth()
   const avisar = useAvisos()
   const [mat, setMat] = React.useState('')
   const [movs, setMovs] = React.useState<Movimiento[] | null>(null)
@@ -454,7 +454,7 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
     <>
       <div className="flex h-11 items-center gap-3 border-b border-border-light px-4">
         <Select className="w-[260px]" value={mat} onChange={(e) => setMat(e.target.value)} aria-label={vocab.material}>
-          <option value="">Todos los {min(vocab.materiales)}</option>
+          <option value="">{gr.Con('material', 'todos')}</option>
           {mats.map((m) => <option key={m.id} value={m.id}>{nombreMaterial(m)}</option>)}
         </Select>
         <span className="text-sm text-fg-3">Cada cambio de stock queda aquí. Los últimos 300.</span>
@@ -465,7 +465,7 @@ function Movimientos({ mats, puedeEditar, unidad, onCambio }: { mats: MaterialEs
           <tbody>
             {movs.map((m) => (
               <Tr key={m.id} className={cn(m.revertido && 'opacity-55')}>
-                <Td className="whitespace-nowrap text-fg-2">{new Date(m.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Td>
+                <Td className="whitespace-nowrap text-fg-2">{new Date(m.fecha).toLocaleString(locale(), { timeZone: zona(), day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Td>
                 <Td>{nom(m.material_id)}</Td>
                 <Td><Tag color={m.tipo === 'CONSUMO' ? 'blue' : m.tipo === 'RECEPCION' ? 'green' : m.tipo === 'REVERSO' ? 'gray' : 'amber'}>{TIPO_MOV[m.tipo]}</Tag>{m.revertido && <span className="ml-1 text-xs text-fg-3">revertido</span>}</Td>
                 <Td className="text-right tabular">{cant(m.cantidad, unidad)}</Td>

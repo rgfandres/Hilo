@@ -30,6 +30,7 @@ export function AjustesEquipo() {
   const [rol, setRol] = React.useState<Rol>('ATENCION')
   const [nueva, setNueva] = React.useState<Invitacion | null>(null)
   const [quitar, setQuitar] = React.useState<MiembroEquipo | null>(null)
+  const [desactivar, setDesactivar] = React.useState<MiembroEquipo | null>(null)
   const [dErr, setDErr] = React.useState<string | null>(null)
 
   const cargar = React.useCallback(async () => {
@@ -88,7 +89,7 @@ export function AjustesEquipo() {
                   {ROLES.map((r) => <option key={r} value={r}>{nombresRol[r]}</option>)}
                 </Select>
                 <Button variant="ghost" size="sm" disabled={ultimoAdmin}
-                  onClick={() => hacer(() => activarMiembro(m.tienda_id, m.user_id, !m.activo), m.activo ? 'Desactivado' : 'Activado')}>
+                  onClick={() => m.activo ? setDesactivar(m) : hacer(() => activarMiembro(m.tienda_id, m.user_id, true), 'Activado')}>
                   {m.activo ? 'Desactivar' : 'Activar'}
                 </Button>
                 <Button variant="danger" size="sm" disabled={ultimoAdmin} onClick={() => { setQuitar(m); setDErr(null) }}>Quitar</Button>
@@ -160,6 +161,17 @@ export function AjustesEquipo() {
           if (!bajarme) return
           await hacer(() => cambiarRol(bajarme.m.tienda_id, bajarme.m.user_id, bajarme.rol).then(() => recargar()), 'Rol cambiado')
           setBajarme(null)
+        } }]} />
+      <Dialog open={!!desactivar} onOpenChange={(o) => !o && setDesactivar(null)}
+        title={desactivar?.soy_yo ? 'Desactivarte a ti' : `Desactivar a ${desactivar?.email ?? ''}`}
+        description={desactivar?.soy_yo
+          ? 'Dejarás de poder entrar en esta tienda en cuanto salgas. Solo otra persona con administración podrá activarte de nuevo.'
+          : 'No podrá entrar en la tienda hasta que la actives otra vez. Lo que hizo se conserva. Se puede deshacer con «Activar».'}
+        actions={[{ label: 'Desactivar', variant: 'danger', onClick: async () => {
+          const m = desactivar; if (!m) return
+          setDesactivar(null)
+          await hacer(() => activarMiembro(m.tienda_id, m.user_id, false), 'Desactivado')
+          if (m.soy_yo) recargar()
         } }]} />
     </>
   )

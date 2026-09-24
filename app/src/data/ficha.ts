@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { formatearValor, type Campo } from '@/data/config'
-import { num3, locale } from '@/lib/utils'
+import { num3, locale, zona } from '@/lib/utils'
 import type { Vocab } from '@/lib/vocab'
 
 /**
@@ -63,13 +63,13 @@ export interface DatosFicha {
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-const fechaLarga = (iso: string) => new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' })
+const fechaLarga = (iso: string) => new Date(iso).toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short', year: 'numeric' })
 
 function textos(d: DatosFicha): Record<string, string> {
   const t: Record<string, string> = {
     tienda: d.tienda, numero: num3({ numero: d.numero, serie: d.serie }), nombre: d.nombre, telefono: d.telefono ?? '', email: d.email ?? '',
     producto: d.producto ?? '', proveedor: d.proveedor ?? '', etapa: d.etapa ?? '', tipo: d.tipo ?? '',
-    fecha: new Date().toLocaleDateString(locale()),
+    fecha: new Date().toLocaleDateString(locale(), { timeZone: zona() }),
   }
   for (const c of [...d.camposCliente, ...d.camposEncargo]) {
     const src = d.camposEncargo.includes(c) ? d.datosEncargo : d.datosCliente

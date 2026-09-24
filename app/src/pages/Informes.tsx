@@ -12,7 +12,7 @@ import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Select, SectionLabel, Tag, tagColorFromHex } from '@/ui'
 import { Facturacion, InformeMateriales } from '@/components/InformesExtra'
-import { cn, locale } from '@/lib/utils'
+import { cn, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { activo } from '@/lib/bandejas'
 
@@ -30,7 +30,8 @@ function Delta({ a, b }: { a: number; b: number | null }) {
 }
 
 export function Informes() {
-  const { tienda, vocab, periodo } = useAuth()
+  const { tienda, vocab, periodo, gr } = useAuth()
+  const os = gr.o('encargo', true)
   const [tipo, setTipo] = React.useState<TipoIntervalo>('mes')
   const [ref, setRef] = React.useState(() => new Date())
   const [hs, setHs] = React.useState<HitoInforme[] | null>(null)
@@ -134,7 +135,7 @@ export function Informes() {
               {typeof (tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url === 'string' && <img src={(tienda!.ajustes as Record<string, string>).logo_url} alt="" className="h-8 max-w-[140px] object-contain" />}
               {iv.titulo}
             </h1>
-            <span className="text-sm text-fg-3">{tienda?.nombre} · generado el {ahora.toLocaleDateString(locale())} a las {ahora.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}{prev ? ` · comparado con ${prev.titulo.toLowerCase()}` : ''}</span>
+            <span className="text-sm text-fg-3">{tienda?.nombre} · generado el {ahora.toLocaleDateString(locale(), { timeZone: zona() })} a las {ahora.toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })}{prev ? ` · comparado con ${prev.titulo.toLowerCase()}` : ''}</span>
           </div>
           {err && <div className="flex items-center gap-2 rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}<Button size="sm" onClick={cargar}>↻ Reintentar</Button></div>}
           {cargando && <div className="text-fg-3">Calculando…</div>}
@@ -144,7 +145,7 @@ export function Informes() {
               <section className="flex flex-col gap-2">
                 <SectionLabel>Producción · {min(vocab.encargos)} que llegan a cada etapa</SectionLabel>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  <Tile titulo="Nuevos" n={prod.nuevos} ant={prod.nuevosAnt} />
+                  <Tile titulo={`Nuev${os}`} n={prod.nuevos} ant={prod.nuevosAnt} />
                   {prod.etapas.map(({ e, n, ant }) => <Tile key={e.id} titulo={e.nombre} n={n} ant={ant} color={e.color} />)}
                 </div>
               </section>
@@ -156,10 +157,10 @@ export function Informes() {
                     <button className="no-imprimir text-sm text-fg-3 hover:text-fg" onClick={() => setTabla((t) => !t)}>{tabla ? 'Ver gráfico' : 'Ver como tabla'}</button>
                   </div>
                   {tabla ? (
-                    <TablaSimple cabecera={['Intervalo', 'Nuevos', `A ${min(vocab.proveedor)}`, 'Terminados']}
+                    <TablaSimple cabecera={['Intervalo', `Nuev${os}`, `A ${min(vocab.proveedor)}`, `Terminad${os}`]}
                       filas={evolucion.map((x) => [x.i.titulo, x.nuevos, x.proveedor, x.terminados])} />
                   ) : (
-                    <Evolucion datos={evolucion} proveedor={min(vocab.proveedor)} />
+                    <Evolucion datos={evolucion} proveedor={min(vocab.proveedor)} os={os} />
                   )}
                 </section>
               )}
@@ -185,7 +186,7 @@ export function Informes() {
               <section className="flex flex-col gap-2">
                 <SectionLabel>Por {min(vocab.proveedor)}</SectionLabel>
                 {filasProv.length === 0 ? <p className="m-0 text-fg-3">Nada ha pasado por {min(vocab.proveedores)} en este intervalo.</p> : (
-                  <TablaSimple cabecera={[vocab.proveedor, 'Enviados', 'Recibidos', 'Días medios', 'En curso', 'Atascados']} alinear={[false, true, true, true, true, true]}
+                  <TablaSimple cabecera={[vocab.proveedor, `Enviad${os}`, `Recibid${os}`, 'Días medios', 'En curso', `Atascad${os}`]} alinear={[false, true, true, true, true, true]}
                     filas={filasProv.map((r) => [<Link key={r.id} to={`/proveedores/${r.id}`} className="font-medium hover:underline">{r.nombre}</Link>, r.enviados, r.recibidos, uno(r.dias), r.enCurso,
                       r.atascados ? <span className="text-danger-fg">{r.atascados}</span> : 0])} />
                 )}
@@ -193,20 +194,20 @@ export function Informes() {
 
               <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                 <section className="flex flex-col gap-2">
-                  <SectionLabel>Terminados por {min(vocab.producto)}</SectionLabel>
+                  <SectionLabel>Terminad{os} por {min(vocab.producto)}</SectionLabel>
                   {topProducto.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
-                    : <TablaSimple cabecera={[vocab.producto, 'Terminados']} alinear={[false, true]} filas={topProducto.map(([k, n]) => [k || <span className="text-warn-fg">Sin {min(vocab.producto)}</span>, n])} />}
+                    : <TablaSimple cabecera={[vocab.producto, `Terminad${os}`]} alinear={[false, true]} filas={topProducto.map(([k, n]) => [k || <span className="text-warn-fg">Sin {min(vocab.producto)}</span>, n])} />}
                 </section>
                 {camposEncargo.length > 0 && (
                   <section className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <SectionLabel className="flex-1">Terminados por</SectionLabel>
+                      <SectionLabel className="flex-1">Terminad{os} por</SectionLabel>
                       <Select className="no-imprimir h-7 w-[180px]" value={campo} onChange={(e) => setCampo(e.target.value)} aria-label="Campo">
                         {camposEncargo.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
                       </Select>
                     </div>
                     {topCampo.length === 0 ? <p className="m-0 text-fg-3">Nada terminado en este intervalo.</p>
-                      : <TablaSimple cabecera={[camposEncargo.find((c) => c.clave === campo)?.etiqueta ?? '', 'Terminados']} alinear={[false, true]}
+                      : <TablaSimple cabecera={[camposEncargo.find((c) => c.clave === campo)?.etiqueta ?? '', `Terminad${os}`]} alinear={[false, true]}
                           filas={topCampo.map(([k, n]) => [k || <span className="text-warn-fg">Sin dato</span>, n])} />}
                   </section>
                 )}
@@ -279,11 +280,11 @@ function Embudo({ actuales, etapas }: { actuales: EncargoEstado[]; etapas: Etapa
 }
 
 /** Tres series en el tiempo: líneas de 2 px, leyenda, etiqueta al final y tooltip por intervalo. */
-function Evolucion({ datos, proveedor }: { datos: { i: Intervalo; nuevos: number; proveedor: number; terminados: number }[]; proveedor: string }) {
+function Evolucion({ datos, proveedor, os = 'os' }: { datos: { i: Intervalo; nuevos: number; proveedor: number; terminados: number }[]; proveedor: string; os?: string }) {
   const series = [
-    { k: 'nuevos' as const, label: 'Nuevos', color: '#2a78d6' },
+    { k: 'nuevos' as const, label: `Nuev${os}`, color: '#2a78d6' },
     { k: 'proveedor' as const, label: `A ${proveedor}`, color: '#eb6834' },
-    { k: 'terminados' as const, label: 'Terminados', color: '#1baf7a' },
+    { k: 'terminados' as const, label: `Terminad${os}`, color: '#1baf7a' },
   ]
   const [hover, setHover] = React.useState<number | null>(null)
   const W = 640, H = 200, PL = 28, PR = 84, PT = 10, PB = 26

@@ -7,7 +7,7 @@ import { mensajeError } from '@/data/encargos'
 import { plantillas } from '@/data/config'
 import { guiaDe, importarGuia, sugerir, type FilaGuia, type Guia } from '@/data/guia'
 import { Button, Dialog, FormRow, Input, Select, Textarea } from '@/ui'
-import { Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
 
 type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: string; medida?: boolean; unidad?: string }
 
@@ -140,12 +140,7 @@ export function AjustesGuia() {
         </Bloque>
       )}
 
-      <div className="sticky bottom-0 -mx-8 flex items-center gap-3 border-t border-border bg-bg px-8 py-3 max-md:-mx-4 max-md:px-4">
-        <Estado ok={ok} err={err} />
-        <div className="flex-1" />
-        <Button variant="ghost" disabled={!sucio || busy} onClick={() => { setG(inicial); setErr(null) }}>Descartar</Button>
-        <Button variant="primary" disabled={!sucio || busy} onClick={guardar}>{busy ? 'Guardando…' : 'Guardar'}</Button>
-      </div>
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setG(inicial); setErr(null) }} />
 
       <Dialog open={importar !== null} onOpenChange={(o) => !o && setImportar(null)} title="Pegar desde hoja de cálculo"
         description="Copia la tabla con su cabecera: una fila por valor y una columna por medida, o al revés. Los nombres de las medidas deben coincidir con los de Ajustes → Campos."

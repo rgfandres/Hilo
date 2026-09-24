@@ -25,7 +25,7 @@ import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/da
 import { resumenFicha } from '@/pages/Productos'
 import { ajustesMaterial, liberarMaterial } from '@/data/materiales'
 import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
-import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente } from '@/lib/utils'
+import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
@@ -36,7 +36,7 @@ const TAB = 'flex h-9 items-center gap-1.5 px-1 mr-4 text-base font-medium text-
 
 type Modal = null | 'incidencia' | 'resolver' | 'volver' | 'anular' | 'recuperar' | 'revisar' | 'final' | { fecha: Hito } | { nota: Hito }
 
-const hora = (iso: string) => new Date(iso).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+const hora = (iso: string) => new Date(iso).toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })
 /** Días de calendario entre dos momentos (20 → 23 = 3), en hora local */
 const dias = (a: string, b: string | Date) => {
   const d0 = new Date(a); d0.setHours(0, 0, 0, 0)
@@ -60,6 +60,11 @@ export function Encargo() {
 
   const [e, setE] = React.useState<EncargoEstado | null>(null)
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
+  // Ficha técnica y complementos: solo si la tienda los usa; el aviso de «sin ficha», solo a quien puede crearla
+  const ajT = (tienda?.ajustes ?? {}) as Record<string, unknown>
+  const usaComplementos = fic.usaComplementos
+  const usaFichas = fic.construcciones.length > 0 || conMaterial
+  const puedeEditarProd = rol === 'ADMIN' || rol === 'OPERATIVO'
   const [fichaT, setFichaT] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
   const productoId = e?.producto_id
   React.useEffect(() => { setFichaT(null); if (productoId) fichaProducto(productoId).then(setFichaT).catch(() => {}) }, [productoId])
@@ -129,7 +134,7 @@ export function Encargo() {
     const out: string[] = []
     if (i.proveedor && i.en_proveedor) out.push(`avisar a ${i.proveedor} de que pare el trabajo`)
     if (Number(i.a_cuenta) > 0) out.push(`decidir qué hacer con ${dinero(i.a_cuenta, din.moneda)} entregados a cuenta`)
-    if (i.material_pedido) out.push(`${min(vocab.material)} pedido para este ${min(vocab.encargo)} (${i.material_pedido}): llegará igual y quedará en stock`)
+    if (i.material_pedido) out.push(`${min(vocab.material)} pedid${gr.o('material')} para ${gr.con('encargo', 'este')} (${i.material_pedido}): llegará igual y quedará en stock`)
     if (i.n_mensajes > 0) out.push(`avisar ${gr.con('cliente', 'al')} (ya se le escribió ${i.n_mensajes} ${i.n_mensajes === 1 ? 'vez' : 'veces'})`)
     return out
   }
@@ -187,7 +192,7 @@ export function Encargo() {
     setChecks((c) => ({ ...c, [clave]: v }))
     try { await marcarCheck(e.id, clave, v); await cargar() } catch (x) { setErr(mensajeError(x)) }
   }
-  async function enviarComentario(ev: React.FormEvent) {
+  async function enviarComentario(ev: React.SyntheticEvent) {
     ev.preventDefault()
     if (!e || !texto.trim()) return
     try { await comentar(e.id, texto.trim()); setTexto(''); setComs(await listarComentarios(e.id)) } catch (x) { setErr(mensajeError(x)) }
@@ -247,7 +252,7 @@ export function Encargo() {
             <Link to={`/clientes/${e.cliente_id}`} className="text-xl font-semibold tracking-tight hover:underline">{e.cliente_nombre}</Link>
             <div className="flex items-center gap-2 text-fg-2">
               <span>{vocab.encargo} {num3(e)}</span><span className="text-border-strong">·</span>
-              {anulado ? <Tag color="gray">Anulado</Tag>
+              {anulado ? <Tag color="gray">Anulad{gr.o('encargo')}</Tag>
                 : e.en_revision ? <Tag color="red">Incidencia</Tag>
                 : <Tag color="gray">{e.etapa_actual_nombre ?? 'Sin empezar'}</Tag>}
             </div>
@@ -320,8 +325,8 @@ export function Encargo() {
             <Field label={vocab.producto}>{e.producto_nombre ?? '—'}</Field>
             {e.producto_id && fichaT && (tieneFicha(fichaT)
               ? <div className="mb-1 ml-[128px] rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 max-md:ml-0" title="Ficha técnica">{resumenFicha(fichaT, tienda?.ajustes as Record<string, unknown>)}</div>
-              : <Link to={`/productos?q=${encodeURIComponent(fichaT.nombre)}`} className="mb-1 ml-[128px] self-start rounded-sm bg-warn-bg px-2 py-0.5 text-sm text-warn-fg hover:underline max-md:ml-0">{gr.Con('producto', 'este')} no tiene ficha técnica: créala</Link>)}
-            <Field label={fic.etiqueta}>{e.complementos || '—'}</Field>
+              : puedeEditarProd && usaFichas && <Link to={`/productos?q=${encodeURIComponent(fichaT.nombre)}`} className="mb-1 ml-[128px] self-start rounded-sm bg-warn-bg px-2 py-0.5 text-sm text-warn-fg hover:underline max-md:ml-0">{gr.Con('producto', 'este')} no tiene ficha técnica: créala</Link>)}
+            {(e.complementos || usaComplementos) && <Field label={fic.etiqueta}>{e.complementos || '—'}</Field>}
             <CamposVista campos={camposEnc} datos={datos} extra={(c) => (
               <NotaCampo etiqueta={c.etiqueta} nota={notas[c.clave]} autor={notas[c.clave]?.usuario_id ? autores[notas[c.clave].usuario_id!] : undefined}
                 editable={!anulado} onGuardar={async (t) => { await ponerNotaCampo(e.id, c.clave, t); setNotas(await listarNotasCampo(e.id)) }} />
@@ -345,7 +350,7 @@ export function Encargo() {
               <Field label="Teléfono">{cli.telefono ?? '—'}</Field>
               <Field label="Correo">{cli.email ?? '—'}</Field>
               <CamposVista soloRellenos campos={camposCli} datos={medidas} />
-              <MedidasDelEncargo encargoId={e.id} campos={camposCli} actuales={cli.datos} />
+              {!anulado && !e.es_final && <MedidasDelEncargo encargoId={e.id} campos={camposCli} actuales={cli.datos} />}
             </div>
           )}
 
@@ -378,7 +383,9 @@ export function Encargo() {
               {!anulado && (
                 <form onSubmit={enviarComentario} className="mb-3 flex flex-col gap-1">
                   <label htmlFor="nuevo-comentario"><SectionLabel>Añadir comentario</SectionLabel></label>
-                  <Input id="nuevo-comentario" value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…" />
+                  <Textarea id="nuevo-comentario" rows={2} value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…"
+                    onKeyDown={(k) => { if (k.key === 'Enter' && (k.metaKey || k.ctrlKey)) { k.preventDefault(); enviarComentario(k) } }} />
+                  <div className="flex items-center justify-end gap-2"><span className="text-xs text-fg-3 max-md:hidden">Ctrl/⌘ + Intro para enviar</span><Button size="sm" type="submit" disabled={!texto.trim()}>Enviar</Button></div>
                 </form>
               )}
               {[...porDia.entries()].map(([dia, evs]) => (
@@ -437,7 +444,9 @@ export function Encargo() {
             <RTabs.Content value="comentarios" className="flex max-w-[640px] flex-col gap-3 overflow-auto p-5">
               {!anulado && (
                 <form onSubmit={enviarComentario} className="flex flex-col gap-1">
-                  <Input value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…" aria-label="Nuevo comentario" />
+                  <Textarea aria-label="Nuevo comentario" rows={2} value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…"
+                    onKeyDown={(k) => { if (k.key === 'Enter' && (k.metaKey || k.ctrlKey)) { k.preventDefault(); enviarComentario(k) } }} />
+                  <div className="flex items-center justify-end gap-2"><span className="text-xs text-fg-3 max-md:hidden">Ctrl/⌘ + Intro para enviar</span><Button size="sm" type="submit" disabled={!texto.trim()}>Enviar</Button></div>
                 </form>
               )}
               {coms.length === 0 && <span className="text-fg-3">Sin comentarios.</span>}
@@ -540,9 +549,9 @@ export function Encargo() {
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
         {recibidoMat.length > 0 && (
           <div className="mt-2 flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
-            <div className="font-medium">{vocab.material} ya asignado: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
-            <label className="flex items-center gap-2"><input type="radio" checked={devolverMat} onChange={() => setDevolverMat(true)} /> Devolverlo al stock (no se ha cortado ni usado)</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={!devolverMat} onChange={() => setDevolverMat(false)} /> Darlo por usado y marcar el {min(vocab.encargo)} para reaprovechar</label>
+            <div className="font-medium">{vocab.material} ya asignad{gr.o('material')}: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
+            <label className="flex items-center gap-2"><input type="radio" checked={devolverMat} onChange={() => setDevolverMat(true)} /> Devolverl{gr.o('material')} al stock (no se ha usado)</label>
+            <label className="flex items-center gap-2"><input type="radio" checked={!devolverMat} onChange={() => setDevolverMat(false)} /> Darl{gr.o('material')} por usad{gr.o('material')} y marcar {gr.con('encargo', 'el')} para reaprovechar</label>
           </div>
         )}
         {impacto && pendientesAlAnular(impacto).length > 0 && (

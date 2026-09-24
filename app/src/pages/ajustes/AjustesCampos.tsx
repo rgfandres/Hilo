@@ -10,7 +10,7 @@ import { ajustesHoja } from '@/data/produccion'
 import { plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
-import { Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
 
 type Destino = { entidad: PlantillaCampos['entidad']; tipoId: string | null }
 const TIPOS_CAMPO: { v: Campo['tipo']; l: string }[] = [
@@ -181,12 +181,7 @@ export function AjustesCampos() {
         </form>
       </div>
 
-      <div className="sticky bottom-0 -mx-8 flex items-center gap-3 border-t border-border bg-bg px-8 py-3 max-md:-mx-4 max-md:px-4">
-        <Estado ok={ok} err={err} />
-        <div className="flex-1" />
-        <Button variant="ghost" disabled={!sucio || busy} onClick={() => { setCampos(JSON.parse(original)); setErr(null) }}>Descartar</Button>
-        <Button variant="primary" disabled={!sucio || busy} onClick={() => guardar()}>{busy ? 'Guardando…' : 'Guardar'}</Button>
-      </div>
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={() => guardar()} onDescartar={() => { setCampos(JSON.parse(original)); setErr(null) }} />
 
       <Dialog open={quitar !== null} onOpenChange={() => setQuitar(null)} title={`Quitar «${quitar !== null ? campos[quitar]?.etiqueta : ''}»`}
         description="Deja de pedirse y de mostrarse. Los datos ya guardados no se borran: si vuelves a crear un campo con la misma clave, reaparecen."

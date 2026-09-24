@@ -1,12 +1,12 @@
 import { plantillas } from '@/data/config'
 import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
-import { subirFoto } from '@/data/catalogos'
+import { ajustesFicha, subirFoto } from '@/data/catalogos'
 import { guardarTienda } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
 import { ROLES, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
-import { Bloque, Estado, Interruptor } from './Ajustes'
+import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
 
 const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'encargo', kp: 'encargos', ayuda: 'Lo que la tienda hace por encargo' },
@@ -47,6 +47,7 @@ export function AjustesTienda() {
     porEncargo: String(aj.unidad_por_encargo_max ?? 10),
     umbralResto: String(aj.umbral_resto ?? 5),
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
+    usaComp: ajustesFicha(aj).usaComplementos,
     construcciones: ((aj.tipos_construccion as string[] | undefined) ?? []).join(', '),
     produccion: ((aj.modulos as Record<string, boolean> | undefined)?.produccion) === true,
     logistica: ((aj.modulos as Record<string, boolean> | undefined)?.logistica) === true,
@@ -67,13 +68,13 @@ export function AjustesTienda() {
   React.useEffect(() => setF(inicial), [inicial])
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
   const AYUDA = ayudaRoles(f.vocab)
-  const [camposEnc, setCamposEnc] = React.useState<{ clave: string; etiqueta: string }[]>([])
+  const [camposEnc, setCamposEnc] = React.useState<{ clave: string; etiqueta: string; tipo: string; opciones: string[] }[]>([])
   React.useEffect(() => {
     if (!tienda) return
     plantillas(tienda.id).then((ps) => {
-      const m = new Map<string, string>()
-      for (const p of ps) if (p.entidad === 'ENCARGO') for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, c.etiqueta)
-      setCamposEnc([...m.entries()].map(([clave, etiqueta]) => ({ clave, etiqueta })))
+      const m = new Map<string, { clave: string; etiqueta: string; tipo: string; opciones: string[] }>()
+      for (const p of ps) if (p.entidad === 'ENCARGO') for (const c of p.campos) if (!m.has(c.clave)) m.set(c.clave, { clave: c.clave, etiqueta: c.etiqueta, tipo: c.tipo, opciones: c.opciones ?? [] })
+      setCamposEnc([...m.values()])
     }).catch(() => {})
   }, [tienda])
 
@@ -89,6 +90,12 @@ export function AjustesTienda() {
     if (!(toque >= 1 && toque <= 10)) { setErr('El doble toque debe estar entre 1 y 10 segundos'); return }
     if (!(pagina >= 10 && pagina <= 500)) { setErr('Las filas por página deben estar entre 10 y 500'); return }
     if (f.resena.trim() && !/^https:\/\/[^\s]+\.[^\s]+/.test(f.resena.trim())) { setErr('El enlace de reseña debe empezar por https:// (cópialo de tu ficha de Google o similar)'); return }
+    // Números de materiales y logística: sin texto ni negativos
+    const numOk = (s: string, min = 0) => { const t = s.trim().replace(',', '.'); return t === '' || (Number.isFinite(Number(t)) && Number(t) >= min) }
+    if (f.materiales && !numOk(f.umbralMat)) { setErr('El umbral de material debe ser un número (0 o más)'); return }
+    if (f.materiales && !numOk(f.porEncargo)) { setErr(`«Pedido por ${f.vocab.encargo.toLowerCase()}» debe ser un número (0 o más)`); return }
+    if (f.materiales && !numOk(f.umbralResto)) { setErr('El umbral de resto debe ser un número (0 o más)'); return }
+    if (f.logistica && !(numOk(f.diasHist, 1) && /^\d*$/.test(f.diasHist.trim()))) { setErr('El histórico de logística debe ser un número entero de días (1 o más)'); return }
     const vacias = Object.entries(f.vocab).filter(([, v]) => !v.trim())
     if (vacias.length) { setErr('Ninguna palabra del vocabulario puede quedar vacía'); return }
     setBusy(true); setErr(null); setOk(null)
@@ -122,6 +129,7 @@ export function AjustesTienda() {
         unidad_por_encargo_max: Number(f.porEncargo.replace(',', '.')) || 0,
         umbral_resto: Number(f.umbralResto.replace(',', '.')) || 0,
         etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
+        usar_complementos: f.usaComp,
         tipos_construccion: [...new Set(f.construcciones.split(',').map((x) => x.trim()).filter(Boolean))],
         enlace_resena: f.resena.trim() || null,
         prefijo_telefono: f.prefijo.replace(/\D/g, '') || '34',
@@ -281,7 +289,8 @@ export function AjustesTienda() {
       <Bloque titulo="Ficha técnica" ayuda={`Lo que cada ${f.vocab.producto.toLowerCase()} lleva: se rellena en su ficha del catálogo y se ve como resumen en cada ${f.vocab.encargo.toLowerCase()}.`}>
         <div className="flex flex-col gap-1">
           <FormRow label="Tipos de construcción" ayuda="Separados por comas. Vacío = no se pregunta."><Input className="h-7" value={f.construcciones} placeholder="Por ejemplo: A medida, Estándar" onChange={(e) => setF({ ...f, construcciones: e.target.value })} /></FormRow>
-          <FormRow label="Nombre de los complementos" ayuda={`Cómo llamáis a lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…).`}><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>
+          <FormRow label="Complementos" ayuda={`Lo que se añade a cada ${f.vocab.encargo.toLowerCase()} (acabados, extras…): un campo de texto en el alta y en la ficha.`}><Interruptor checked={f.usaComp} onChange={(v) => setF({ ...f, usaComp: v })} label="Usar complementos" /></FormRow>
+          {f.usaComp && <FormRow label="Cómo los llamáis"><Input className="h-7 w-[220px]" value={f.etiqComp} onChange={(e) => setF({ ...f, etiqComp: e.target.value })} /></FormRow>}
         </div>
       </Bloque>
 
@@ -293,10 +302,27 @@ export function AjustesTienda() {
             <FormRow label="Campo en columnas" ayuda="Si lo eliges, la hoja marca el valor de cada línea en columnas (una por valor).">
               <Select className="w-[260px]" value={f.hojaCol} onChange={(e) => setF({ ...f, hojaCol: e.target.value })}>
                 <option value="">— ninguno —</option>
-                {camposEnc.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
+                {camposEnc.filter((c) => c.tipo === 'opcion' || c.clave === f.hojaCol).map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}{c.tipo !== 'opcion' ? ' (no es de opción)' : ''}</option>)}
               </Select>
             </FormRow>
-            {f.hojaCol && <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>}
+            {camposEnc.length > 0 && !camposEnc.some((c) => c.tipo === 'opcion') && <span className="pl-[128px] text-sm text-fg-3 max-md:pl-0">Solo valen campos de opción (Ajustes → Campos).</span>}
+            {f.hojaCol && (() => {
+              const col = camposEnc.find((c) => c.clave === f.hojaCol)
+              const elegidas = f.hojaCurva.split(',').map((x) => x.trim()).filter(Boolean)
+              if (!col?.opciones.length) return <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>
+              return (
+                <FormRow label="Columnas" ayuda="Las opciones que salen como columna, en el orden del campo. Ninguna marcada = una sola columna con el valor escrito.">
+                  <div className="flex flex-wrap gap-1">
+                    {col.opciones.map((o) => {
+                      const on = elegidas.includes(o)
+                      return <button key={o} type="button" aria-pressed={on}
+                        onClick={() => { const n = on ? elegidas.filter((x) => x !== o) : col.opciones.filter((x) => x === o || elegidas.includes(x)); setF({ ...f, hojaCurva: n.join(', ') }) }}
+                        className={`h-7 rounded-sm border px-2 text-sm ${on ? 'border-gray-12 bg-bg-4 font-medium' : 'border-border text-fg-2'}`}>{o}</button>
+                    })}
+                  </div>
+                </FormRow>
+              )
+            })()}
           </>}
         </div>
       </Bloque>
@@ -318,12 +344,7 @@ export function AjustesTienda() {
         </FormRow>
       </Bloque>
 
-      <div className="sticky bottom-0 -mx-8 flex items-center gap-3 border-t border-border bg-bg px-8 py-3 max-md:-mx-4 max-md:px-4">
-        <Estado ok={ok} err={err} />
-        <div className="flex-1" />
-        <Button variant="ghost" disabled={!sucio || busy} onClick={() => { setF(inicial); setErr(null) }}>Descartar</Button>
-        <Button variant="primary" disabled={!sucio || busy} onClick={guardar}>{busy ? 'Guardando…' : 'Guardar'}</Button>
-      </div>
+      <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setF(inicial); setErr(null) }} />
     </>
   )
 }

@@ -109,6 +109,8 @@ export function mensajeError(e: unknown): string {
   if (/NO_REVERTIR_STOCK/.test(m)) return 'No se puede revertir: parte de lo recibido ya se ha usado y el stock quedaría en negativo. Corrige el stock a mano si hace falta.'
   if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
   if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Flujos.'
+  const salto = m.match(/SALTO_ETAPAS:(.*)$/)
+  if (salto) return `Se saltaría «${salto[1].split(', ').join('», «')}». Solo Administración puede saltar etapas.`
   const rol = m.match(/ROL_NO_MARCA:[^:]*:(.*)$/)
   if (rol) return `Tu rol no puede marcar «${rol[1]}». Lo marca otra persona del equipo.`
   if (/Etapa .* no existe para este tipo/.test(m)) return 'Esa etapa ya no existe en el flujo. Recarga la página.'

@@ -86,3 +86,13 @@ export function gramatica(v: Vocab, genero: Record<ClaveVocab, Genero>): Gramati
     genero,
   }
 }
+
+/** Nombres de la bandeja final: el de la etapa final si solo hay uno; si no, «Terminados/as» */
+export function textosFin(etapas: { nombre: string; es_final: boolean }[], gr: Gramatica) {
+  const finales = [...new Set(etapas.filter((e) => e.es_final).map((e) => e.nombre))]
+  return {
+    terminados: finales.length === 1 ? finales[0] : `Terminad${gr.o('encargo', true)}`,
+    listos: 'Falta el último paso',
+    listosTitulo: finales.length === 1 ? `Solo falta «${finales[0]}»` : 'Solo falta el último paso',
+  }
+}

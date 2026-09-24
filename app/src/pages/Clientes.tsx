@@ -153,7 +153,7 @@ export function Cliente() {
                     <Tr key={e.id} className="cursor-pointer" onClick={() => nav(`/encargos/${e.id}`)}>
                       <Td className="titular text-fg-3 tabular">{num3(e)}</Td>
                       <Td>{e.producto_nombre ?? <span className="text-fg-3">—</span>}</Td>
-                      <Td>{e.estado === 'ANULADO' ? <Tag color="gray">Anulado</Tag> : e.en_revision ? <Tag color="red">Incidencia</Tag> : <Tag color={color(e)}>{e.etapa_actual_nombre ?? 'Sin empezar'}</Tag>}</Td>
+                      <Td>{e.estado === 'ANULADO' ? <Tag color="gray">Anulad{gr.o('encargo')}</Tag> : e.en_revision ? <Tag color="red">Incidencia</Tag> : <Tag color={color(e)}>{e.etapa_actual_nombre ?? 'Sin empezar'}</Tag>}</Td>
                       <Td className="text-fg-2">{e.proveedor_nombre ?? <span className="text-fg-3">—</span>}</Td>
                       <Td className="text-fg-3">{fechaCorta(e.creado_en)}</Td>
                     </Tr>

@@ -5,6 +5,10 @@ import { twMerge } from 'tailwind-merge'
 let LOCALE = 'es-ES'
 export const locale = () => LOCALE
 export const setLocale = (l: string | null | undefined) => { LOCALE = l || 'es-ES' }
+/** Zona horaria de la tienda (Ajustes → Tienda): todas las fechas y horas se muestran en ella */
+let ZONA: string | undefined = undefined
+export const zona = () => ZONA
+export const setZona = (z: string | null | undefined) => { try { new Intl.DateTimeFormat('es', { timeZone: z || undefined }); ZONA = z || undefined } catch { ZONA = undefined } }
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -25,7 +29,7 @@ export function relativo(iso: string | null | undefined): string {
 
 export function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })
+  return new Date(iso).toLocaleDateString(locale(), { timeZone: zona(), day: 'numeric', month: 'short' })
 }
 
 /** Nº de encargo con 3 cifras y, si lo tiene, el prefijo de su serie: «007», «S012». */

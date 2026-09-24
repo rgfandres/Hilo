@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { locale } from '@/lib/utils'
+import { locale, zona } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Button, Input } from '@/ui'
@@ -23,7 +23,7 @@ export function seguridadDe(ajustes: Record<string, unknown> | undefined): Segur
 const NOMBRE_METODO: Record<keyof Seguridad['metodos'], string> = { password: 'correo y contraseña', enlace: 'enlace por correo', google: 'Google' }
 
 /** Cómo ha entrado la persona en esta sesión. */
-async function metodoActual(): Promise<keyof Seguridad['metodos'] | null> {
+export async function metodoActual(): Promise<keyof Seguridad['metodos'] | null> {
   const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   const { data: u } = await supabase.auth.getUser()
   const proveedor = u.user?.app_metadata?.provider as string | undefined
@@ -124,7 +124,7 @@ export function ActivarDosPasos({ onOk }: { onOk: () => void }) {
       // Quita altas a medias (sin verificar) antes de empezar otra
       const { data: l } = await supabase.auth.mfa.listFactors()
       for (const f of (l?.all ?? []).filter((x) => x.status !== 'verified')) await supabase.auth.mfa.unenroll({ factorId: f.id })
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Hilo ${new Date().toLocaleDateString(locale())}` })
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Hilo ${new Date().toLocaleDateString(locale(), { timeZone: zona() })}` })
       if (!vivo) return
       if (error || !data) { setErr(error?.message ?? 'No se pudo empezar'); return }
       setAlta({ id: data.id, qr: data.totp.qr_code, secreto: data.totp.secret })

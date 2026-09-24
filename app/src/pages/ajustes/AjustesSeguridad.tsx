@@ -3,10 +3,10 @@ import { IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { guardarTienda } from '@/data/ajustes'
 import { mensajeError } from '@/data/encargos'
-import { seguridadDe, type Seguridad } from '@/components/Seguridad'
+import { metodoActual, seguridadDe, type Seguridad } from '@/components/Seguridad'
 import { METODOS_INSTANCIA } from '@/pages/Login'
-import { Button, Input, Select } from '@/ui'
-import { Bloque, Estado, Interruptor } from './Ajustes'
+import { Button, Dialog, Input, Select } from '@/ui'
+import { BarraGuardar, Bloque, Estado, Interruptor } from './Ajustes'
 
 /** Dominios de correo gratuito: no se pueden aprobar (entraría cualquiera). */
 const DOMINIOS_PUBLICOS = new Set(['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 'outlook.es', 'live.com', 'yahoo.com', 'yahoo.es', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com', 'gmx.com', 'aol.com'])
@@ -25,6 +25,10 @@ export function AjustesSeguridad() {
   const [err, setErr] = React.useState<string | null>(null)
   React.useEffect(() => setF(inicial), [inicial])
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
+  // Forma con la que ha entrado quien está ajustando: si la apaga, se le avisa antes
+  const [mio, setMio] = React.useState<keyof Seguridad['metodos'] | null>(null)
+  React.useEffect(() => { metodoActual().then(setMio).catch(() => {}) }, [])
+  const [avisoPropio, setAvisoPropio] = React.useState(false)
 
   const disponibles: { k: keyof Seguridad['metodos']; label: string; instancia: string }[] = [
     { k: 'password', label: 'Correo y contraseña', instancia: 'password' },
@@ -40,9 +44,11 @@ export function AjustesSeguridad() {
     if (f.dominios.includes(d)) { setDominio(''); return }
     setErr(null); setF({ ...f, dominios: [...f.dominios, d] }); setDominio('')
   }
-  async function guardar() {
+  async function guardar(confirmado = false) {
     if (!tienda) return
     if (activos.length === 0) { setErr('Deja al menos una forma de entrar'); return }
+    if (!confirmado && mio && inicial.metodos[mio] && !f.metodos[mio]) { setAvisoPropio(true); return }
+    setAvisoPropio(false)
     setErr(null); setOk(null)
     try {
       await guardarTienda(tienda.id, tienda.nombre, { ...aj, seguridad: f })
@@ -95,10 +101,10 @@ export function AjustesSeguridad() {
         </label>
       </Bloque>
 
-      <div className="sticky bottom-0 -mx-8 flex items-center gap-3 border-t border-border bg-bg px-8 py-3 max-md:-mx-4 max-md:px-4">
-        <Button variant="primary" disabled={!sucio} onClick={guardar}>Guardar</Button>
-        <Estado ok={ok} err={err} />
-      </div>
+      <BarraGuardar sucio={sucio} ok={ok} err={err} onGuardar={() => guardar()} onDescartar={() => { setF(inicial); setErr(null) }} />
+      <Dialog open={avisoPropio} onOpenChange={setAvisoPropio} title="Vas a apagar tu forma de entrar"
+        description={`Has entrado con ${mio === 'google' ? 'Google' : mio === 'enlace' ? 'un enlace por correo' : 'correo y contraseña'}. Al guardar, la app te pedirá que vuelvas a entrar de otra forma permitida. Asegúrate de poder hacerlo antes.`}
+        actions={[{ label: 'Guardar igualmente', variant: 'danger', onClick: () => guardar(true) }]} />
     </>
   )
 }

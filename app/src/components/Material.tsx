@@ -70,7 +70,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
   editable: boolean
   onCambio: () => void
 }) {
-  const { tienda, vocab, rol } = useAuth()
+  const { tienda, vocab, rol, gr } = useAuth()
   const avisar = useAvisos()
   const aj = ajustesMaterial(tienda?.ajustes as Record<string, unknown>)
   const [lineas, setLineas] = React.useState<LineaMaterial[]>([])
@@ -109,7 +109,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
   return (
     <div className="flex flex-col gap-1">
       <SectionLabel>{vocab.material}</SectionLabel>
-      {lineas.length === 0 && !nuevo && <span className="text-sm text-fg-3">Sin {min(vocab.material)} asignado.</span>}
+      {lineas.length === 0 && !nuevo && <span className="text-sm text-fg-3">Sin {min(vocab.material)} asignad{gr.o('material')}.</span>}
       {lineas.map((l) => {
         const m = mats.find((x) => x.id === l.material_id)
         const av = l.estado !== 'RECIBIDO' ? avisoStock(m) : { nivel: null, texto: '' }
@@ -123,7 +123,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
             {!anulado && (
               <div className="flex flex-wrap gap-1.5">
                 {l.estado !== 'RECIBIDO'
-                  ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={`Resta del stock y cuenta como recibido para este ${min(vocab.encargo)}`}>Recibido</Button>
+                  ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={l.estado === 'PENDIENTE' ? `Usa lo que hay en stock para ${gr.con('encargo', 'este')} (sin pedirlo)` : `Resta del stock y cuenta como recibido para ${gr.con('encargo', 'este')}`}>{l.estado === 'PENDIENTE' ? 'Usar del stock' : 'Recibido'}</Button>
                   : <Button size="sm" variant="ghost" cargando={busy === l.id} onClick={() => hacer(l.id, () => desasignarMaterial(l.id))} title="Devuelve el consumo al stock">Deshacer recibido</Button>}
                 {puedeEditar && l.estado !== 'RECIBIDO' && <Button size="sm" variant="ghost" onClick={() => hacer(l.id, () => quitarLinea(l.id))}>Quitar</Button>}
               </div>
@@ -150,7 +150,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
       {err && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
 
       <DialogoResto resto={resto} unidad={aj.unidad} onCerrar={() => setResto(null)}
-        onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, `Sobrante tras el ${min(vocab.encargo)} ${encargo.serie ?? ''}${String(encargo.numero).padStart(3, '0')}`, encargo.id); await cargar() }} />
+        onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, `Sobrante tras ${gr.con('encargo', 'el')} ${encargo.serie ?? ''}${String(encargo.numero).padStart(3, '0')}`, encargo.id); await cargar() }} />
     </div>
   )
 }

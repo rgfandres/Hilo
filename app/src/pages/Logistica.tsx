@@ -15,7 +15,7 @@ import { CamposVista } from '@/components/CampoInput'
 import { Button, Select, Sheet, Tabs, Tag, useAvisos } from '@/ui'
 import { useDobleToque } from '@/lib/movil'
 import { useTiempoReal } from '@/lib/tiempoReal'
-import { cn, fechaCorta, num3 } from '@/lib/utils'
+import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { ajustesMaterial, cant, listarPedidos, nombreMaterial, type LineaPedido } from '@/data/materiales'
 import { DialogoRecibir } from '@/pages/Materiales'
@@ -267,7 +267,7 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, valor, etiquetaValor, fecha, o
             // Solo cuentan los pasos ya dados (si se volvió atrás, los posteriores no)
             const h = pasado ? [...hitos].reverse().find((x) => x.etapa_id === p.id) : undefined
             return (
-              <span key={p.id} title={h ? new Date(h.fecha).toLocaleString('es-ES') : pasado ? 'Sin fecha' : 'Pendiente'}
+              <span key={p.id} title={h ? new Date(h.fecha).toLocaleString(locale(), { timeZone: zona() }) : pasado ? 'Sin fecha' : 'Pendiente'}
                 className={cn('rounded-sm px-1.5 py-0.5 text-xs', h ? 'bg-bg-4 text-fg' : pasado ? 'bg-bg-3 text-fg-3' : 'border border-dashed border-border text-fg-3')}>
                 {p.nombre} {h ? fechaCorta(h.fecha) : pasado ? '(sin fecha)' : ''}
               </span>

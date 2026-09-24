@@ -10,7 +10,7 @@ import { mensajeError } from '@/data/encargos'
 import { ajustesMaterial } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
 import type { Etapa, Rol } from '@/lib/types'
-import { ROLES, min } from '@/lib/vocab'
+import { ROLES, generoAuto, min } from '@/lib/vocab'
 import { Button, Dialog, Input, Select, Tag, tagColorFromHex } from '@/ui'
 import { cn } from '@/lib/utils'
 import { Bloque, Estado, FilaLista, Interruptor, Lista } from './Ajustes'
@@ -128,7 +128,7 @@ export function AjustesFlujos() {
 
       {tipo && (
         <Bloque titulo={`Etapas de «${tipo.nombre}»`}
-          ayuda={<>Pulsa una etapa para ver sus condiciones. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa.</>}>
+          ayuda={<>Pulsa una etapa para ver sus condiciones. <IconLock size={12} className="inline" /> bloquea el paso; <IconAlertTriangle size={12} className="inline" /> solo avisa. «Quién marca» decide en el «Mi trabajo» de quién aparece: {nombresRol.ADMIN} y {nombresRol.OPERATIVO} pueden marcar cualquier etapa.</>}>
           {etapas.length > 0 && !etapas.some((x) => x.es_final) && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Ninguna etapa es final: {gr.con('encargo', 'los')} de este tipo nunca terminarían. Abre la última y activa «Es el final».</p>}
           {etapas.length === 0 && <p className="m-0 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">Este tipo aún no tiene etapas: hasta que las tenga no se podrá usar.</p>}
           <Lista>
@@ -151,7 +151,7 @@ export function AjustesFlujos() {
                     {ps.some((p) => p.tipo === 'HITO_PREVIO' && !etapas.slice(0, i).some((x) => x.clave === p.referencia)) && (
                       <Tag color="red" title="Pide haber pasado por una etapa que ya no está antes: bloquearía para siempre. Abre «Detalles» y corrígela.">condición imposible</Tag>
                     )}
-                    <Select className="w-[140px]" value={e.rol_ejecuta} title="Quién marca esta etapa"
+                    <Select className="w-[140px]" value={e.rol_ejecuta} title="Quién marca esta etapa (le sale en «Mi trabajo»)"
                       onChange={(ev) => hacer(() => actualizarEtapa(e.id, { rol_ejecuta: ev.target.value as Rol }))}>
                       {ROLES.map((r) => <option key={r} value={r}>{nombresRol[r]}</option>)}
                     </Select>
@@ -166,7 +166,7 @@ export function AjustesFlujos() {
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { marca_proveedor: v }))} />
                         <Interruptor checked={e.es_espera} label="Es una espera (no cuenta como estancado)"
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_espera: v }))} />
-                        {(conHoja || e.es_produccion) && <Interruptor checked={!!e.es_produccion} label={`Envía a la ${min(nombreHoja)}`}
+                        {(conHoja || e.es_produccion) && <Interruptor checked={!!e.es_produccion} label={`Envía a ${generoAuto(nombreHoja) === 'f' ? 'la' : 'el'} ${min(nombreHoja)}`}
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />}
                         <Interruptor checked={e.es_final} label={`Es el final (${min(vocab.encargo)} terminad${gr.o('encargo')})`}
                           onChange={(v) => hacer(async () => {
@@ -184,7 +184,7 @@ export function AjustesFlujos() {
                       <div className="flex flex-col gap-1.5">
                         <span className="text-sm font-medium text-fg-2">Para entrar en «{e.nombre}» hace falta…</span>
                         {ps.length === 0 && <span className="text-sm text-fg-3">Nada: se puede pasar siempre.</span>}
-                        {i === 0 && <span className="text-sm text-fg-3">Es la primera etapa: sus condiciones solo pueden avisar (si bloquearan, no se podría crear ningún {min(vocab.encargo)}).</span>}
+                        {i === 0 && <span className="text-sm text-fg-3">Es la primera etapa: sus condiciones solo pueden avisar (si bloquearan, no se podría crear {gr.con('encargo', 'ningun')}).</span>}
                         {e.marca_proveedor && ps.some((p) => p.dura && p.tipo !== 'HITO_PREVIO') && (
                           <span className="rounded-sm bg-warn-bg px-2 py-1 text-sm text-warn-fg">
                             La marca {gr.con('proveedor', 'el')} desde su portal, pero no puede cumplir {ps.filter((p) => p.dura && p.tipo !== 'HITO_PREVIO').map((p) => `«${p.mensaje}»`).join(', ')}: hasta que la tienda lo resuelva, no podrá marcarla.
@@ -248,7 +248,17 @@ export function AjustesFlujos() {
       </Dialog>
 
       <Dialog open={!!borrar} onOpenChange={() => setBorrar(null)} error={dErr} title={`Borrar «${borrar?.nombre}»`}
-        description={`Solo se puede borrar si ${gr.con('encargo', 'ningun')} ha pasado todavía por ella. Sus condiciones se borran con ella.`}
+        description={borrar ? (() => {
+          const propias = puertas.filter((p) => p.etapa_destino_id === borrar.id).length
+          const ajenas = puertas.filter((p) => p.tipo === 'HITO_PREVIO' && p.referencia === borrar.clave && p.etapa_destino_id !== borrar.id)
+            .map((p) => etapas.find((x) => x.id === p.etapa_destino_id)?.nombre).filter(Boolean)
+          return [
+            `Solo se puede borrar si ${gr.con('encargo', 'ningun')} ha pasado todavía por ella.`,
+            propias ? `Se borran sus ${propias} ${propias === 1 ? 'condición' : 'condiciones'}.` : '',
+            ajenas.length ? `También se quita la condición «haber pasado por ${borrar.nombre}» de: ${[...new Set(ajenas)].join(', ')}.` : '',
+            'Los mensajes unidos a esta etapa pasan a «solo a mano».',
+          ].filter(Boolean).join(' ')
+        })() : ''}
         actions={[{ label: 'Borrar', variant: 'danger', onClick: async () => {
           if (!borrar) return
           try { await borrarEtapa(borrar.id); setBorrar(null); setAbierta(null); await cargarEtapas(); setOk('Etapa borrada') } catch (x) { setDErr(mensajeError(x)) }

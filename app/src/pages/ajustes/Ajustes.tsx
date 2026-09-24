@@ -3,6 +3,8 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { PageHeader } from '@/layout/AppShell'
 import { cn } from '@/lib/utils'
+import { Button } from '@/ui'
+import { useCambiosSinGuardar } from '@/lib/salir'
 
 type Quien = 'admin' | 'gestion' | 'todos'
 const SECCIONES: { to: string; label: string; quien: Quien }[] = [
@@ -36,7 +38,7 @@ export function Ajustes() {
           {visibles.map((s) => (
             <NavLink key={s.to} to={s.to}
               className={({ isActive }) => cn('flex h-7 shrink-0 items-center rounded-sm px-2 font-medium text-fg-2 hover:bg-bg-4 max-md:h-9', isActive && 'bg-gray-5 text-fg')}>
-              {s.label || vocab.proveedores}
+              {s.label || `Portal de ${vocab.proveedores.toLowerCase()}`}
             </NavLink>
           ))}
         </nav>
@@ -100,5 +102,23 @@ export function Interruptor({ checked, onChange, label, disabled }: { checked: b
       <span className="relative h-4 w-7 rounded-full bg-gray-6 transition-colors peer-checked:bg-gray-12 peer-focus-visible:ring-2 peer-focus-visible:ring-gray-8 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
       {label && <span>{label}</span>}
     </label>
+  )
+}
+
+/** Barra fija de «Guardar / Descartar», igual en todas las páginas de ajustes, con aviso al salir sin guardar. */
+export function BarraGuardar({ sucio, busy, ok, err, onGuardar, onDescartar, extra }: {
+  sucio: boolean; busy?: boolean; ok?: string | null; err?: string | null
+  onGuardar: () => void; onDescartar?: () => void; extra?: React.ReactNode
+}) {
+  useCambiosSinGuardar(sucio)
+  return (
+    <div className="sticky bottom-0 -mx-8 flex flex-wrap items-center gap-3 border-t border-border bg-bg px-8 py-3 max-md:-mx-4 max-md:px-4">
+      <Estado ok={ok} err={err} />
+      {sucio && !err && <span className="text-sm text-warn-fg">Cambios sin guardar</span>}
+      <div className="flex-1" />
+      {extra}
+      {onDescartar && <Button variant="ghost" disabled={!sucio || busy} onClick={onDescartar}>Descartar</Button>}
+      <Button variant="primary" disabled={!sucio || busy} onClick={onGuardar}>{busy ? 'Guardando…' : 'Guardar'}</Button>
+    </div>
   )
 }

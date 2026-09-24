@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { GuardaSalida } from '@/lib/salir'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   IconClock, IconLayoutList, IconUser, IconBox, IconBuildingWarehouse,
@@ -219,6 +220,7 @@ export function AppShell() {
       </nav>
 
       <BuscadorGlobal open={buscar} onOpenChange={setBuscar} />
+      <GuardaSalida />
     </div>
   )
 }

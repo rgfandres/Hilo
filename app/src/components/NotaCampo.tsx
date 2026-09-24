@@ -3,7 +3,7 @@ import { IconMessageCircle, IconMessageCircleFilled } from '@tabler/icons-react'
 import type { NotaCampo as Nota } from '@/data/encargos'
 import { createPortal } from 'react-dom'
 import { Button, Textarea } from '@/ui'
-import { cn, fechaCorta, locale } from '@/lib/utils'
+import { cn, fechaCorta, locale, zona } from '@/lib/utils'
 
 /**
  * 💬 junto a un campo: si hay nota se ve siempre y al pulsar se lee (autor y fecha);
@@ -49,7 +49,7 @@ export function NotaCampo({ etiqueta, nota, autor, editable, onGuardar }: {
     catch (x) { setErr(x instanceof Error ? x.message : (x as { message?: string })?.message ?? 'No se pudo guardar') }
     finally { setGuardando(false) }
   }
-  const cuando = nota ? `${fechaCorta(nota.actualizado_en)} ${new Date(nota.actualizado_en).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}` : ''
+  const cuando = nota ? `${fechaCorta(nota.actualizado_en)} ${new Date(nota.actualizado_en).toLocaleTimeString(locale(), { timeZone: zona(), hour: '2-digit', minute: '2-digit' })}` : ''
 
   return (
     <>

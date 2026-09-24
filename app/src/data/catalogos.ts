@@ -12,7 +12,12 @@ export interface ProductoFila {
   material_tipo: string | null; consumo: number | null; construccion: string | null; receta: string | null
 }
 export function ajustesFicha(aj: Record<string, unknown> | null | undefined) {
-  return { etiqueta: String(aj?.etiqueta_complementos ?? 'Complementos'), construcciones: (aj?.tipos_construccion as string[] | undefined) ?? [] }
+  const etiqueta = String(aj?.etiqueta_complementos ?? 'Complementos')
+  return {
+    etiqueta, construcciones: (aj?.tipos_construccion as string[] | undefined) ?? [],
+    /** Si la tienda usa complementos (interruptor en Ajustes → Tienda; antes, si les había puesto nombre propio) */
+    usaComplementos: aj?.usar_complementos === undefined ? etiqueta !== 'Complementos' : aj.usar_complementos === true,
+  }
 }
 export type FichaTecnica = Pick<ProductoFila, 'material_tipo' | 'consumo' | 'construccion' | 'receta'>
 export const tieneFicha = (p: Partial<FichaTecnica> | null | undefined) => !!p && (p.consumo != null || !!p.construccion || !!p.receta || !!p.material_tipo)

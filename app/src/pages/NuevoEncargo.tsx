@@ -270,10 +270,10 @@ export function NuevoEncargo() {
           <CamposForm campos={guia.adaptar(camposEnc)} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
-          {ficha && !tieneFicha(ficha) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
-          <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Receta: ${ficha.receta}. Aquí solo la variante.` : undefined}>
+          {ficha && !tieneFicha(ficha) && (rol === 'ADMIN' || rol === 'OPERATIVO') && (fic.construcciones.length > 0 || conMaterial) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
+          {(fic.usaComplementos || comp) && <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Receta: ${ficha.receta}. Aquí solo la variante.` : undefined}>
             <Input className="h-7" value={comp} onChange={(e) => setComp(e.target.value)} placeholder={ficha?.receta ? 'Color, acabado…' : 'Opcional'} />
-          </FormRow>
+          </FormRow>}
           {din.usa && <>
             <FormRow label={`Importe (${din.moneda})`} ayuda={`Precio pactado. Si eliges ${gr.con('producto', 'un')} con precio, se rellena solo.`}>
               <NumeroInput value={importe} onChange={(v) => { setImporte(v); setImporteAuto(false) }} />

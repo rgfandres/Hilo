@@ -7,6 +7,8 @@ import { SectionLabel } from '@/ui'
 import { fechaCorta, num3 } from '@/lib/utils'
 
 const igual = (a: unknown, b: unknown) => String(a ?? '') === String(b ?? '')
+/** Solo las medidas (campos marcados «Es una medida»); si no hay ninguno marcado, los numéricos */
+const soloMedidas = (cs: Campo[]) => { const m = cs.filter((c) => c.medida); return m.length ? m : cs.filter((c) => c.tipo === 'numero') }
 function cambios(campos: Campo[], antes: Record<string, unknown>, ahora: Record<string, unknown>) {
   return campos.filter((c) => !igual(antes[c.clave], ahora[c.clave]))
     .map((c) => ({ c, antes: formatearValor(c, antes[c.clave]), ahora: formatearValor(c, ahora[c.clave]) }))
@@ -20,7 +22,8 @@ export function HistorialCliente({ clienteId, campos, encargos, refresco }: {
   React.useEffect(() => { historialCliente(clienteId).then(setH).catch(() => setH([])) }, [clienteId, refresco])
   if (!h || h.length < 2) return null
   // De más reciente a más antiguo: cada entrada frente a la anterior en el tiempo
-  const filas = h.map((x, i) => ({ x, dif: i + 1 < h.length ? cambios(campos, h[i + 1].datos, x.datos) : [] }))
+  const med = soloMedidas(campos)
+  const filas = h.map((x, i) => ({ x, dif: i + 1 < h.length ? cambios(med, h[i + 1].datos, x.datos) : [] }))
     .filter((f, i) => f.dif.length > 0 || f.x.encargo_id || i === h.length - 1)
   return (
     <div className="flex flex-col gap-1">
@@ -46,7 +49,7 @@ export function MedidasDelEncargo({ encargoId, campos, actuales }: { encargoId: 
   const [h, setH] = React.useState<Historial | null>(null)
   React.useEffect(() => { historialEncargo(encargoId).then(setH).catch(() => {}) }, [encargoId])
   if (!h || !actuales) return null
-  const dif = cambios(campos, h.datos, actuales)
+  const dif = cambios(soloMedidas(campos), h.datos, actuales)
   if (!dif.length) return null
   return (
     <div className="rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">

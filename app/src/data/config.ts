@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { locale } from '@/lib/utils'
+import { locale, zona } from '@/lib/utils'
 
 export interface Campo {
   clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion' | 'lista'
@@ -68,7 +68,7 @@ export function formatearValor(c: Campo | undefined, v: unknown): string {
   if (v == null || v === '') return '—'
   if (c?.tipo === 'fecha') {
     const d = new Date(String(v))
-    return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(locale(), { timeZone: /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? 'UTC' : zona(), day: 'numeric', month: 'short' })
   }
   if (c?.tipo === 'numero') {
     const n = typeof v === 'number' ? v : leerNumero(String(v))
