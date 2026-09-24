@@ -102,11 +102,18 @@ begin
      'Gracias {nombre}. Que lo disfrutes. Si te apetece, déjanos una reseña: {enlace_resena}', 3);
 
   insert into plantilla_ficha (tienda_id, html) values (v_tienda, $f$
-<article class="ficha">
-  <h1>Pedido {{numero}} · {{cliente_nombre}}</h1>
-  <p>{{producto_nombre}} · Tejido {{datos.tejido}} · Forro {{datos.forro}} · Solapa {{datos.solapa}} · Botones {{datos.botones}}</p>
-  <table>{{#each cliente_datos}}<tr><td>{{@key}}</td><td>{{this}}</td></tr>{{/each}}</table>
-</article>
+# {tienda}
+## Pedido {numero} · {nombre}
+| DATOS |
+| Prenda | {producto} |
+| Tejido | {tejido} |
+| Forro | {forro} |
+| Fecha del evento | {fecha_evento} |
+| Teléfono | {telefono} |
+## Medidas
+{campos_cliente}
+## Notas
+{notas}
 $f$);
 
   raise notice 'Tienda Sastrería Demo creada: %', v_tienda;

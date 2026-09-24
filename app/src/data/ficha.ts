@@ -48,8 +48,11 @@ export function plantillaDefecto(v: Vocab): string {
 export async function obtenerPlantillaFicha(tiendaId: string): Promise<string | null> {
   const { data, error } = await supabase.from('plantilla_ficha').select('html').eq('tienda_id', tiendaId).maybeSingle()
   if (error) throw error
-  return (data as { html: string } | null)?.html ?? null
+  const html = (data as { html: string } | null)?.html ?? null
+  return html && esPlantillaAntigua(html) ? null : html
 }
+/** Plantilla en el formato antiguo ({{…}}, {{#each}}): no se entiende, así que se usa la de por defecto */
+export const esPlantillaAntigua = (t: string | null | undefined) => !!t && /\{\{/.test(t)
 export async function guardarPlantillaFicha(tiendaId: string, texto: string | null) {
   const r = texto == null
     ? await supabase.from('plantilla_ficha').delete().eq('tienda_id', tiendaId)

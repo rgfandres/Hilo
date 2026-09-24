@@ -17,7 +17,7 @@ import { NotaCampo } from '@/components/NotaCampo'
 import { ArregloPuerta } from '@/components/ArregloPuerta'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { FichaImprimible } from '@/components/FichaImprimible'
-import { fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
+import { esPlantillaAntigua, fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
 import { listarEquipo } from '@/data/ajustes'
 import { MaterialesEncargo } from '@/components/Material'
 import { MedidasDelEncargo } from '@/components/HistorialMedidas'
@@ -177,7 +177,7 @@ export function Encargo() {
     try {
       // La ficha propia del periodo del encargo, si la tiene; si no, la de la tienda
       const pf = e.periodo_id ? ((await supabase.from('periodo').select('ajustes').eq('id', e.periodo_id).maybeSingle()).data?.ajustes as Record<string, unknown> | undefined)?.ficha as string | undefined : undefined
-      const plantilla = pf ?? (await obtenerPlantillaFicha(tienda.id)) ?? plantillaDefecto(vocab)
+      const plantilla = (pf && !esPlantillaAntigua(pf) ? pf : null) ?? (await obtenerPlantillaFicha(tienda.id)) ?? plantillaDefecto(vocab)
       const d = {
         tienda: tienda.nombre, logo: (tienda.ajustes as Record<string, unknown>)?.logo_url as string | undefined, numero: e.numero, serie: e.serie, nombre: e.cliente_nombre ?? '', telefono: cli?.telefono ?? null, email: cli?.email ?? null,
         producto: e.producto_nombre, proveedor: e.proveedor_nombre, etapa: e.etapa_actual_nombre, tipo: e.tipo_nombre,
