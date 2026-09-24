@@ -86,8 +86,9 @@ export async function crearHito(encargoId: string, etapaClave: string, opts?: { 
   return data as string
 }
 
-export async function deshacerUltimoHito(encargoId: string) {
-  const { error } = await supabase.rpc('deshacer_ultimo_hito', { p_encargo: encargoId })
+/** Deshace el paso indicado (si ya no es el último, el servidor lo rechaza: no se borra el de otro) */
+export async function deshacerUltimoHito(encargoId: string, hitoId?: string | null) {
+  const { error } = await supabase.rpc('deshacer_ultimo_hito', { p_encargo: encargoId, p_hito: hitoId ?? null })
   if (error) throw error
 }
 
@@ -109,6 +110,17 @@ export function mensajeError(e: unknown): string {
   if (/NO_REVERTIR_STOCK/.test(m)) return 'No se puede revertir: parte de lo recibido ya se ha usado y el stock quedaría en negativo. Corrige el stock a mano si hace falta.'
   if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
   if (/SIN_ETAPAS/.test(m)) return 'Este tipo todavía no tiene etapas. Créalas en Ajustes → Flujos.'
+  if (/PASO_ATRAS/.test(m)) return 'Ese paso ya está hecho o es anterior al actual. Recarga para ver el estado real.'
+  if (/VOLVER_ADELANTE/.test(m)) return 'Solo se puede volver a una etapa anterior a la actual.'
+  if (/INCIDENCIA_ABIERTA/.test(m)) return 'Hay una incidencia abierta: resuélvela antes de avanzar.'
+  if (/YA_NO_ES_ULTIMO/.test(m)) return 'Ya no se puede deshacer: alguien ha hecho otro paso después.'
+  if (/NO_DESHACER_ALTA/.test(m)) return 'El primer paso no se puede deshacer. Si sobra, anúlalo.'
+  if (/SIN_PERMISO_DESHACER/.test(m)) return 'Solo puedes deshacer tus propios pasos de los últimos minutos. Administración puede deshacer cualquiera.'
+  if (/TIPO_SIN_FINAL/.test(m)) return 'El tipo necesita una etapa final para poder usarse. Marca antes otra como final o deja el tipo sin elegir.'
+  if (/MIEMBRO_DESACTIVADO/.test(m)) return 'Tu acceso a esta tienda está desactivado. Pide a administración que te active.'
+  const dom = m.match(/DOMINIO_(PUBLICO|AJENO):(.*)$/)
+  if (dom) return dom[1] === 'PUBLICO' ? `«${dom[2]}» es un correo gratuito: entraría cualquiera. Usa el dominio propio de la tienda.` : `Solo puedes aprobar el dominio de tu propio correo (no «${dom[2]}»).`
+  if (/OTRA_TIENDA/.test(m)) return 'Ese dato no es de esta tienda.'
   const salto = m.match(/SALTO_ETAPAS:(.*)$/)
   if (salto) return `Se saltaría «${salto[1].split(', ').join('», «')}». Solo Administración puede saltar etapas.`
   const rol = m.match(/ROL_NO_MARCA:[^:]*:(.*)$/)

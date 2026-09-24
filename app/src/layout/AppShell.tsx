@@ -150,7 +150,7 @@ export function AppShell() {
         {hoja.activo && rol !== 'LOGISTICA' && <Item to="/produccion" icon={<IconPrinter size={14} />}>{hoja.nombre}</Item>}
         {conMateriales && <Item to="/materiales" icon={<IconRuler2 size={14} />} count={porPedir} title="Por pedir: el stock no cubre lo pedido por los encargos más el umbral">{vocab.materiales}</Item>}
         <div className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-fg-3">Vistas</div>
-        <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>
+        {rol === 'ADMIN' && <Item to="/informes" icon={<IconChartBar size={14} />}>Informes</Item>}
         <div className="flex-1" />
         <span className="flex items-center gap-1.5 px-2 pb-1 text-xs text-fg-3" title={conexion === 'conectado' ? 'Conectado con el servidor' : 'Sin conexión: lo que cambies no se guardará'}>
           <span className={cn('h-1.5 w-1.5 rounded-full', conexion === 'conectado' ? 'bg-ok' : 'bg-danger')} />{conexion === 'conectado' ? 'Conectado' : 'Sin conexión'}

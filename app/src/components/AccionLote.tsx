@@ -74,12 +74,12 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
 
   async function ejecutar() {
     if (!et) return
-    const hechos: EncargoEstado[] = []
+    const hechos: { e: EncargoEstado; hito: string }[] = []
     const fallos: string[] = []
     for (let i = 0; i < vanA.length; i++) {
       const { e } = vanA[i]
       setProgreso(`${i + 1} de ${vanA.length}…`)
-      try { await crearHito(e.id, et.clave, { forzarBlandas: conAvisos }); hechos.push(e) }
+      try { const hito = await crearHito(e.id, et.clave, { forzarBlandas: conAvisos }); hechos.push({ e, hito }) }
       catch (x) { fallos.push(`${num3(e)} ${e.cliente_nombre}: ${mensajeError(x)}`) }
     }
     setProgreso(null); setAbierto(false)
@@ -90,7 +90,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
         accion: {
           label: 'Deshacer', onClick: async () => {
             let mal = 0
-            for (const e of hechos) { try { await deshacerUltimoHito(e.id) } catch { mal++ } }
+            for (const { e, hito } of hechos) { try { await deshacerUltimoHito(e.id, hito) } catch { mal++ } }
             await onHecho()
             avisar(mal ? { tipo: 'error', texto: `No se pudieron deshacer ${mal}. Revísal${gr.o('encargo', true)} un${gr.o('encargo')} a un${gr.o('encargo')}.` } : { tipo: 'info', texto: 'Deshecho' })
           },

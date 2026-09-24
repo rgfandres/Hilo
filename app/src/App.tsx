@@ -67,7 +67,7 @@ function Gate() {
         <Route path="proveedores/:id" element={<Proveedor />} />
         <Route path="materiales" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Materiales />} />
         <Route path="produccion" element={rol === 'LOGISTICA' ? <Navigate to="/" replace /> : <Produccion />} />
-        <Route path="informes" element={<Informes />} />
+        <Route path="informes" element={rol === 'ADMIN' ? <Informes /> : <Navigate to="/" replace />} />
         <Route path="ajustes" element={<Ajustes />}>
           <Route index element={<AjustesInicio />} />
           <Route path="tienda" element={<AjustesTienda />} />

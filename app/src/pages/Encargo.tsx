@@ -79,7 +79,7 @@ export function Encargo() {
   const [camposCli, setCamposCli] = React.useState<Campo[]>([])
   const [texto, setTexto] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
-  const [undo, setUndo] = React.useState<string | null>(null)
+  const [undo, setUndo] = React.useState<{ msg: string; hito: string } | null>(null)
   const [editar, setEditar] = React.useState(false)
   const [modal, setModal] = React.useState<Modal>(null)
   const [nota, setNota] = React.useState('')
@@ -160,8 +160,8 @@ export function Encargo() {
     try {
       // Los avisos (puertas blandas) ya están a la vista encima del botón: continuar es aceptarlos
       const hayAvisos = (e.puertas_pendientes ?? []).some((p) => !p.dura)
-      await crearHito(e.id, e.etapa_siguiente_clave, { forzarBlandas: hayAvisos })
-      setUndo(`${num3(e)} · ${e.etapa_siguiente_nombre}`)
+      const hito = await crearHito(e.id, e.etapa_siguiente_clave, { forzarBlandas: hayAvisos })
+      setUndo({ msg: `${num3(e)} · ${e.etapa_siguiente_nombre}`, hito })
       setSugerencia(plantillasMsg.find((p) => p.etapa_id === e.etapa_siguiente_id) ?? null)
       await cargar()
     } catch (x) { setErr(mensajeError(x)) }
@@ -184,7 +184,7 @@ export function Encargo() {
   }
   async function deshacer() {
     if (!e) return
-    try { await deshacerUltimoHito(e.id); setUndo(null); setSugerencia(null); await cargar() } catch (x) { setErr(mensajeError(x)) }
+    try { await deshacerUltimoHito(e.id, undo?.hito); setUndo(null); setSugerencia(null); await cargar() } catch (x) { setErr(mensajeError(x)) }
   }
   async function toggleCheck(clave: string) {
     if (!e) return
@@ -479,7 +479,7 @@ export function Encargo() {
 
       {undo && (
         <div className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center">
-          <UndoBar className="pointer-events-auto w-[420px] max-w-full" seconds={Number((tienda?.ajustes as Record<string, unknown> | undefined)?.segundos_deshacer ?? 8)} message={undo} onUndo={deshacer} onExpire={() => setUndo(null)} />
+          <UndoBar className="pointer-events-auto w-[420px] max-w-full" seconds={Number((tienda?.ajustes as Record<string, unknown> | undefined)?.segundos_deshacer ?? 8)} message={undo.msg} onUndo={deshacer} onExpire={() => setUndo(null)} />
         </div>
       )}
 

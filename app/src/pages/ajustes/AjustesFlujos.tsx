@@ -3,7 +3,7 @@ import { plano } from '@/lib/texto'
 import { IconArrowDown, IconArrowUp, IconLock, IconAlertTriangle, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  actualizarEtapa, actualizarPuerta, actualizarTipo, borrarEtapa, borrarPuerta, claveUnica, crearEtapa, crearPuerta,
+  actualizarEtapa, actualizarPuerta, marcarFinal, actualizarTipo, borrarEtapa, borrarPuerta, claveUnica, crearEtapa, crearPuerta,
   crearTipo, listarEtapasDe, listarPuertas, listarTipos, reordenarEtapas, type PuertaDef, type TipoEncargo,
 } from '@/data/ajustes'
 import { camposDe, plantillas, type PlantillaCampos } from '@/data/config'
@@ -84,9 +84,8 @@ export function AjustesFlujos() {
     ;[ids[i], ids[j]] = [ids[j], ids[i]]
     setEtapas((es) => { const c = [...es]; [c[i], c[j]] = [c[j], c[i]]; return c })
     hacer(async () => {
+      // El servidor deja además la nueva primera etapa sin condiciones que bloqueen
       await reordenarEtapas(tipoId, ids)
-      // La que queda la primera no puede tener condiciones que bloqueen (no se podría crear nada)
-      for (const p of puertas.filter((x) => x.etapa_destino_id === ids[0] && x.dura)) await actualizarPuerta(p.id, { dura: false })
     }, 'Orden guardado')
   }
 
@@ -175,9 +174,8 @@ export function AjustesFlujos() {
                           onChange={(v) => hacer(() => actualizarEtapa(e.id, { es_produccion: v }))} />}
                         <Interruptor checked={e.es_final} label={`Es el final (${min(vocab.encargo)} terminad${gr.o('encargo')})`}
                           onChange={(v) => hacer(async () => {
-                            // Una sola etapa final por tipo
-                            if (v) for (const x of etapas.filter((x) => x.es_final && x.id !== e.id)) await actualizarEtapa(x.id, { es_final: false })
-                            await actualizarEtapa(e.id, { es_final: v })
+                            // Una sola etapa final por tipo (el servidor lo hace de una vez)
+                            await marcarFinal(e.id, v)
                           }, v && i < etapas.length - 1 ? `Guardado. Ojo: las etapas que hay detrás de «${e.nombre}» ya no se alcanzarán` : 'Guardado')} />
                       </div>
                       <label className="flex items-center gap-2 text-sm text-fg-2">

@@ -81,8 +81,12 @@ export async function listarTipos(tiendaId: string) {
   return ok(await supabase.from('tipo_encargo').select('id,clave,nombre,activo,serie').eq('tienda_id', tiendaId).order('nombre')) as TipoEncargo[]
 }
 export async function crearTipo(tiendaId: string, nombre: string, usadas: string[]) {
-  return ok(await supabase.from('tipo_encargo').insert({ tienda_id: tiendaId, nombre: nombre.trim(), clave: claveUnica(claveDe(nombre), usadas) })
+  // Nace sin poder elegirse: primero necesita sus etapas y una final
+  return ok(await supabase.from('tipo_encargo').insert({ tienda_id: tiendaId, nombre: nombre.trim(), clave: claveUnica(claveDe(nombre), usadas), activo: false })
     .select('id,clave,nombre,activo,serie').single()) as TipoEncargo
+}
+export async function marcarFinal(etapaId: string, final: boolean) {
+  ok(await supabase.rpc('marcar_final', { p_etapa: etapaId, p_final: final }))
 }
 export async function actualizarTipo(id: string, patch: { nombre?: string; activo?: boolean; serie?: string }) {
   ok(await supabase.from('tipo_encargo').update(patch).eq('id', id))

@@ -31,7 +31,7 @@ export function Portal() {
   const toque = useDobleToque(Number(ajT.segundos_doble_toque ?? 3.5))
   const armado = toque.armado
   const [busy, setBusy] = React.useState<string | null>(null)
-  const [undo, setUndo] = React.useState<{ id: string; msg: string } | null>(null)
+  const [undo, setUndo] = React.useState<{ id: string; hito: string; msg: string } | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [ok, setOk] = React.useState<string | null>(null)
 
@@ -53,14 +53,14 @@ export function Portal() {
     if (!toque.pulsar(e.id)) return
     setBusy(e.id); setErr(null)
     try {
-      await crearHito(e.id, e.siguiente_clave)
-      setUndo({ id: e.id, msg: `${num3(e)} · ${e.siguiente_nombre}` })
+      const hito = await crearHito(e.id, e.siguiente_clave)
+      setUndo({ id: e.id, hito, msg: `${num3(e)} · ${e.siguiente_nombre}` })
       await cargar()
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(null) }
   }
   async function deshacer() {
     if (!undo) return
-    try { await deshacerUltimoHito(undo.id); setUndo(null); await cargar() } catch (x) { setErr(mensajeError(x)); setUndo(null) }
+    try { await deshacerUltimoHito(undo.id, undo.hito); setUndo(null); await cargar() } catch (x) { setErr(mensajeError(x)); setUndo(null) }
   }
 
   function campos(e: EncargoPortal) {

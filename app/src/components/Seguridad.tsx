@@ -25,10 +25,9 @@ const NOMBRE_METODO: Record<keyof Seguridad['metodos'], string> = { password: 'c
 /** Cómo ha entrado la persona en esta sesión. */
 export async function metodoActual(): Promise<keyof Seguridad['metodos'] | null> {
   const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  const { data: u } = await supabase.auth.getUser()
-  const proveedor = u.user?.app_metadata?.provider as string | undefined
+  // Lo que cuenta es cómo se ha entrado EN ESTA SESIÓN (igual que comprueba el servidor), no con qué se creó la cuenta
   const metodos = (data?.currentAuthenticationMethods ?? []).map((m) => (typeof m === 'string' ? m : m.method) as string)
-  if (proveedor === 'google') return 'google'
+  if (metodos.includes('oauth')) return 'google'
   if (metodos.includes('password')) return 'password'
   if (metodos.some((m) => m === 'otp' || m === 'magiclink')) return 'enlace'
   return null
@@ -41,13 +40,17 @@ export async function metodoActual(): Promise<keyof Seguridad['metodos'] | null>
 export function ControlSeguridad({ children }: { children: React.ReactNode }) {
   const { tienda, signOut, session } = useAuth()
   const seg = seguridadDe(tienda?.ajustes)
-  const [estado, setEstado] = React.useState<'mirando' | 'ok' | 'metodo' | 'verificar' | 'activar'>('mirando')
+  const [estado, setEstado] = React.useState<'mirando' | 'ok' | 'metodo' | 'verificar' | 'activar' | 'error'>('mirando')
+  const tiendaVista = React.useRef<string | null>(null)
   const [metodo, setMetodo] = React.useState<keyof Seguridad['metodos'] | null>(null)
   const [clave, setClave] = React.useState(0)
 
   React.useEffect(() => {
     let vivo = true
+    // Al cambiar de tienda no se enseña nada hasta comprobar su seguridad
+    if (tiendaVista.current !== (tienda?.id ?? null)) { tiendaVista.current = tienda?.id ?? null; setEstado('mirando') }
     ;(async () => {
+      if (!seg.exigir_2fa && seg.metodos.password && seg.metodos.enlace && seg.metodos.google) { setEstado('ok'); return }
       const m = await metodoActual()
       if (!vivo) return
       setMetodo(m)
@@ -58,7 +61,7 @@ export function ControlSeguridad({ children }: { children: React.ReactNode }) {
         if (data?.currentLevel !== 'aal2') { setEstado(data?.nextLevel === 'aal2' ? 'verificar' : 'activar'); return }
       }
       setEstado('ok')
-    })().catch(() => setEstado('ok'))
+    })().catch(() => { if (vivo) setEstado('error') })
     return () => { vivo = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tienda?.id, session?.access_token, clave, JSON.stringify(seg)])
@@ -69,6 +72,13 @@ export function ControlSeguridad({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center bg-bg-3 p-4">
       <div className="flex w-[380px] max-w-full flex-col gap-4 rounded-md border border-border bg-bg p-6">
+        {estado === 'error' && (
+          <>
+            <span className="text-lg font-semibold">No se ha podido comprobar la seguridad</span>
+            <p className="m-0 text-fg-2">Revisa la conexión y vuelve a intentarlo.</p>
+            <div className="flex gap-2"><Button variant="primary" onClick={() => setClave((c) => c + 1)}>Reintentar</Button><Button variant="ghost" onClick={signOut}>Salir</Button></div>
+          </>
+        )}
         {estado === 'metodo' && (
           <>
             <span className="text-lg font-semibold">Entra de otra forma</span>

@@ -130,10 +130,10 @@ export function Logistica() {
     setOcultos((s) => new Set(s).add(e.id))
     try {
       if (necesitaProv) await asignarProveedor(e.id, prov)
-      await crearHito(e.id, sig.clave, { forzarBlandas: true })
+      const hito = await crearHito(e.id, sig.clave, { forzarBlandas: true })
       const pn = necesitaProv ? provs.find((x) => x.id === prov)?.nombre : null
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${sig.nombre}${pn ? ` · ${pn}` : ''}`, accion: { label: 'Deshacer', onClick: async () => {
-        try { await deshacerUltimoHito(e.id); await cargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+        try { await deshacerUltimoHito(e.id, hito); await cargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
       } } })
       cargar().catch(() => {})
     } catch (x) {

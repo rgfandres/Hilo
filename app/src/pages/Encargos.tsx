@@ -246,9 +246,9 @@ export function Encargos() {
   async function avanzarEnServidor(e: EncargoEstado) {
     setBusy(e.id)
     try {
-      await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: (e.puertas_pendientes ?? []).some((p) => !p.dura) })
+      const hito = await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: (e.puertas_pendientes ?? []).some((p) => !p.dura) })
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${e.cliente_nombre} → ${e.etapa_siguiente_nombre}`,
-        accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
+        accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id, hito).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
       await recargar()
     } catch (ex) {
       // Si falla, se vuelve a leer todo: la fila recupera su estado real
