@@ -20,6 +20,8 @@ import { Clientes, Cliente } from '@/pages/Clientes'
 import { Proveedores, Proveedor } from '@/pages/Proveedores'
 import { Materiales } from '@/pages/Materiales'
 import { Produccion } from '@/pages/Produccion'
+import { Logistica } from '@/pages/Logistica'
+import { ajustesLogistica } from '@/data/logistica'
 import { Ajustes, AjustesInicio } from '@/pages/ajustes/Ajustes'
 import { AjustesTienda } from '@/pages/ajustes/AjustesTienda'
 import { AjustesEquipo } from '@/pages/ajustes/AjustesEquipo'
@@ -32,6 +34,7 @@ import { AjustesFicha } from '@/pages/ajustes/AjustesFicha'
 
 function Gate() {
   const { loading, session, tienda, rol, esProveedor, fase, recuperando } = useAuth()
+  const conLogistica = ajustesLogistica(tienda?.ajustes as Record<string, unknown>).activo
   if (window.location.pathname === '/demo') return <Demo />
   if (window.location.pathname.startsWith('/invitacion/') && !loading) {
     return <Routes><Route path="/invitacion/:token" element={<Invitacion />} /></Routes>
@@ -50,7 +53,8 @@ function Gate() {
     <Routes key={tienda.id}>
       <Route path="portal" element={<Portal />} />
       <Route element={<AppShell />}>
-        <Route index element={rol === 'LOGISTICA' ? <Navigate to="/encargos?b=mio" replace /> : <ParaHoy />} />
+        <Route index element={rol === 'LOGISTICA' ? <Navigate to={conLogistica ? '/logistica' : '/encargos?b=mio'} replace /> : <ParaHoy />} />
+        <Route path="logistica" element={<Logistica />} />
         <Route path="para-hoy" element={<ParaHoy />} />
         <Route path="encargos" element={<Encargos />} />
         <Route path="encargos/nuevo" element={rol === 'LOGISTICA' ? <Navigate to="/encargos" replace /> : <NuevoEncargo />} />

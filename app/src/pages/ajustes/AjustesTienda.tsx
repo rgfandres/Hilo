@@ -48,6 +48,8 @@ export function AjustesTienda() {
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
     construcciones: ((aj.tipos_construccion as string[] | undefined) ?? []).join(', '),
     produccion: ((aj.modulos as Record<string, boolean> | undefined)?.produccion) === true,
+    logistica: ((aj.modulos as Record<string, boolean> | undefined)?.logistica) === true,
+    diasHist: String(aj.logistica_dias_historico ?? 30),
     hojaNombre: String(aj.hoja_nombre ?? 'Hoja de producción'),
     hojaCol: String(aj.hoja_campo_col ?? ''),
     hojaCurva: ((aj.hoja_curva as string[] | undefined) ?? []).join(', '),
@@ -107,7 +109,8 @@ export function AjustesTienda() {
         locale: f.locale,
         moneda: f.moneda.trim().toUpperCase() || 'EUR',
         usar_importe: f.importe,
-        modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion },
+        modulos: { ...((aj.modulos as object) ?? {}), materiales: f.materiales, produccion: f.produccion, logistica: f.logistica },
+        logistica_dias_historico: Math.max(1, parseInt(f.diasHist, 10) || 30),
         hoja_nombre: f.hojaNombre.trim() || 'Hoja de producción',
         hoja_campo_col: f.hojaCol || null,
         hoja_col_etiqueta: camposEnc.find((c) => c.clave === f.hojaCol)?.etiqueta ?? null,
@@ -290,6 +293,13 @@ export function AjustesTienda() {
             </FormRow>
             {f.hojaCol && <FormRow label="Valores de las columnas" ayuda="Separados por comas, en orden. Vacío = se escribe el valor tal cual."><Input className="h-7" value={f.hojaCurva} placeholder="S, M, L, XL…" onChange={(e) => setF({ ...f, hojaCurva: e.target.value })} /></FormRow>}
           </>}
+        </div>
+      </Bloque>
+
+      <Bloque titulo={`Pantalla de ${f.roles.LOGISTICA}`} ayuda={`Bandejas para quien lleva y trae: una por cada etapa que marca «${f.roles.LOGISTICA}» (Ajustes → Flujos) y una por cada comprobación obligatoria antes de ella, con tarjetas para el móvil.`}>
+        <div className="flex flex-col gap-1">
+          <FormRow label="Módulo"><Interruptor checked={f.logistica} onChange={(v) => setF({ ...f, logistica: v })} label="Usar la pantalla de logística" /></FormRow>
+          {f.logistica && <FormRow label="Histórico (días)"><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /></FormRow>}
         </div>
       </Bloque>
 
