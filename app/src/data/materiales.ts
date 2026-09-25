@@ -172,6 +172,10 @@ export function ajustesMaterial(aj: Record<string, unknown> | null | undefined) 
     menuPedidos: aj?.material_menu_pedidos === true,
     /** Qué cuenta el número del menú de materiales */
     contador: ((['pedir', 'restos', 'ninguno'] as const).find((x) => x === aj?.material_contador) ?? 'pedir') as 'pedir' | 'restos' | 'ninguno',
+    /** Un solo material por encargo (p. ej. un traje = una tela): no se ofrece añadir otro */
+    unaLinea: aj?.material_una_linea === true,
+    /** Cómo se llama la variante del material (Color, Acabado…) */
+    etiquetaVariante: String(aj?.material_variante ?? '').trim() || 'Variante',
   }
 }
 

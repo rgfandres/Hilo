@@ -336,7 +336,7 @@ export function NuevoEncargo() {
                 </div>
               )}
               <FormRow label="Correo"><Input className="h-7" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></FormRow>
-              <CamposForm pegar campos={camposCli} valores={dCli} onCambio={(k, v) => setDCli((d) => ({ ...d, [k]: v }))} />
+              <CamposForm campos={camposCli} valores={dCli} onCambio={(k, v) => setDCli((d) => ({ ...d, [k]: v }))} />
             </>
           )}
         </div>
@@ -361,18 +361,28 @@ export function NuevoEncargo() {
               } : undefined} />
           </FormRow>
           {prodCargados && productos.length === 0 && <p className="pb-1 text-sm text-fg-3 md:pl-[128px]">No hay {min(vocab.productos)} en el catálogo.{(rol === 'ADMIN' || rol === 'OPERATIVO') && <> <Link to="/productos" className="underline">Añadir</Link></>}</p>}
-          <CamposForm campos={guia.adaptar(camposEnc)} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
+          {/* Con materiales, los datos que salen del material asignado se eligen abajo (desplegables del catálogo) */}
+          <CamposForm campos={guia.adaptar(camposEnc.filter((c) => !(conMaterial && c.desde_material)))} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
           {ficha && !tieneFicha(ficha) && (rol === 'ADMIN' || rol === 'OPERATIVO') && (fic.construcciones.length > 0 || conMaterial) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
-          {(fic.usaComplementos || comp) && <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Receta: ${ficha.receta}. Aquí solo la variante.` : undefined}>
-            <Input className="h-7" value={comp} onChange={(e) => setComp(e.target.value)} placeholder={ficha?.receta ? 'Color, acabado…' : 'Opcional'} />
-          </FormRow>}
+          {(fic.usaComplementos || comp) && <>
+            {/* Guía: lo que lleva el modelo, bien visible antes de escribir */}
+            {ficha?.receta?.trim() && (
+              <div className="rounded-sm border border-border bg-bg-3 px-2.5 py-1.5 text-sm md:ml-[128px]">
+                <span className="font-medium">{fic.etiqueta} de {ficha.nombre}:</span> <span className="whitespace-pre-line text-fg-2">{ficha.receta}</span>
+                {!comp.trim() && <button type="button" className="ml-2 underline text-fg-2 hover:text-fg" onClick={() => setComp(ficha.receta ?? '')}>Usar</button>}
+              </div>
+            )}
+            <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Escribe cómo queda con ${gr.con('material', 'este')} (color, acabado…).` : undefined}>
+              <Input className="h-7" value={comp} onChange={(e) => setComp(e.target.value)} placeholder={ficha?.receta ? 'Color, acabado…' : 'Opcional'} />
+            </FormRow>
+          </>}
           {din.usa && <>
-            <FormRow label={`Importe (${din.moneda})`} ayuda={`Precio pactado. Si eliges ${gr.con('producto', 'un')} con precio, se rellena solo.`}>
+            <FormRow label={`Importe (${din.moneda})`} ayuda={importeAuto && importe !== '' ? `Precio ${gr.con('producto', 'del')}. Puedes cambiarlo.` : `Precio pactado. Si eliges ${gr.con('producto', 'un')} con precio, se rellena solo.`}>
               <NumeroInput value={importe} onChange={(v) => { setImporte(v); setImporteAuto(false) }} />
             </FormRow>
-            <FormRow label="A cuenta"><NumeroInput value={aCuenta} onChange={setACuenta} /></FormRow>
+            <FormRow label="Señal (a cuenta)" ayuda="Lo que deja pagado al encargar. Lo pendiente es el importe menos la señal."><NumeroInput value={aCuenta} onChange={setACuenta} /></FormRow>
           </>}
         </div>
 
@@ -386,7 +396,7 @@ export function NuevoEncargo() {
                 <Button size="sm" variant="ghost" type="button" className="self-end" onClick={() => setMLineas((xs) => xs.filter((_, j) => j !== i))}>Quitar</Button>
               </div>
             ))}
-            <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: ficha?.material_tipo ?? '', material_id: '', cantidad: xs.length === 0 && ficha?.consumo != null ? String(ficha.consumo) : '' }])}>+ Añadir {min(vocab.material)}</Button>
+            {!(ajustesMaterial(tienda?.ajustes as Record<string, unknown>).unaLinea && mLineas.length > 0) && <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: ficha?.material_tipo ?? '', material_id: '', cantidad: xs.length === 0 && ficha?.consumo != null ? String(ficha.consumo) : '' }])}>+ Añadir {min(vocab.material)}</Button>}
           </div>
         )}
 

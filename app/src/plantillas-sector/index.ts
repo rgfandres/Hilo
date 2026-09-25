@@ -83,6 +83,7 @@ export const PLANTILLAS: PlantillaSector[] = [
       cliente_por_encargo: true, repetir_copia: ['feria'],
       usar_complementos: true, etiqueta_complementos: 'Adornos', tipos_construccion: ['Con corte', 'Enterizo'],
       material_unidad: 'm', material_pedir: 'falta', material_contador: 'restos', material_menu_pedidos: true, umbral_material_defecto: 10,
+      material_una_linea: true, material_variante: 'Color',
       hoja_nombre: 'Orden de corte', hoja_campo_col: 'talla', hoja_col_etiqueta: 'Talla',
       hoja_curva: ['T.32', 'T.34', 'T.36', 'T.38', 'T.40', 'T.42', 'T.44', 'T.46', 'T.48', 'T.50', 'T.52'],
       hoja_imp_marca: 'X', hoja_imp_cabecera: 'producto', hoja_imp_cliente: false, hoja_imp_cantidad: false, hoja_imp_nota: false,

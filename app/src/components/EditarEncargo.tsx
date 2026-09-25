@@ -10,6 +10,7 @@ import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
 import { ajustesFicha, fichaProducto } from '@/data/catalogos'
 import { AvisoGuia, useGuia } from './Guia'
 import { guiaDe } from '@/data/guia'
+import { ajustesMaterial } from '@/data/materiales'
 import { supabase } from '@/lib/supabase'
 import { CamposForm, NumeroInput, aTexto } from './CampoInput'
 import { ajustesDinero } from '@/lib/utils'
@@ -186,7 +187,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
                 return id
               } : undefined} />
           </FormRow>}
-          {!soloProveedor && <CamposForm campos={guia.adaptar(camposEnc)} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
+          {!soloProveedor && <CamposForm campos={guia.adaptar(camposEnc.filter((c) => !(ajustesMaterial(tienda?.ajustes as Record<string, unknown>).activo && c.desde_material)))} valores={f.dEnc} onCambio={(k, v) => setF((s) => ({ ...s, dEnc: { ...s.dEnc, [k]: v } }))} />}
           {!soloProveedor && camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(f.dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setF((s) => ({ ...s, dEnc: { ...s.dEnc, [destinoGuia]: guia.sug!.valor } })) }} />}
           {!soloProveedor && (fic.usaComplementos || f.comp) && (
             <FormRow label={fic.etiqueta} ayuda={receta ? `Receta de ${gr.con('producto', 'este')}: ${receta}. Aquí solo la variante.` : undefined}>
@@ -195,7 +196,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
           )}
           {!soloProveedor && din.usa && <>
             <FormRow label={`Importe (${din.moneda})`}><NumeroInput value={f.importe} onChange={set('importe')} /></FormRow>
-            <FormRow label="A cuenta"><NumeroInput value={f.aCuenta} onChange={set('aCuenta')} /></FormRow>
+            <FormRow label="Señal (a cuenta)" ayuda="Lo que dejó pagado. Lo pendiente es el importe menos la señal."><NumeroInput value={f.aCuenta} onChange={set('aCuenta')} /></FormRow>
           </>}
         </div>
 
@@ -205,7 +206,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
             <FormRow label="Nombre *"><Input className="h-7" value={f.nombre} onChange={(e) => set('nombre')(e.target.value)} /></FormRow>
             <FormRow label="Teléfono"><Input className="h-7" type="tel" value={f.tel} onChange={(e) => set('tel')(e.target.value)} /></FormRow>
             <FormRow label="Correo"><Input className="h-7" type="email" value={f.email} onChange={(e) => set('email')(e.target.value)} /></FormRow>
-            <CamposForm pegar campos={camposCli} valores={f.dCli} onCambio={(k, v) => setF((s) => ({ ...s, dCli: { ...s.dCli, [k]: v } }))} />
+            <CamposForm campos={camposCli} valores={f.dCli} onCambio={(k, v) => setF((s) => ({ ...s, dCli: { ...s.dCli, [k]: v } }))} />
             <p className="pt-1 text-sm text-fg-3">{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true
               ? `Estos datos son de la ficha de est${gr.o('encargo')} ${min(vocab.encargo)}: no cambian otr${gr.o('encargo', true)} ${min(vocab.encargos)}.`
               : `Los cambios ${gr.con('cliente', 'del')} se ven en tod${gr.o('encargo', true)} sus ${min(vocab.encargos)}.`}</p>

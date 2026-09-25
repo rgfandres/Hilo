@@ -60,6 +60,8 @@ function useFormTienda() {
     unidadMat: String(aj.material_unidad ?? 'uds'),
     umbralMat: String(aj.umbral_material_defecto ?? 0),
     menuPedidos: aj.material_menu_pedidos === true,
+    unaLinea: aj.material_una_linea === true,
+    etiqVariante: String(aj.material_variante ?? ''),
     contadorMat: String(aj.material_contador ?? 'pedir'),
     pedirMat: aj.material_pedir === 'falta' ? 'falta' : 'umbral',
     etiqComp: String(aj.etiqueta_complementos ?? 'Complementos'),
@@ -163,6 +165,8 @@ function useFormTienda() {
         material_unidad: f.unidadMat.trim() || 'uds',
         umbral_material_defecto: leerNumero(f.umbralMat) ?? 0,
         material_menu_pedidos: f.menuPedidos,
+        material_una_linea: f.unaLinea,
+        material_variante: f.etiqVariante.trim() || null,
         material_contador: f.contadorMat === 'pedir' ? null : f.contadorMat,
         material_pedir: f.pedirMat === 'falta' ? 'falta' : null,
         etiqueta_complementos: f.etiqComp.trim() || 'Complementos',
@@ -479,6 +483,12 @@ export function AjustesMateriales() {
             </FormRow>
             <FormRow label="Pedidos en el menú" ayuda="Una entrada propia «Pedidos» para recibir lo que llega, con el número de pedidos abiertos. Quién la ve se elige en Qué ve cada papel.">
               <Interruptor checked={f.menuPedidos} onChange={(v) => setF({ ...f, menuPedidos: v })} label={f.menuPedidos ? 'Sí' : 'No'} />
+            </FormRow>
+            <FormRow label={`Uno por ${min(f.vocab.encargo)}`} ayuda={`Cada ${min(f.vocab.encargo)} lleva un solo ${min(f.vocab.material)} (no se ofrece añadir otro). Apágalo si un ${min(f.vocab.encargo)} puede llevar varios.`}>
+              <Interruptor checked={f.unaLinea} onChange={(v) => setF({ ...f, unaLinea: v })} label={f.unaLinea ? 'Sí' : 'No'} />
+            </FormRow>
+            <FormRow label="Nombre de la variante" ayuda={`Cómo se llama el segundo desplegable (Color, Acabado, Tamaño…). Vacío: «Variante».`}>
+              <Input className="h-7 w-[200px]" value={f.etiqVariante} onChange={(e) => setF({ ...f, etiqVariante: e.target.value })} placeholder="Variante" />
             </FormRow>
           </>}
         </div>

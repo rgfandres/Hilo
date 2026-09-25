@@ -42,9 +42,9 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
           onChange={(t) => onCambio({ tipo: t, material_id: '', cantidad: valor.cantidad })}
           etiquetaCrear="Nuevo tipo" crear={puedeCrear ? async (n) => n : undefined} />
       </FormRow>
-      <FormRow label="Variante">
+      <FormRow label={aj.etiquetaVariante}>
         <Combobox opciones={variantes.map((m) => ({ id: m.id, nombre: m.variante || '(sin variante)', nota: cant(m.stock, m.unidad) }))} value={valor.material_id}
-          vacio={valor.tipo ? '— elegir —' : 'Elige antes el tipo'} ariaLabel="Variante" etiquetaCrear="Añadir al catálogo"
+          vacio={valor.tipo ? '— elegir —' : 'Elige antes el tipo'} ariaLabel={aj.etiquetaVariante} etiquetaCrear="Añadir al catálogo"
           onChange={(id) => onCambio({ ...valor, material_id: id })}
           crear={puedeCrear && valor.tipo && tienda ? async (n) => {
             const base = variantes[0]
@@ -162,7 +162,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
           </div>
         )
       })}
-      {puedeEditar && !nuevo && <Button size="sm" variant="ghost" className="self-start" onClick={() => setNuevo({ tipo: sugerido?.tipo && mats.some((m) => m.tipo === sugerido.tipo) ? sugerido.tipo : '', material_id: '', cantidad: sugerido?.consumo != null ? String(sugerido.consumo) : '' })}>+ Añadir {min(vocab.material)}</Button>}
+      {puedeEditar && !nuevo && !(ajustesMaterial(tienda?.ajustes as Record<string, unknown>).unaLinea && lineas.length > 0) && <Button size="sm" variant="ghost" className="self-start" onClick={() => setNuevo({ tipo: sugerido?.tipo && mats.some((m) => m.tipo === sugerido.tipo) ? sugerido.tipo : '', material_id: '', cantidad: sugerido?.consumo != null ? String(sugerido.consumo) : '' })}>+ Añadir {min(vocab.material)}</Button>}
       {nuevo && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-2">
           <SelectorMaterial materiales={mats} valor={nuevo} onCambio={setNuevo} puedeCrear={rol === 'ADMIN' || rol === 'OPERATIVO'} onCreado={(m) => setMats((x) => [...x, m])} />
