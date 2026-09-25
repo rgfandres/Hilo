@@ -76,9 +76,12 @@ export function Produccion() {
   // Productos con líneas o con encargos listos para enviar
   const listosTodos = encs.filter((e) => e.estado === 'ACTIVO' && !e.es_final && e.etapa_siguiente_id && etProd.has(e.etapa_siguiente_id)
     && !todas.some((l) => l.encargo_id === e.id && l.coherencia === 'ENVIADO'))
+  // Anulado sin imprimir: sale de la hoja (como en Notelodigo, que borra su fila). Anulado ya impreso: sigue
+  // visible hasta que alguien confirme que avisó a quien corta.
+  const fuera = (l: (typeof todas)[number]) => l.coherencia === 'ANULADO' && (!l.impreso_en || !!l.aviso_anulado_visto)
   const productos = new Map<string, { nombre: string; n: number; pend: number }>()
   for (const l of todas) {
-    if (l.coherencia === 'ANULADO' && l.impreso_en && l.aviso_anulado_visto) continue
+    if (fuera(l)) continue
     const k = l.producto_id ?? SIN
     const x = productos.get(k) ?? { nombre: l.producto_nombre ?? `Sin ${min(vocab.producto)}`, n: 0, pend: 0 }
     x.n++; if (!l.impreso_en) x.pend++
@@ -94,11 +97,10 @@ export function Produccion() {
   React.useEffect(() => { if (tienda && prod) listarImpresiones(tienda.id, prodId).then(setImps).catch(() => {}) }, [tienda, prod, prodId, lineas])
   React.useEffect(() => { setSelListos(new Set()) }, [prod])
 
-  // Un encargo anulado después de imprimir sigue visible hasta que alguien confirme que avisó al taller
-  const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !(l.coherencia === 'ANULADO' && l.impreso_en && l.aviso_anulado_visto))
+  const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !fuera(l))
   const anuladosImpresos = delProd.filter((l) => l.coherencia === 'ANULADO' && l.impreso_en)
   const nImprimibles = delProd.filter((l) => l.imprimir && l.coherencia === 'ENVIADO').length
-  const nMarcadas = delProd.filter((l) => l.imprimir).length
+  const nMarcadas = delProd.filter((l) => l.imprimir && l.coherencia !== 'ANULADO').length
   const vis = delProd.filter((l) => ver === 'todas' || !l.impreso_en)
   const listos = listosTodos.filter((e) => (e.producto_id ?? SIN) === prod)
   const nEnv = delProd.filter((l) => l.coherencia === 'ENVIADO').length

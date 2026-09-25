@@ -144,7 +144,7 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
 
   const quien = cliente?.nombre ?? min(vocab.cliente)
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} error={err} className="w-[520px]"
+    <Dialog open={open} onOpenChange={onOpenChange} error={err} className="w-[520px]" sinCancelar={!!hecho}
       title={via === 'EMAIL' ? `Correo a ${quien}` : `WhatsApp a ${quien}`}
       description={
         <span className="text-sm">

@@ -97,12 +97,12 @@ export function Tabs({ items, value, onChange, className }: {
   )
 }
 
-/** Pestañas en una sola fila (sin grupos) */
+/** Pestañas en fila (sin grupos). Si no caben, bajan a otra línea: nada de barra de desplazamiento encima del texto */
 function TabsLinea({ items, value, onChange, className }: {
   items: TabItem[]; value: string; onChange: (k: string) => void; className?: string
 }) {
   return (
-    <div role="tablist" className={cn('flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border px-3', className)}>
+    <div role="tablist" className={cn('flex min-h-9 shrink-0 flex-wrap items-end gap-x-0.5 border-b border-border px-3', className)}>
       {items.map((t) => <Pestana key={t.key} t={t} on={t.key === value} onClick={() => onChange(t.key)} />)}
     </div>
   )

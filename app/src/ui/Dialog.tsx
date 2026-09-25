@@ -15,7 +15,7 @@ export interface DialogAction {
  * Diálogo propio (sustituye a confirm/prompt del navegador).
  * Cerrar con Esc o fuera = cancelar. La acción principal va a la derecha.
  */
-export function Dialog({ open, onOpenChange, title, description, children, actions, error, className }: {
+export function Dialog({ open, onOpenChange, title, description, children, actions, error, className, sinCancelar }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   title: string
@@ -24,6 +24,8 @@ export function Dialog({ open, onOpenChange, title, description, children, actio
   actions: DialogAction[]
   error?: string | null
   className?: string
+  /** Sin botón «Cancelar» (p. ej. cuando ya está hecho y solo queda «Cerrar») */
+  sinCancelar?: boolean
 }) {
   const [busy, setBusy] = React.useState(false)
   const [enCurso, setEnCurso] = React.useState<string | null>(null)
@@ -58,7 +60,7 @@ export function Dialog({ open, onOpenChange, title, description, children, actio
           {children}
           {error && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{error}</div>}
           <div className="mt-1 flex justify-end gap-1.5">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>
+            {!sinCancelar && <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>}
             {actions.map((a) => (
               <Button key={a.label} variant={a.variant ?? 'primary'} disabled={busy || a.disabled} cargando={enCurso === a.label} onClick={() => run(a)}>
                 {a.label}

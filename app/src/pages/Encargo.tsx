@@ -293,7 +293,9 @@ export function Encargo() {
     ...hitos.map((h) => ({ tipo: 'hito' as const, fecha: h.fecha, h })),
     ...coms.map((c) => ({ tipo: 'com' as const, fecha: c.fecha, c })),
     ...envios.map((m) => ({ tipo: 'msg' as const, fecha: m.fecha, m })),
-  ].filter((ev) => filtroHilo === 'todo' || (filtroHilo === 'pasos' ? ev.tipo === 'hito' : ev.tipo === filtroHilo))
+    // Comprobaciones hechas (p. ej. un complemento comprado): cuentan como pasos en el hilo
+    ...defChecks.filter((c) => checks[c.clave] && fechasCheck[c.clave]).map((c) => ({ tipo: 'chk' as const, fecha: fechasCheck[c.clave]!, c })),
+  ].filter((ev) => filtroHilo === 'todo' || (filtroHilo === 'pasos' ? ev.tipo === 'hito' || ev.tipo === 'chk' : ev.tipo === filtroHilo))
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
   const porDia = new Map<string, typeof eventos>()
   for (const ev of eventos) { const k = fechaCorta(ev.fecha); porDia.set(k, [...(porDia.get(k) ?? []), ev]) }
@@ -516,6 +518,12 @@ export function Encargo() {
                         </div>
                       </div>
                     )
+                    if (ev.tipo === 'chk') return (
+                      <div key={`chk-${ev.c.clave}`} className="flex items-start gap-2.5 py-1.5">
+                        <span className="mt-1 shrink-0 text-xs text-ok-fg">✓</span>
+                        <div className="flex flex-col gap-0.5"><div><span className="font-medium">{ev.c.etiqueta}</span></div><span className="text-sm text-fg-3">{hora(ev.fecha)} · hecho</span></div>
+                      </div>
+                    )
                     if (ev.tipo === 'com') return (
                       <div key={ev.c.id} className="flex items-start gap-2.5 py-1.5">
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gray-6" />
@@ -539,6 +547,7 @@ export function Encargo() {
                             {editable
                               ? <button className="underline decoration-dotted underline-offset-2 hover:text-fg" title="Cambiar fecha" onClick={() => abrir({ fecha: h })}>{hora(h.fecha)}</button>
                               : hora(h.fecha)}
+                            {h.usuario_id && autores[h.usuario_id] ? ` · ${autores[h.usuario_id]}` : ''}
                             {h.nota ? ` · ${h.nota}` : ''}
                             {!anulado && !h.deshecho_en && (gestion || rol === 'ATENCION' || h.usuario_id === session?.user.id) && (
                               <button className="ml-1.5 underline decoration-dotted underline-offset-2 hover:text-fg" onClick={() => abrir({ nota: h })}>{h.nota ? 'editar nota' : 'añadir nota'}</button>

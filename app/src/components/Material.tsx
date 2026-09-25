@@ -58,9 +58,10 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
       </FormRow>
       <FormRow label={`Cantidad (${ud})`}><NumeroInput value={valor.cantidad} onChange={(c) => onCambio({ ...valor, cantidad: c })} /></FormRow>
       {elegido && aviso.nivel && (
-        <p className={`my-1 rounded-sm px-2.5 py-1.5 text-sm ${aviso.nivel === 'falta' ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg'}`}>
+        <p className="my-1 rounded-sm bg-warn-bg px-2.5 py-1.5 text-sm text-warn-fg">
           {aviso.nivel === 'falta' ? `No hay ${min(vocab.material)} suficiente` : `${vocab.material} al límite`}: con lo pedido por {elegido.encargos_pendientes + 1} {elegido.encargos_pendientes === 0 ? min(vocab.encargo) : min(vocab.encargos)}, {aviso.texto} {ud}.
           {' '}Hay {cant(elegido.stock, ud)}{Number(elegido.en_camino) > 0 ? ` y ${cant(elegido.en_camino, ud)} en camino` : ''}.
+          {aviso.nivel === 'falta' && ' Se puede crear igual: quedará en «Pedir».'}
         </p>
       )}
     </>
@@ -131,7 +132,8 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
             </div>
             {!anulado && (
               <div className="flex flex-wrap gap-1.5">
-                {l.estado !== 'RECIBIDO'
+                {l.estado === 'PENDIENTE' && Number(m?.stock ?? 0) < Number(l.cantidad) ? null
+                  : l.estado !== 'RECIBIDO'
                   ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={l.estado === 'PENDIENTE' ? `Usa lo que hay en stock para ${gr.con('encargo', 'este')} (sin pedirlo)` : `Resta del stock y cuenta como recibido para ${gr.con('encargo', 'este')}`}>{l.estado === 'PENDIENTE' ? 'Usar del stock' : 'Recibido'}</Button>
                   : <Button size="sm" variant="ghost" cargando={busy === l.id} onClick={() => hacer(l.id, () => desasignarMaterial(l.id))} title="Devuelve el consumo al stock">Deshacer recibido</Button>}
                 {puedeEditar && l.estado !== 'RECIBIDO' && <Button size="sm" variant="ghost" onClick={() => hacer(l.id, () => quitarLinea(l.id))}>Quitar</Button>}
