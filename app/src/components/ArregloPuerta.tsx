@@ -5,6 +5,7 @@ import { actualizarEncargo, asignarProveedor, listarProductos, listarProveedores
 import { altaRapidaProducto, altaRapidaProveedor } from '@/data/catalogos'
 import type { EncargoEstado, Puerta } from '@/lib/types'
 import { Button, Combobox } from '@/ui'
+import { asignarMaterial, avanzarPorMaterial, lineasDeEncargo } from '@/data/materiales'
 import { min } from '@/lib/vocab'
 
 type Cat = { id: string; nombre: string; activo: boolean }
@@ -26,7 +27,7 @@ function catalogos(tiendaId: string) {
 export function ArregloPuerta({ e, p, onHecho, onCompletar, compacto }: {
   e: EncargoEstado; p: Puerta; onHecho: () => void; onCompletar?: () => void; compacto?: boolean
 }) {
-  const { rol, vocab } = useAuth()
+  const { rol, vocab, gr } = useAuth()
   const [prov, setProv] = React.useState<Cat[]>([])
   const [prod, setProd] = React.useState<Cat[]>([])
   const [err, setErr] = React.useState<string | null>(null)
@@ -55,7 +56,16 @@ export function ArregloPuerta({ e, p, onHecho, onCompletar, compacto }: {
   } else if (p.tipo === 'CHECK' && p.referencia) {
     control = <Button size="sm" onClick={() => hacer(() => marcarCheck(e.id, p.referencia!, true))}>Marcar hecho</Button>
   } else if (p.tipo === 'MATERIAL' && !location.pathname.startsWith(`/encargos/${e.id}`)) {
-    control = <Button size="sm" asChild><Link to={`/encargos/${e.id}`}>Ver {min(vocab.material)}</Link></Button>
+    // Como en Notelodigo al marcar «recibida»: si hay en stock, se usa y pasa de paso sin abrir la ficha
+    control = <span className="inline-flex flex-wrap gap-1.5">
+      {editar && <Button size="sm" onClick={() => hacer(async () => {
+        const ls = (await lineasDeEncargo(e.id)).filter((l) => l.estado !== 'RECIBIDO')
+        if (!ls.length) throw new Error(`No tiene ${min(vocab.material)} apuntad${gr.o('material')}: añádel${gr.o('material')} en la ficha`)
+        for (const l of ls) await asignarMaterial(l.id)
+        await avanzarPorMaterial([e.id]).catch(() => 0)
+      })}>Usar del stock</Button>}
+      <Button size="sm" variant="ghost" asChild><Link to={`/encargos/${e.id}`}>Ver {min(vocab.material)}</Link></Button>
+    </span>
   } else if (p.tipo === 'CAMPO_NO_VACIO' && editar && onCompletar) {
     control = <Button size="sm" onClick={onCompletar}>Completar</Button>
   }

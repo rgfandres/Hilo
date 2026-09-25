@@ -101,6 +101,9 @@ export async function quitarLinea(id: string) { ok(await supabase.from('encargo_
 export async function asignarMaterial(lineaId: string): Promise<number> {
   return Number(ok(await supabase.rpc('asignar_material', { p_linea: lineaId })))
 }
+export async function recibirSinPedido(lineaId: string, cantidad: number, nota?: string) {
+  return ok(await supabase.rpc('recibir_sin_pedido', { p_linea: lineaId, p_cantidad: cantidad, p_nota: nota || null })) as number
+}
 export async function desasignarMaterial(lineaId: string) { ok(await supabase.rpc('desasignar_material', { p_linea: lineaId })) }
 
 export async function listarMovimientos(tiendaId: string, materialId?: string): Promise<Movimiento[]> {

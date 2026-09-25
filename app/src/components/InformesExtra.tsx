@@ -97,6 +97,9 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
   const bajos = activos.filter(bajoUmbral).sort((a, b) => (Number(a.stock) - Number(a.umbral_efectivo)) - (Number(b.stock) - Number(b.umbral_efectivo))).slice(0, 12)
   const sinStock = activos.filter((m) => Number(m.stock) <= 0).length
   const conRestos = mats.filter((m) => Number(m.restos) > 0).length
+  // Totales del intervalo por unidad (no se suman metros con unidades)
+  const tot = (k: 'CONSUMO' | 'RECEPCION' | 'PEDIDO') => { const t = new Map<string, number>(); for (const f of filas) t.set(f.ud, (t.get(f.ud) ?? 0) + f[k]); const s = [...t.entries()].filter(([, v]) => v > 0).map(([u, v]) => cant(v, u)).join(' + '); return s || '0' }
+  const restosTxt = (() => { const t = new Map<string, number>(); for (const m of mats) if (Number(m.restos) > 0) t.set(m.unidad, (t.get(m.unidad) ?? 0) + Number(m.restos)); return [...t.entries()].map(([u, v]) => cant(v, u)).join(' + ') })()
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -106,9 +109,14 @@ export function InformeMateriales({ iv }: { iv: Intervalo }) {
         </select>
       </div>
       <div className="grid grid-cols-3 gap-2">
+        <Cifra titulo="Consumido" valor={tot('CONSUMO')} />
+        <Cifra titulo="Recibido" valor={tot('RECEPCION')} />
+        <Cifra titulo="Pedido" valor={tot('PEDIDO')} />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
         <Cifra titulo="Bajo umbral" valor={String(activos.filter(bajoUmbral).length)} />
         <Cifra titulo="Sin stock" valor={String(sinStock)} />
-        <Cifra titulo="Con restos" valor={String(conRestos)} />
+        <Cifra titulo="Con restos" valor={conRestos ? `${conRestos} · ${restosTxt}` : '0'} />
       </div>
       {filas.length === 0 ? <p className="m-0 text-fg-3">Sin consumos, recepciones ni pedidos en este intervalo.</p> : (
         <table className="w-full text-sm">

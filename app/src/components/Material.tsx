@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustesMaterial, anadirLinea, asignarMaterial, avanzarPorMaterial, avisoStock, cant, desasignarMaterial, guardarMaterial, guardarResto,
+  ajustesMaterial, anadirLinea, asignarMaterial, recibirSinPedido, avanzarPorMaterial, avisoStock, cant, desasignarMaterial, guardarMaterial, guardarResto,
   lineasDeEncargo, listarMateriales, nombreMaterial, quitarLinea, restoCandidato, unidadDe, type LineaMaterial, type MaterialEstado,
 } from '@/data/materiales'
 import { mensajeError } from '@/data/encargos'
@@ -86,6 +86,8 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
   const [mats, setMats] = React.useState<MaterialEstado[]>([])
   const [nuevo, setNuevo] = React.useState<{ tipo: string; material_id: string; cantidad: string } | null>(null)
   const [resto, setResto] = React.useState<{ m: MaterialEstado; cantidad: number } | null>(null)
+  const [fuera, setFuera] = React.useState<{ l: LineaMaterial; v: string; nota: string } | null>(null)
+  const [errFuera, setErrFuera] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const anulado = encargo.estado !== 'ACTIVO'
@@ -141,7 +143,10 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
                     : <span className="text-sm text-fg-3">Para devolverl{gr.o('material')} al stock, vuelve a un paso anterior en «Pasos».</span>)
                   : Number(l.cantidad) > 0 && Number(m?.stock ?? 0) >= Number(l.cantidad)
                     ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={`Usa lo que hay en stock para ${gr.con('encargo', 'este')}${l.estado === 'PEDIDO' ? ' (lo pedido llegará igual y quedará en stock)' : ' (sin pedirlo)'}`}>Usar del stock</Button>
-                    : l.estado === 'PEDIDO' && <span className="text-sm text-fg-3">Se da por recibid{gr.o('material')} al apuntar la llegada en <Link to="/materiales?v=pedidos" className="underline">Pedidos</Link>.</span>}
+                    : <>
+                      {l.estado === 'PEDIDO' && <span className="text-sm text-fg-3">Se da por recibid{gr.o('material')} al apuntar la llegada en <Link to="/materiales?v=pedidos" className="underline">Pedidos</Link>.</span>}
+                      {puedeEditar && <Button size="sm" variant="ghost" onClick={() => { setErrFuera(null); setFuera({ l, v: String(l.cantidad || ''), nota: '' }) }} title={`Entra al stock y se asigna a ${gr.con('encargo', 'este')} (sin pedido al proveedor)`}>Ha llegado por otra vía…</Button>}
+                    </>}
                 {puedeEditar && l.estado !== 'RECIBIDO' && <Button size="sm" variant="ghost" onClick={() => hacer(l.id, async () => {
                   await quitarLinea(l.id)
                   if (l.estado === 'PEDIDO') avisar({ tipo: 'info', texto: `Quitad${gr.o('material')}. Lo que ya estaba pedido llegará igual y quedará en stock.` })
@@ -168,6 +173,24 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
         </div>
       )}
       {err && <div className="rounded-sm bg-danger-bg px-2.5 py-1.5 text-sm text-danger-fg">{err}</div>}
+
+      <Dialog open={!!fuera} onOpenChange={(o) => !o && setFuera(null)} error={errFuera}
+        title={`Ha llegado por otra vía · ${nombreMaterial(mats.find((x) => x.id === fuera?.l.material_id))}`}
+        description={`Sin pedido al proveedor (lo trae ${gr.con('cliente', 'el')}, se compró en otro sitio…). Entra al stock y se asigna a ${gr.con('encargo', 'este')} en el mismo paso, y queda en Movimientos.`}
+        actions={[{ label: 'Apuntar y asignar', onClick: async () => {
+          if (!fuera) return
+          const x = Number(String(fuera.v).replace(',', '.'))
+          if (!(x > 0)) { setErrFuera('Indica cuánto ha llegado'); return }
+          try {
+            await recibirSinPedido(fuera.l.id, x, fuera.nota)
+            const pasa = await avanzarPorMaterial([encargo.id]).catch(() => 0)
+            avisar({ tipo: 'ok', texto: `Apuntado y asignado${pasa ? ` · pasa a «${encargo.etapa_siguiente_nombre ?? 'el paso siguiente'}»` : ''}` })
+            setFuera(null); await cargar(); onCambio?.()
+          } catch (e) { setErrFuera(mensajeError(e)) }
+        } }]}>
+        <FormRow label={`Ha llegado (${unidadDe(mats.find((x) => x.id === fuera?.l.material_id), aj.unidad)})`}><NumeroInput value={fuera?.v ?? ''} onChange={(v) => setFuera((f) => (f ? { ...f, v } : f))} /></FormRow>
+        <FormRow label="Nota"><input className="h-8 w-full rounded-sm border border-border bg-bg px-2" value={fuera?.nota ?? ''} placeholder="Opcional: de dónde viene" onChange={(ev) => setFuera((f) => (f ? { ...f, nota: ev.target.value } : f))} /></FormRow>
+      </Dialog>
 
       <DialogoResto resto={resto} unidad={unidadDe(resto?.m, aj.unidad)} onCerrar={() => setResto(null)}
         onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, `Sobrante tras ${gr.con('encargo', 'el')} ${encargo.serie ?? ''}${String(encargo.numero).padStart(3, '0')}`, encargo.id); await cargar() }} />

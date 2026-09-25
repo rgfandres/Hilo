@@ -13,6 +13,7 @@ import { filtrosAUrl } from '@/data/lista'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, miTrabajo, motivosRevision } from '@/lib/bandejas'
 import { bandejasLista, cuentaBandeja, tarjetasInicio } from '@/lib/listaBandejas'
+import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 
 type Bloque = 'indicadores' | 'mio' | 'atencion' | 'listos' | 'etapas' | 'proveedores'
 const LS = 'hilo.para_hoy'
@@ -45,12 +46,21 @@ export function ParaHoy() {
   const [cargado, setCargado] = React.useState(false)
   const [ocultos, setOcultos] = React.useState<Bloque[]>([])
   const [pers, setPers] = React.useState(false)
+  const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
+  const [matsEst, setMatsEst] = React.useState<MaterialEstado[]>([])
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
 
   const leer = React.useCallback(async () => {
     if (!tienda) return
     const [r, e] = await Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }), listarEtapas(tienda.id)])
     setRows(r); setEtapas(e); setCargado(true)
+    // Tarjetas de «pedir» o «esperando material»: hacen falta las líneas de material
+    const aj0 = (tienda.ajustes ?? {}) as Record<string, unknown>
+    const conf0 = bandejasLista(aj0)
+    if (ajustesMaterial(aj0).activo && tarjetasInicio(aj0)?.some((t) => { const b = conf0?.find((x) => x.key === t.bandeja); return b?.tipo === 'pedir' || b?.tipo === 'espera_material' })) {
+      const [l, m] = await Promise.all([lineasDeTienda(tienda.id).catch(() => []), listarMateriales(tienda.id).catch(() => [])])
+      setLineasMat(l); setMatsEst(m)
+    }
   }, [tienda, periodo])
   React.useEffect(() => {
     if (!tienda) return
@@ -89,7 +99,11 @@ export function ParaHoy() {
       return { k: `t${i}`, label: t.nombre, n: enCurso.filter((e) => et.includes(e.etapa_actual_nombre ?? '')).length, to: aLista({ f: { etapa: et }, desde: t.nombre }), title: et.join(' · '), tono: t.tono }
     }
     const b = conf?.find((x) => x.key === t.bandeja)
-    const n = b ? cuentaBandeja(b, rows, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) ?? 0 : 0
+    const n = !b ? 0
+      : b.tipo === 'pedir' ? rows.filter((e) => activo(e) && lineasMat.some((l) => l.encargo_id === e.id && l.estado === 'PENDIENTE'
+          && (!b.solo_falta || !!avisoStock(matsEst.find((m) => m.id === l.material_id)).nivel))).length
+      : b.tipo === 'espera_material' ? rows.filter((e) => activo(e) && lineasMat.some((l) => l.encargo_id === e.id && l.estado === 'PEDIDO')).length
+      : cuentaBandeja(b, rows, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) ?? 0
     return { k: `t${i}`, label: t.nombre, n, to: aLista({ b: t.bandeja, desde: t.nombre }), title: b?.ayuda ?? b?.nombre, tono: t.tono }
   })
   const indicadores = indicadoresTienda ?? [

@@ -676,7 +676,9 @@ export function Encargo() {
         {impactoErr && <p className="m-0 text-sm text-warn-fg">No se ha podido comprobar qué queda por hacer (material, cobros, avisos). Revísalo tú antes de anular.</p>}
         {(recibidoMat.length > 0 || impactoErr) && (
           <div className="mt-2 flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
-            <div className="font-medium">{vocab.material} ya asignad{gr.o('material')}: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
+            <div className="font-medium">{vocab.material} ya asignad{gr.o('material')}: {recibidoMat.length ? recibidoMat.map((x) => `${x.material} (${Number(x.cantidad).toLocaleString('es-ES')} ${x.unidad ?? ajMat.unidad})`).join(', ') : '(no se ha podido comprobar)'}</div>
+            {(impacto?.restos?.length ?? 0) > 0 && <div className="text-fg-2">Restos que dejó: {impacto!.restos!.map((x) => `${x.material} (${Number(x.cantidad).toLocaleString('es-ES')} ${x.unidad ?? ajMat.unidad})`).join(', ')}. Siguen la misma decisión.</div>}
+            {(impacto?.orden_impresa || pasoPorProduccion) && <div className="text-warn-fg">Ya pasó por producción{impacto?.orden_impresa ? ' y la hoja estaba impresa' : ''}: lo normal es darl{gr.o('material')} por usad{gr.o('material')}.</div>}
             <label className="flex items-center gap-2"><input type="radio" checked={devolverMat} onChange={() => setDevolverMat(true)} /> Devolverl{gr.o('material')} al stock (no se ha usado), con los restos que dejó</label>
             <label className="flex items-center gap-2"><input type="radio" checked={!devolverMat} onChange={() => setDevolverMat(false)} /> Darl{gr.o('material')} por usad{gr.o('material')} y marcar {gr.con('encargo', 'el')} para reaprovechar</label>
           </div>

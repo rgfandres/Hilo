@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
 import { haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
 import { LlegadasMaterial } from '@/pages/Logistica'
-import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, nombresMaterialPorEncargo, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, cant, lineasDeTienda, listarMateriales, nombreMaterial, nombresMaterialPorEncargo, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -162,7 +162,7 @@ export function Encargos() {
     const bajo = m && avisoStock(m).nivel
     return (
       <button className={cn('inline-flex shrink-0 items-center rounded-sm px-1 text-xs font-normal', bajo ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg')}
-        title={`${nombreMaterial(m)}: ver ${min(vocab.encargos)} que l${gr.o('material')} esperan`}
+        title={m ? `${nombreMaterial(m)} · stock ${cant(m.stock, m.unidad)} · necesario ${cant(m.demanda, m.unidad)}${Number(m.en_camino) > 0 ? ` · en camino ${cant(m.en_camino, m.unidad)}` : ''}${m.proveedor_nombre ? ` · ${m.proveedor_nombre}` : ''}. Pulsa para ver ${min(vocab.encargos)} que l${gr.o('material')} esperan` : undefined}
         onClick={(x) => { x.stopPropagation(); setP({ b: 'mat-pedir', m: l.material_id, q: null, f: null }) }}>
         {bajo ? 'stock bajo · pedir' : 'pedir'}
       </button>
@@ -581,6 +581,8 @@ export function Encargos() {
                         {ver('etapa') && (
                           <Td>
                             {etapaTag(e)}
+                            {e.estado === 'ANULADO' && motivos[e.id]?.material_devuelto === false && <Tag color="amber" className="ml-1.5" title={`${gr.Con('material', 'el')} se dio por usad${gr.o('material')}: queda para confeccionar más adelante (como en «pendiente de confeccionar»)`}>✂️ Cortad{gr.o('material')} · por reaprovechar</Tag>}
+                            {e.estado === 'ANULADO' && motivos[e.id]?.material_devuelto === true && <Tag color="gray" className="ml-1.5">↩️ {vocab.material} devuelt{gr.o('material')} al stock</Tag>}
                             {e.estado === 'ANULADO' && motivos[e.id]?.motivo && <span className="ml-1.5 text-sm text-fg-3">{motivos[e.id].motivo}</span>}
                             {e.estancado && <span className="ml-1.5 text-sm text-fg-3">{aj.estancado_por === 'pasos' ? `${e.dias_en_etapa ?? 0} d` : relativo(e.actualizado_en)}</span>}
                           </Td>

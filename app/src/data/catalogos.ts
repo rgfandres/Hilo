@@ -129,5 +129,14 @@ async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nom
   if (r.error) { const otra = await buscar(); if (otra) return otra; throw r.error }
   return (r.data as { id: string }).id
 }
+/** Alta rápida de un proveedor desde la ficha de un material: si es nuevo, nace como «vende material» */
+export async function altaProveedorMaterial(tiendaId: string, nombre: string): Promise<string> {
+  const n = nombre.trim()
+  const ya = (await supabase.from('proveedor').select('id').eq('tienda_id', tiendaId).ilike('nombre', n.replace(/[%_\\]/g, (c) => '\\' + c)).limit(1)).data?.[0]?.id as string | undefined
+  if (ya) { await supabase.from('proveedor').update({ activo: true }).eq('id', ya).eq('activo', false); return ya }
+  const r = await supabase.from('proveedor').insert({ tienda_id: tiendaId, nombre: n, tipo: 'MATERIAL' }).select('id').single()
+  if (r.error) return altaRapida('proveedor', tiendaId, n)
+  return (r.data as { id: string }).id
+}
 export const altaRapidaProducto = (tiendaId: string, nombre: string) => altaRapida('producto', tiendaId, nombre)
 export const altaRapidaProveedor = (tiendaId: string, nombre: string) => altaRapida('proveedor', tiendaId, nombre)

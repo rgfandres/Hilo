@@ -31,11 +31,13 @@ export async function listarEncargos(
   return (data ?? []) as EncargoEstado[]
 }
 
-export interface Anulacion { encargo_id: string; fecha: string; motivo: string | null; recuperado_en: string | null }
+export interface Anulacion { encargo_id: string; fecha: string; motivo: string | null; recuperado_en: string | null
+  /** Qué se hizo con el material: true volvió al stock, false se dio por usado (queda para reaprovechar), null no había */
+  material_devuelto?: boolean | null }
 export async function listarAnulaciones(encargoIds: string[]): Promise<Record<string, Anulacion>> {
   if (encargoIds.length === 0) return {}
   const { data, error } = await supabase.from('anulacion')
-    .select('encargo_id,fecha,motivo,recuperado_en').in('encargo_id', encargoIds)
+    .select('encargo_id,fecha,motivo,recuperado_en,material_devuelto').in('encargo_id', encargoIds)
     .is('recuperado_en', null).order('fecha', { ascending: false })
   if (error) throw error
   const out: Record<string, Anulacion> = {}
@@ -117,6 +119,8 @@ export function mensajeError(e: unknown): string {
   if (/Proveedor no válido o inactivo/i.test(m)) return 'Ese proveedor no es válido o está desactivado. (Si eres tú el proveedor: pide a la tienda que te active.)'
   if (/YA_EN_CAMINO/.test(m)) return 'Ya ha pasado del paso que pide el material: para devolverlo, vuelve a un paso anterior desde «Pasos» (allí se pregunta si vuelve al stock).'
   if (/SIN_CANTIDAD/.test(m)) return 'Pon antes la cantidad: sin cantidad no se puede dar por recibido.'
+  const sinStock = m.match(/SIN_STOCK:([\d.]+):([\d.]+)/)
+  if (sinStock) return `No hay suficiente en stock (hay ${Number(sinStock[1]).toLocaleString('es-ES')} y hacen falta ${Number(sinStock[2]).toLocaleString('es-ES')}). Si ha llegado por otra vía, apúntalo con «Ha llegado por otra vía…»; si el stock está mal, corrígelo en el catálogo.`
   if (/ELEGIR_MATERIAL/.test(m)) return 'Elige qué pasa con el material ya recibido (vuelve al stock o se da por usado).'
   const prod = m.match(/SALTO_PRODUCCION:(.*)$/)
   if (prod) return `No se puede saltar «${prod[1]}»: hay que marcarlo (crea la orden de producción).`
@@ -284,7 +288,8 @@ export async function ponerNotaCampo(encargoId: string, campo: string, texto: st
 
 /** Qué habrá que hacer a mano si se anula (proveedor, dinero, avisos). Solo lectura. */
 export interface ImpactoAnular { proveedor: string | null; en_proveedor: boolean; importe: number | null; a_cuenta: number; n_mensajes: number; n_adjuntos: number; n_hitos: number
-  material_recibido?: { material: string; cantidad: number }[]; material_pedido?: number }
+  material_recibido?: { material: string; cantidad: number; unidad?: string }[]; material_pedido?: number
+  restos?: { material: string; cantidad: number; unidad?: string }[]; orden_impresa?: boolean }
 export async function impactoAnular(encargoId: string): Promise<ImpactoAnular> {
   const { data, error } = await supabase.rpc('impacto_anular', { p_encargo: encargoId })
   if (error) throw error
