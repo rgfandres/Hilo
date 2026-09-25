@@ -123,8 +123,12 @@ export const PLANTILLAS: PlantillaSector[] = [
       { clave: 'MEDIDA', nombre: 'A medida', etapas: [
         { clave: 'ENCARGADO', nombre: 'Encargado', rol: 'ATENCION', color: GRIS },
         { clave: 'TELA', nombre: 'Tela recibida', color: AMBAR, puertas: [{ tipo: 'MATERIAL', ref: 'material', mensaje: 'Falta recibir la tela' }] },
-        { clave: 'CORTE', nombre: 'Enviado a corte', color: MORADO, espera: true, produccion: true },
-        { clave: 'CORTADO', nombre: 'Recogido del cortador', rol: 'LOGISTICA', color: AZUL, visible: true },
+        { clave: 'CORTE', nombre: 'Enviado a corte', color: MORADO, espera: true, produccion: true, puertas: [
+          { tipo: 'CAMPO_NO_VACIO', ref: 'producto_id', mensaje: 'Falta el modelo: sin él no hay orden de corte' },
+          { tipo: 'CAMPO_NO_VACIO', ref: 'talla', mensaje: 'Falta la talla', dura: false },
+        ] },
+        // El taller lo ve desde que se le lleva (no mientras está en el cortador)
+        { clave: 'CORTADO', nombre: 'Recogido del cortador', rol: 'LOGISTICA', color: AZUL },
         { clave: 'TALLER', nombre: 'Llevado al taller', rol: 'LOGISTICA', color: AZUL, visible: true, espera: true, puertas: [
           { tipo: 'CHECK', ref: 'adorno', etiqueta: 'Adorno comprado', mensaje: 'Falta comprar el adorno' },
           { tipo: 'CAMPO_NO_VACIO', ref: 'proveedor_id', mensaje: 'Elige un taller antes de marcarlo como llevado' },

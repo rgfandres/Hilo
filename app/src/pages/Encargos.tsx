@@ -245,8 +245,9 @@ export function Encargos() {
   const porProductoHoja = React.useMemo((): [string, string, number][] => {
     if (!defActual?.lote_hoja) return []
     const m = new Map<string, [string, number]>()
-    for (const e of base) if (activo(e) && e.etapa_siguiente_id && etProd.has(e.etapa_siguiente_id)) {
-      const k = e.producto_id ?? '_'
+    // Sin producto no va a la hoja (no hay orden que imprimir): se queda en la lista con su aviso
+    for (const e of base) if (activo(e) && e.producto_id && e.etapa_siguiente_id && etProd.has(e.etapa_siguiente_id)) {
+      const k = e.producto_id
       m.set(k, [e.producto_nombre ?? `Sin ${min(vocab.producto)}`, (m.get(k)?.[1] ?? 0) + 1])
     }
     return [...m.entries()].map(([k, [n, c]]) => [k, n, c] as [string, string, number]).sort((a, b) => a[1].localeCompare(b[1], 'es'))

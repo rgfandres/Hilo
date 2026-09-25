@@ -232,7 +232,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
           </FormRow>}
           {matAj.activo && <FormRow label={`Unidad de pedido (${matAj.unidad})`} ayuda={`Lo que vende de una vez (un rollo de 50…). Se usa para redondear los pedidos de ${min(vocab.material)}.`}>
             <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => { setUnidad(e.target.value); if (unidadIni.current === null) unidadIni.current = '\u0000' }} placeholder="Opcional" /></FormRow>}
-          {f.tipo !== 'MATERIAL' && <FormRow label="Se elige en" ayuda={`Apágalo para quien trabaja sin que se le asignen ${min(vocab.encargos)} (por ejemplo, quien corta por la hoja de producción).`}>
+          {f.tipo !== 'MATERIAL' && <FormRow label="Asignación" ayuda={`Apágalo para quien trabaja sin que se le asignen ${min(vocab.encargos)} (por ejemplo, quien corta por la hoja de producción).`}>
             <Interruptor checked={f.asignable} onChange={(v) => setF({ ...f, asignable: v })} label={f.asignable ? `Se le pueden asignar ${min(vocab.encargos)}` : `No sale para elegirl${gr.o('proveedor')}`} />
           </FormRow>}
           {p && <FormRow label="Estado"><Interruptor checked={f.activo} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('proveedor')}` : `Inactiv${gr.o('proveedor')}: no se le asigna nada ni entra`} /></FormRow>}

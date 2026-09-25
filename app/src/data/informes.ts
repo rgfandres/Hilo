@@ -154,12 +154,25 @@ export function plazos(hs: HitoInforme[], i: Intervalo): Plazo[] {
     .map(([tramo, a]) => ({ tramo, media: a.n ? a.suma / a.n : null, n: a.n, descartados: a.malos }))
 }
 
+/** Última etapa que ve el proveedor, por tipo: llegar a ella es devolverlo (como en su portal, «Entregados») */
+function ultimaVisible(hs: HitoInforme[]): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const h of hs) if (h.etapa_proveedor) m.set(h.tipo_encargo_id, Math.max(m.get(h.tipo_encargo_id) ?? -Infinity, h.etapa_orden))
+  return m
+}
+/** Cuándo vuelve del proveedor: el primer paso posterior que no ve, o la última etapa que ve (p. ej. «Recogido del taller») */
+function salida(ord: HitoInforme[], entra: HitoInforme, vm: Map<string, number>): HitoInforme | undefined {
+  const max = vm.get(entra.tipo_encargo_id) ?? -Infinity
+  return ord.find((h) => h.fecha > entra.fecha && h.etapa_orden > entra.etapa_orden && (!h.etapa_proveedor || h.etapa_orden >= max))
+}
+
 export interface PorProveedor { proveedor_id: string; enviados: number; recibidos: number; diasMedios: number | null }
 /**
  * Por proveedor: enviados = entran en una etapa que ve el proveedor dentro del intervalo;
- * recibidos = vuelven (primer paso posterior a una etapa que no ve); días medios entre ambos.
+ * recibidos = vuelven (primer paso a una etapa que no ve, o a la última que ve); días medios entre ambos.
  */
 export function porProveedor(hs: HitoInforme[], i: Intervalo): PorProveedor[] {
+  const vm = ultimaVisible(hs)
   const porEnc = new Map<string, HitoInforme[]>()
   for (const h of hs) if (avance(h) && h.proveedor_id) porEnc.set(h.encargo_id, [...(porEnc.get(h.encargo_id) ?? []), h])
   const acc = new Map<string, { env: number; rec: number; suma: number; n: number }>()
@@ -167,7 +180,7 @@ export function porProveedor(hs: HitoInforme[], i: Intervalo): PorProveedor[] {
     const ord = [...lista].sort((a, b) => a.fecha.localeCompare(b.fecha))
     const entra = ord.find((h) => h.etapa_proveedor)
     if (!entra) continue
-    const sale = ord.find((h) => h.fecha > entra.fecha && !h.etapa_proveedor && h.etapa_orden > entra.etapa_orden)
+    const sale = salida(ord, entra, vm)
     const a = acc.get(entra.proveedor_id!) ?? { env: 0, rec: 0, suma: 0, n: 0 }
     if (dentro(entra.fecha, i)) a.env++
     if (sale && dentro(sale.fecha, i)) {
@@ -195,6 +208,7 @@ export function rankingTerminados(hs: HitoInforme[], i: Intervalo, valor: (h: Hi
 
 /** Encargos que vuelven del proveedor dentro del intervalo (producción terminada). */
 export function recibidosProveedor(hs: HitoInforme[], i: Intervalo): Set<string> {
+  const vm = ultimaVisible(hs)
   const porEnc = new Map<string, HitoInforme[]>()
   for (const h of hs) if (avance(h)) porEnc.set(h.encargo_id, [...(porEnc.get(h.encargo_id) ?? []), h])
   const s = new Set<string>()
@@ -202,7 +216,7 @@ export function recibidosProveedor(hs: HitoInforme[], i: Intervalo): Set<string>
     const ord = [...lista].sort((a, b) => a.fecha.localeCompare(b.fecha))
     const entra = ord.find((h) => h.etapa_proveedor)
     if (!entra) continue
-    const sale = ord.find((h) => h.fecha > entra.fecha && !h.etapa_proveedor && h.etapa_orden > entra.etapa_orden)
+    const sale = salida(ord, entra, vm)
     if (sale && dentro(sale.fecha, i)) s.add(id)
   }
   return s
