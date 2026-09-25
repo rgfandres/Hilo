@@ -84,6 +84,17 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   const datosGuia = React.useMemo(() => ({ ...f.dCli, ...f.dEnc }), [f.dCli, f.dEnc])
   const etiquetasGuia = React.useMemo(() => Object.fromEntries([...camposCli, ...camposEnc].map((c) => [c.clave, c.etiqueta])), [camposCli, camposEnc])
   const guia = useGuia({ datos: datosGuia, etiquetas: etiquetasGuia, valor: String(f.dEnc[destinoGuia] ?? ''), inicialTocado: true, setValor: () => {}, periodoAjustes: pAj ?? null })
+  // Si el valor de la guía está vacío, se rellena con la sugerencia (y la sigue mientras no se toque a mano)
+  const autoGuia = React.useRef<string | null>(null)
+  React.useEffect(() => { if (!open) autoGuia.current = null }, [open])
+  React.useEffect(() => {
+    if (!open || !destinoGuia || !guia.sug) return
+    const actual = String(f.dEnc[destinoGuia] ?? '')
+    if ((actual === '' || actual === autoGuia.current) && actual !== guia.sug.valor) {
+      autoGuia.current = guia.sug.valor
+      setF((s) => ({ ...s, dEnc: { ...s.dEnc, [destinoGuia]: guia.sug!.valor } }))
+    }
+  }, [open, destinoGuia, guia.sug, f.dEnc])
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
   const [receta, setReceta] = React.useState<string | null>(null)
   React.useEffect(() => { setReceta(null); if (open && f.producto) fichaProducto(f.producto).then((p) => setReceta(p?.receta ?? null)).catch(() => {}) }, [open, f.producto])
