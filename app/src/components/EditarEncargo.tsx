@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import type { Campo } from '@/data/config'
 import {
-  actualizarCliente, actualizarEncargo, cambiarDatos, difDatos, asignarProveedor, listarProductos, listarProveedores, mensajeError, comentar,
+  actualizarCliente, actualizarEncargo, cambiarDatos, difDatos, asignarProveedor, listarProductos, listarProveedores, mensajeError, comentar, crearHito,
 } from '@/data/encargos'
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Sheet, useAvisos } from '@/ui'
@@ -121,7 +121,17 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
       if (f.proveedor !== inicial.proveedor) await asignarProveedor(encargo.id, f.proveedor || null)
       // Si con las medidas nuevas la guía pide revisar y se ha cambiado el valor, queda un comentario automático
       const nuevoValor = String(f.dEnc[destinoGuia] ?? '')
-      if (!soloProveedor && guia.sug?.revisar && nuevoValor !== String(inicial.dEnc[destinoGuia] ?? '')) await comentar(encargo.id, `Guía de medidas: ${guia.sug.motivo}.`)
+      const cambiado = nuevoValor !== String(inicial.dEnc[destinoGuia] ?? '')
+      if (!soloProveedor && guia.sug?.revisar && cambiado) await comentar(encargo.id, `Guía de medidas: ${guia.sug.motivo}.`)
+      // Elegir el valor especial («Revisar») abre siempre una incidencia, como en el alta
+      if (!soloProveedor && cambiado && guia.g.especial && nuevoValor === guia.g.especial && !encargo.es_final) {
+        let clave = encargo.etapa_actual_clave
+        if (!clave) clave = (await supabase.from('etapa').select('clave').eq('tipo_encargo_id', encargo.tipo_encargo_id).order('orden').limit(1).maybeSingle()).data?.clave ?? null
+        if (clave) {
+          try { await crearHito(encargo.id, clave, { tipo: 'INCIDENCIA', nota: guia.sug?.revisar ? guia.sug.motivo : `${guia.g.especial} elegido a mano` }) }
+          catch (x) { avisar({ tipo: 'aviso', texto: `No se abrió la incidencia: ${mensajeError(x)}` }) }
+        }
+      }
       onSaved()
       avisar({ tipo: 'ok', texto: 'Cambios guardados' })
       onOpenChange(false)

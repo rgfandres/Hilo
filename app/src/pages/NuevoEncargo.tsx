@@ -256,9 +256,11 @@ export function NuevoEncargo() {
       if (comentario.trim()) await comentar(enc.id, comentario.trim())
       // Caso dudoso de la guía: incidencia y comentario automático (aparte del del usuario)
       const elegido = String(dEnc[destinoGuia] ?? '')
-      if (guia.sug?.revisar && primera?.clave && (elegido === guia.sug.valor || elegido === guia.g.especial)) {
-        await crearHito(enc.id, primera.clave, { tipo: 'INCIDENCIA', nota: guia.sug.motivo })
-        await comentar(enc.id, `Guía de medidas: ${guia.sug.motivo}.`)
+      const aMano = !!guia.g.especial && elegido === guia.g.especial
+      if (primera?.clave && ((guia.sug?.revisar && elegido === guia.sug.valor) || aMano)) {
+        const motivo = guia.sug?.revisar ? guia.sug.motivo : `${guia.g.especial} elegido a mano`
+        await crearHito(enc.id, primera.clave, { tipo: 'INCIDENCIA', nota: motivo })
+        await comentar(enc.id, `Guía de medidas: ${motivo}.`)
       }
       } catch (x) { avisar({ tipo: 'aviso', persistente: true, texto: `${vocab.encargo} cread${gr.o('encargo')}, pero algo no se guardó: ${mensajeError(x)}` }) }
       const { data: real } = await supabase.from('encargo').select('numero,serie').eq('id', enc.id).maybeSingle()
