@@ -44,6 +44,8 @@ const dias = (a: string, b: string | Date) => diasEntre(a, b)
 /** yyyy-MM-ddTHH:mm en la hora de la tienda, para <input type="datetime-local"> */
 const aLocal = (iso: string) => aHoraTienda(iso)
 
+function leerPospuesto(k: string) { if (!k) return false; try { return localStorage.getItem(k) === '1' } catch { return false } }
+
 export function Encargo() {
   const { id } = useParams()
   const [spA, setSpA] = useSearchParams()
@@ -103,6 +105,7 @@ export function Encargo() {
   const [mensaje, setMensaje] = React.useState<{ inicial: string | null; via: Via } | null>(null)
   /** Sugerencia de aviso tras pasar a una etapa que tiene plantilla */
   const [sugerencia, setSugerencia] = React.useState<PlantillaMensaje | null>(null)
+  const [pospuestos, setPospuestos] = React.useState<string[]>([])
   const [ficha, setFicha] = React.useState<{ html: string; texto: string } | null>(null)
   const [autores, setAutores] = React.useState<Record<string, string>>({})
   const [notas, setNotas] = React.useState<Record<string, TNota>>({})
@@ -264,6 +267,16 @@ export function Encargo() {
   const vigentes = hitos.filter((h) => !h.deshecho_en)
   const incAbierta = e.en_revision ? vigentes.find((h) => h.tipo === 'INCIDENCIA' && !h.resuelto_en) : undefined
   const plantillaEtapa = plantillasMsg.find((p) => p.etapa_id === e.etapa_actual_id)
+  // Aviso discreto: el paso actual tiene plantilla y aún no se ha avisado con ella (lo haya marcado
+  // quien sea: la tienda, logística o el propio stock) en la última semana. Con ✕ se oculta en este navegador.
+  const clavePospuesto = plantillaEtapa ? `hilo_aviso_no_${e.id}_${plantillaEtapa.id}` : ''
+  const pendienteAviso = plantillaEtapa && (e.dias_en_etapa ?? 0) <= 7 && !envios.some((m) => m.plantilla_id === plantillaEtapa.id) && !pospuestos.includes(clavePospuesto) && !leerPospuesto(clavePospuesto)
+    ? plantillaEtapa : null
+  const avisoVisible = sugerencia ?? pendienteAviso
+  const quitarAviso = () => {
+    if (!sugerencia && clavePospuesto) { try { localStorage.setItem(clavePospuesto, '1') } catch { /* sin almacenamiento */ } setPospuestos((l) => [...l, clavePospuesto]) }
+    setSugerencia(null)
+  }
   const anteriores = etapas.filter((x) => e.etapa_actual_orden != null && x.orden < e.etapa_actual_orden)
 
   // Días en cada etapa: desde un paso hasta el siguiente paso vigente (o hasta hoy si es el actual)
@@ -337,12 +350,12 @@ export function Encargo() {
             </div>
           )}
 
-          {!anulado && puedeAvisar && sugerencia && (
+          {!anulado && puedeAvisar && avisoVisible && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-bg-2 px-3 py-1.5 text-sm">
-              <span className="min-w-0 flex-1 text-fg-2">💬 ¿Avisar a {e.cliente_nombre}? <span className="text-fg-3">· {sugerencia.nombre}</span></span>
-              <AvisarMenu cliente={cli} align="end" onElegir={(via) => { setMensaje({ inicial: sugerencia.id, via }); setSugerencia(null) }}
+              <span className="min-w-0 flex-1 text-fg-2">💬 ¿Avisar a {e.cliente_nombre}? <span className="text-fg-3">· {avisoVisible.nombre}</span></span>
+              <AvisarMenu cliente={cli} align="end" onElegir={(via) => { setMensaje({ inicial: avisoVisible.id, via }); setSugerencia(null) }}
                 trigger={({ toggle }) => <button type="button" className="font-medium text-fg underline underline-offset-2" onClick={toggle}>Avisar ▾</button>} />
-              <button type="button" className="px-1 text-fg-3 hover:text-fg" aria-label="Quitar aviso" title="Ahora no" onClick={() => setSugerencia(null)}>✕</button>
+              <button type="button" className="px-1 text-fg-3 hover:text-fg" aria-label="Quitar aviso" title="Ahora no" onClick={quitarAviso}>✕</button>
             </div>
           )}
 
