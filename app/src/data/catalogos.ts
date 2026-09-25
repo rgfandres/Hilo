@@ -1,5 +1,6 @@
 import { filtroCliente } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
+import { plano } from '@/lib/texto'
 import type { EncargoEstado } from '@/lib/types'
 
 function ok<T>(r: { data: T; error: unknown }): T { if (r.error) throw r.error; return r.data }
@@ -115,13 +116,20 @@ export function errorNombre(m: string, que: string) {
   return /duplicate|unique|_nombre/i.test(m) ? `Ya existe ${que} con ese nombre` : m
 }
 
+/** Id del que ya se llama igual, sin distinguir mayúsculas ni tildes («Rocío» = «ROCIO») */
+async function mismoNombre(tabla: 'producto' | 'proveedor', tiendaId: string, n: string): Promise<string | undefined> {
+  const { data } = await supabase.from(tabla).select('id,nombre,activo').eq('tienda_id', tiendaId).limit(5000)
+  const p = plano(n)
+  const xs = (data ?? []).filter((x) => plano(x.nombre) === p)
+  return (xs.find((x) => x.activo) ?? xs[0])?.id as string | undefined
+}
 /**
  * Alta rápida desde un formulario: si ya existe (sin distinguir mayúsculas) se usa esa;
  * si no, se crea activa. Nunca crea dos iguales.
  */
 async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nombre: string): Promise<string> {
   const n = nombre.trim()
-  const buscar = async () => (await supabase.from(tabla).select('id,activo').eq('tienda_id', tiendaId).ilike('nombre', n.replace(/[%_\\]/g, (c) => '\\' + c)).limit(1)).data?.[0]?.id as string | undefined
+  const buscar = () => mismoNombre(tabla, tiendaId, n)
   const ya = await buscar()
   // Si existía dado de baja, se vuelve a activar (si no, se elegiría algo que no sale en las listas)
   if (ya) { await supabase.from(tabla).update({ activo: true }).eq('id', ya).eq('activo', false); return ya }
@@ -132,7 +140,7 @@ async function altaRapida(tabla: 'producto' | 'proveedor', tiendaId: string, nom
 /** Alta rápida de un proveedor desde la ficha de un material: si es nuevo, nace como «vende material» */
 export async function altaProveedorMaterial(tiendaId: string, nombre: string): Promise<string> {
   const n = nombre.trim()
-  const ya = (await supabase.from('proveedor').select('id').eq('tienda_id', tiendaId).ilike('nombre', n.replace(/[%_\\]/g, (c) => '\\' + c)).limit(1)).data?.[0]?.id as string | undefined
+  const ya = await mismoNombre('proveedor', tiendaId, n)
   if (ya) { await supabase.from('proveedor').update({ activo: true }).eq('id', ya).eq('activo', false); return ya }
   const r = await supabase.from('proveedor').insert({ tienda_id: tiendaId, nombre: n, tipo: 'MATERIAL' }).select('id').single()
   if (r.error) return altaRapida('proveedor', tiendaId, n)

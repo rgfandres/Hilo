@@ -92,6 +92,8 @@ export function ParaHoy() {
   // Tarjetas elegidas por la tienda (si las hay) en lugar de las de siempre
   const conf = bandejasLista(aj)
   const tarjetas = tarjetasInicio(aj)
+  // Bandeja «todos» de la lista (la tienda puede haber cambiado sus nombres)
+  const bTodos = conf ? conf.find((x) => x.tipo === 'todos')?.key : 'todos'
   const indicadoresTienda = tarjetas?.map((t, i) => {
     if (t.que === 'incidencias') {
       const n = rows.filter((e) => activo(e) && e.en_revision).length
@@ -99,7 +101,7 @@ export function ParaHoy() {
     }
     if (t.que === 'etapas') {
       const et = t.etapas ?? []
-      return { k: `t${i}`, label: t.nombre, n: enCurso.filter((e) => et.includes(e.etapa_actual_nombre ?? '')).length, to: aLista({ f: { etapa: et }, s: 'curso', desde: t.nombre }), title: et.join(' · '), tono: t.tono }
+      return { k: `t${i}`, label: t.nombre, n: enCurso.filter((e) => et.includes(e.etapa_actual_nombre ?? '')).length, to: aLista({ f: { etapa: et }, b: bTodos, s: 'curso', desde: t.nombre }), title: et.join(' · '), tono: t.tono }
     }
     const b = conf?.find((x) => x.key === t.bandeja)
     const n = !b ? 0
@@ -110,7 +112,7 @@ export function ParaHoy() {
     return { k: `t${i}`, label: t.nombre, n, to: aLista({ b: t.bandeja, desde: t.nombre }), title: b?.ayuda ?? b?.nombre, tono: t.tono }
   })
   const indicadores = indicadoresTienda ?? [
-    { k: 'curso', label: 'En curso', n: enCurso.length, to: aLista({ s: 'curso', desde: 'En curso' }), title: 'Sin terminar' },
+    { k: 'curso', label: 'En curso', n: enCurso.length, to: aLista({ b: bTodos, s: 'curso', desde: 'En curso' }), title: 'Sin terminar' },
     { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
     { k: 'listos', label: fin.listos, n: listos.length, to: aLista({ b: 'listos', desde: fin.listos }), title: fin.listosTitulo, tono: 'ok' },
     { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: `Incidencias, marcad${gr.o('encargo', true)} a mano, estancad${gr.o('encargo', true)} y atascad${gr.o('encargo', true)}`, tono: 'danger' },
@@ -160,7 +162,7 @@ export function ParaHoy() {
           {!cargado && !err && <p className="m-0 text-fg-3">Cargando…</p>}
           {cargado && <>
           <p className="m-0 leading-relaxed text-fg-2">
-            Tienes <Link to={aLista({ s: 'curso', desde: 'En curso' })} className="font-medium text-fg underline decoration-border-strong">{enCurso.length} {min(enCurso.length === 1 ? vocab.encargo : vocab.encargos)} en curso</Link>.
+            Tienes <Link to={aLista({ b: bTodos, s: 'curso', desde: 'En curso' })} className="font-medium text-fg underline decoration-border-strong">{enCurso.length} {min(enCurso.length === 1 ? vocab.encargo : vocab.encargos)} en curso</Link>.
             {mios.length + revisar.length > 0
               ? ` ${mios.length ? `${mios.length} ${mios.length === 1 ? 'espera' : 'esperan'} un paso tuyo` : ''}${mios.length && revisar.length ? ' y ' : ''}${revisar.length ? `${revisar.length} ${revisar.length === 1 ? 'necesita' : 'necesitan'} revisión` : ''}.`
               : ` Ningun${gr.genero.encargo === 'f' ? 'a' : 'o'} necesita nada de ti ahora mismo.`}
@@ -218,7 +220,7 @@ export function ParaHoy() {
                   <SectionLabel className="px-2">Por etapa</SectionLabel>
                   <div className="border-t border-border-light">
                     {porEtapa.map((x) => (
-                      <Link key={x.nombre || '_'} to={aLista({ f: { etapa: [x.nombre] }, s: 'curso', desde: `Etapa: ${x.nombre || 'Sin empezar'}` })}
+                      <Link key={x.nombre || '_'} to={aLista({ f: { etapa: [x.nombre] }, b: bTodos, s: 'curso', desde: `Etapa: ${x.nombre || 'Sin empezar'}` })}
                         className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
                         <Tag color={tagColorFromHex(x.color)}>{x.nombre || 'Sin empezar'}</Tag>
                         <span className="flex-1" /><span className="tabular text-fg-2">{x.n}</span>
@@ -232,7 +234,7 @@ export function ParaHoy() {
                   <SectionLabel className="px-2">Por {prov}</SectionLabel>
                   <div className="border-t border-border-light">
                     {porProveedor.map(([k, v]) => (
-                      <Link key={k || '_'} to={aLista({ f: { proveedor: [k] }, s: 'curso', desde: `${vocab.proveedor}: ${k || `Sin ${prov}`}` })}
+                      <Link key={k || '_'} to={aLista({ f: { proveedor: [k] }, b: bTodos, s: 'curso', desde: `${vocab.proveedor}: ${k || `Sin ${prov}`}` })}
                         className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
                         <span className={cn('truncate', k ? 'font-medium' : 'text-warn-fg')}>{k || `Sin ${prov}`}</span>
                         <span className="flex-1" />
