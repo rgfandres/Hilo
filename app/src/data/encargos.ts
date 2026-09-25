@@ -23,11 +23,11 @@ export async function listarEncargos(
       .select('*')
       .eq('tienda_id', tiendaId)
       .eq('estado', opts.estado ?? 'ACTIVO')
-    // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
+    // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo (o si no tiene ninguno)
     // Con «solo la temporada activa», lo que no tiene temporada también se ve (si no, desaparecería de todas partes)
-    if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId)
+    if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null`)
       : soloPeriodoActivo ? q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null`)
-      : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
+      : q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null,es_final.is.null,es_final.eq.false`)
     return q.order('numero', { ascending: false }).order('id')
   }
   // El servidor devuelve como mucho 1000 filas por vez: se piden por páginas hasta tenerlas todas
