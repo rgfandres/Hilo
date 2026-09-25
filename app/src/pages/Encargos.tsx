@@ -78,6 +78,8 @@ export function Encargos() {
   const agrGuardado = (() => { try { return localStorage.getItem('hilo.agrupar') } catch { return null } })()
   const agrupar = params.get('g') ?? (bandeja === 'bloqueados' ? 'motivo' : agrGuardado ?? 'no')
   const desde = params.get('desde')
+  // Recorte exacto desde «Para hoy»: solo en curso, o solo con incidencia abierta
+  const solo = params.get('s')
   const vista: Vista = params.get('v') === 'tablero' ? 'tablero' : 'lista'
   const filtros = React.useMemo(() => filtrosDeUrl(params.get('f')), [params])
   const setP = React.useCallback((cambios: Record<string, string | null>) => {
@@ -294,7 +296,8 @@ export function Encargos() {
       : d2
   }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda, rows, matNombres])
 
-  const visibles = React.useMemo(() => filtrar(base, q, filtros, dims, (e) => matNombres[e.id] ?? ''), [base, q, filtros, dims, matNombres])
+  const visibles = React.useMemo(() => filtrar(solo === 'curso' ? base.filter(activo) : solo === 'incidencias' ? base.filter((e) => activo(e) && e.en_revision) : base,
+    q, filtros, dims, (e) => matNombres[e.id] ?? ''), [base, q, filtros, dims, matNombres, solo])
   const dimAgr = agrupar === 'no' ? null : dims.find((d) => d.clave === agrupar) ?? null
 
   // Paginación de la lista (tamaño en Ajustes → Tienda); se oculta si cabe todo en una página
@@ -508,7 +511,7 @@ export function Encargos() {
         {desde && (
           <span className="inline-flex h-6 items-center gap-1.5 rounded-sm bg-bg-4 px-2 text-fg-2">
             Desde el panel: <span className="font-medium text-fg">{desde}</span> ({visibles.length})
-            <button onClick={() => setP({ b: null, f: null, q: null, desde: null, g: null })} className="text-fg-3 underline-offset-2 hover:text-fg hover:underline">Quitar filtro</button>
+            <button onClick={() => setP({ b: null, f: null, q: null, desde: null, g: null, s: null })} className="text-fg-3 underline-offset-2 hover:text-fg hover:underline">Quitar filtro</button>
           </span>
         )}
         {bandeja === 'revisar' && <span className="text-fg-2">Aquí entran: {CRITERIO_REVISAR.charAt(0).toLowerCase() + CRITERIO_REVISAR.slice(1)}. Los días se cambian en Ajustes → Avisos y reglas.</span>}
