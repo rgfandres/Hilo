@@ -87,7 +87,7 @@ export const PLANTILLAS: PlantillaSector[] = [
       proveedor: { ver_cliente: 'nombre' },
       pantallas: { ATENCION: ['parahoy', 'encargos', 'nuevo', 'clientes', 'productos'], LOGISTICA: ['logistica', 'productos'] },
       guia_medidas: {
-        activa: true, modo: 'cercana', destino: 'talla', principal: 'pecho', validan: ['cintura', 'cadera'], especial: 'Revisar', tolerancias: [1, 2, 3], responsable: '',
+        activa: true, modo: 'cercana', destino: 'talla', principal: 'pecho', validan: ['cadera'], especial: 'Revisar', tolerancias: [1, 2, 3], responsable: '',
         filas: [[32, 76, 56, 84], [34, 80, 60, 88], [36, 84, 64, 92], [38, 88, 68, 96], [40, 92, 72.5, 100], [42, 96, 76.8, 104], [44, 100, 81.2, 108], [46, 104, 85.6, 112], [48, 108, 90, 116], [50, 112, 94.5, 120], [52, 116, 98.5, 124]]
           .map(([t, pecho, cintura, cadera]) => ({ etiqueta: `T.${t}`, valores: { pecho, cintura, cadera } })),
       },

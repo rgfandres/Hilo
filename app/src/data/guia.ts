@@ -43,9 +43,9 @@ function indice(g: Guia, campo: string, medida: number): { i: number; fuera: boo
   if (!filas.length) return null
   const max = Math.max(...filas.map((x) => x.v))
   if (g.modo === 'cercana') {
-    // La más cercana (a igual distancia, la mayor)
+    // La más cercana (a igual distancia, la menor)
     let mejor = filas[0]
-    for (const x of filas) if (Math.abs(x.v - medida) < Math.abs(mejor.v - medida) || (Math.abs(x.v - medida) === Math.abs(mejor.v - medida) && x.v > mejor.v)) mejor = x
+    for (const x of filas) if (Math.abs(x.v - medida) < Math.abs(mejor.v - medida) || (Math.abs(x.v - medida) === Math.abs(mejor.v - medida) && x.v < mejor.v)) mejor = x
     return { i: mejor.i, fuera: medida > max }
   }
   const f = filas.find((x) => medida <= x.v)
