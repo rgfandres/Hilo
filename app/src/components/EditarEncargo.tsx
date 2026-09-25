@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useAuth } from '@/auth/AuthProvider'
 import type { Campo } from '@/data/config'
 import {
-  actualizarCliente, actualizarEncargo, asignarProveedor, listarProductos, listarProveedores, mensajeError, comentar,
+  actualizarCliente, actualizarEncargo, cambiarDatos, difDatos, asignarProveedor, listarProductos, listarProveedores, mensajeError, comentar,
 } from '@/data/encargos'
 import type { Cliente, EncargoEstado } from '@/lib/types'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Sheet, useAvisos } from '@/ui'
@@ -11,7 +11,7 @@ import { ajustesFicha, fichaProducto } from '@/data/catalogos'
 import { AvisoGuia, useGuia } from './Guia'
 import { guiaDe } from '@/data/guia'
 import { supabase } from '@/lib/supabase'
-import { CamposForm, NumeroInput, aTexto, limpiar } from './CampoInput'
+import { CamposForm, NumeroInput, aTexto } from './CampoInput'
 import { ajustesDinero } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 
@@ -103,16 +103,18 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
     try {
       if (!soloProveedor) {
         if (f.producto !== inicial.producto || JSON.stringify(f.dEnc) !== JSON.stringify(inicial.dEnc) || f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta || f.comp !== inicial.comp) {
+          // Los datos, solo lo que se ha cambiado (se fusiona en el servidor: no pisa lo que haya cambiado otra persona)
+          await cambiarDatos('encargo', encargo.id, difDatos(inicial.dEnc, f.dEnc))
           await actualizarEncargo(encargo.id, {
-            producto_id: f.producto || null, datos: limpiar(f.dEnc, encargo.datos), complementos: f.comp.trim() || null,
+            producto_id: f.producto || null, complementos: f.comp.trim() || null,
             ...(f.importe !== inicial.importe || f.aCuenta !== inicial.aCuenta ? { importe: f.importe === '' ? null : Number(f.importe), a_cuenta: f.aCuenta === '' ? 0 : Number(f.aCuenta) } : {}),
           })
         }
         if (cliente && (f.nombre !== inicial.nombre || f.tel !== inicial.tel || f.email !== inicial.email
             || JSON.stringify(f.dCli) !== JSON.stringify(inicial.dCli))) {
+          await cambiarDatos('cliente', cliente.id, difDatos(inicial.dCli, f.dCli))
           await actualizarCliente(cliente.id, {
             nombre: f.nombre.trim(), telefono: f.tel.trim() || null, email: f.email.trim() || null,
-            datos: limpiar(f.dCli, cliente.datos),
           })
         }
       }

@@ -74,7 +74,7 @@ export async function obtenerCliente(id: string) {
 export async function crearCliente(tiendaId: string, c: { nombre: string; telefono: string | null; email: string | null; datos: Record<string, unknown>; notas: string | null }) {
   return ok(await supabase.from('cliente').insert({ tienda_id: tiendaId, ...c, nombre: c.nombre.trim() }).select('id').single()) as { id: string }
 }
-export async function actualizarClienteCat(id: string, c: { nombre: string; telefono: string | null; email: string | null; datos: Record<string, unknown>; notas: string | null }) {
+export async function actualizarClienteCat(id: string, c: { nombre: string; telefono: string | null; email: string | null; datos?: Record<string, unknown>; notas: string | null }) {
   ok(await supabase.from('cliente').update({ ...c, nombre: c.nombre.trim() }).eq('id', id))
 }
 /** Todos los encargos del cliente (cualquier periodo), activos y anulados. */

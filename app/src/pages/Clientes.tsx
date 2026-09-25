@@ -7,7 +7,7 @@ import {
   actualizarClienteCat, crearCliente, encargosDeCliente, listarClientesCat, obtenerCliente, type ClienteFila,
 } from '@/data/catalogos'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
-import { listarEtapas, mensajeError } from '@/data/encargos'
+import { cambiarDatos, difDatos, listarEtapas, mensajeError } from '@/data/encargos'
 import { telefonoWhatsApp } from '@/data/mensajes'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -197,7 +197,12 @@ function EditarCliente({ open, cliente, onClose, onSaved, titulo }: {
     setBusy(true); setErr(null)
     const fila = { nombre: f.nombre, telefono: f.tel.trim() || null, email: f.email.trim() || null, notas: f.notas.trim() || null, datos: limpiar(f.datos, cliente?.datos ?? {}) }
     try {
-      if (cliente) { await actualizarClienteCat(cliente.id, fila); onSaved(cliente.id) }
+      if (cliente) {
+        // Los datos, solo lo cambiado (no pisa lo que otra persona haya cambiado mientras)
+        await cambiarDatos('cliente', cliente.id, difDatos(aTexto(cliente.datos), f.datos))
+        const { datos: _d, ...resto } = fila; void _d
+        await actualizarClienteCat(cliente.id, resto); onSaved(cliente.id)
+      }
       else { const r = await crearCliente(tienda.id, fila); onSaved(r.id) }
       onClose()
     } catch (x) { setErr(mensajeError(x)) } finally { setBusy(false) }

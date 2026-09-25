@@ -234,6 +234,25 @@ export async function actualizarEncargo(id: string, patch: { producto_id?: strin
   if (error) throw error
 }
 
+/** Diferencia entre dos juegos de datos: lo que se pone y lo que se quita (vaciado) */
+export function difDatos(antes: Record<string, string>, ahora: Record<string, string>): { set: Record<string, string>; quitar: string[] } {
+  const set: Record<string, string> = {}; const quitar: string[] = []
+  for (const k of new Set([...Object.keys(antes), ...Object.keys(ahora)])) {
+    const a = antes[k] ?? '', b = ahora[k] ?? ''
+    if (a === b) continue
+    if (b === '') quitar.push(k); else set[k] = b
+  }
+  return { set, quitar }
+}
+/** Guarda solo las claves cambiadas: se fusionan en el servidor con lo que haya (no pisa lo que cambió otra persona) */
+export async function cambiarDatos(tabla: 'encargo' | 'cliente', id: string, d: { set: Record<string, string>; quitar: string[] }) {
+  if (!Object.keys(d.set).length && !d.quitar.length) return
+  const { error } = tabla === 'encargo'
+    ? await supabase.rpc('cambiar_datos_encargo', { p_encargo: id, p_set: d.set, p_quitar: d.quitar })
+    : await supabase.rpc('cambiar_datos_cliente', { p_cliente: id, p_set: d.set, p_quitar: d.quitar })
+  if (error) throw error
+}
+
 export async function actualizarCliente(id: string, patch: { nombre?: string; telefono?: string | null; email?: string | null; datos?: Record<string, unknown> }) {
   const { error } = await supabase.from('cliente').update(patch).eq('id', id)
   if (error) throw error
