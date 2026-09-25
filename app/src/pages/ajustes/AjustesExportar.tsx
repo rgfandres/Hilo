@@ -106,10 +106,11 @@ export function AjustesExportar() {
 
   const productos = () => hacer('productos', async () => {
     if (!tienda) return 0
-    const { data, error } = await todas(() => supabase.from('producto').select('nombre,precio_base,material_tipo,consumo,activo').eq('tienda_id', tienda.id).order('nombre').order('id'))
+    const { data, error } = await todas(() => supabase.from('producto').select('nombre,precio_base,material_tipo,consumo,construccion,receta,datos,activo').eq('tienda_id', tienda.id).order('nombre').order('id'))
     if (error) throw error
-    const out = (data ?? []).map((p: Fila) => [p.nombre, p.precio_base, p.material_tipo, p.consumo, p.activo ? 'Sí' : 'No'])
-    descargar(`${tn}_${archivo(vocab.productos)}.csv`, csv(['Nombre', 'Precio', `Tipo de ${vocab.material.toLowerCase()}`, 'Consumo', 'Activo'], out))
+    const fic = ajustesFicha(tienda.ajustes as Record<string, unknown>)
+    const out = (data ?? []).map((p: Fila) => [p.nombre, p.precio_base, p.material_tipo, p.consumo, p.construccion, p.receta, (p.datos as Fila | null)?.notas, p.activo ? 'Sí' : 'No'])
+    descargar(`${tn}_${archivo(vocab.productos)}.csv`, csv(['Nombre', 'Precio', `Tipo de ${vocab.material.toLowerCase()}`, 'Consumo', 'Elaboración', `Receta de ${fic.etiqueta.toLowerCase()}`, 'Notas', 'Activo'], out))
     return out.length
   })
 

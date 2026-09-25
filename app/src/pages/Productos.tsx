@@ -40,6 +40,7 @@ export function Productos() {
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [q, setQ] = React.useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [inactivos, setInactivos] = React.useState(false)
+  const [soloInactivos, setSoloInactivos] = React.useState(false)
   // La búsqueda puede llegar por la URL (desde el buscador) estando ya en esta pantalla
   const loc = useLocation()
   React.useEffect(() => { const u = new URLSearchParams(loc.search).get('q'); if (u != null) setQ(u) }, [loc.search])
@@ -60,7 +61,7 @@ export function Productos() {
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
 
   // Búsqueda sin tildes ni mayúsculas (igual que el buscador general)
-  const visibles = (lista ?? []).filter((p) => (inactivos || p.activo) && (!q.trim() || coincide(q, [p.nombre])))
+  const visibles = (lista ?? []).filter((p) => (soloInactivos ? !p.activo : inactivos || p.activo) && (!q.trim() || coincide(q, [p.nombre])))
   const [fotoMal, setFotoMalLista] = React.useState<Set<string>>(new Set())
   const nInactivos = (lista ?? []).filter((p) => !p.activo).length
 
@@ -74,7 +75,8 @@ export function Productos() {
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
           <Input className="h-7 pl-8" placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        {nInactivos > 0 && <Interruptor checked={inactivos} onChange={setInactivos} label={`Ver inactiv${gr.o('producto', true)} (${nInactivos})`} />}
+        {nInactivos > 0 && !soloInactivos && <Interruptor checked={inactivos} onChange={setInactivos} label={`Ver inactiv${gr.o('producto', true)} (${nInactivos})`} />}
+        {nInactivos > 0 && <label className="flex shrink-0 items-center gap-1.5 text-sm text-fg-2"><input type="checkbox" className="accent-gray-12" checked={soloInactivos} onChange={(e) => setSoloInactivos(e.target.checked)} />Solo inactiv{gr.o('producto', true)}</label>}
         {err && <span className="inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-sm text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); cargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></span>}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -100,6 +102,7 @@ export function Productos() {
                   </div>
                   {tieneFicha(p) ? <span className="truncate text-xs text-fg-2">{resumenFicha(p, tienda?.ajustes as Record<string, unknown>)}</span>
                     : puedeEditar && usaFichas && <span className="text-xs text-warn-fg">Sin ficha técnica</span>}
+                  {String((p.datos as Record<string, unknown> | null)?.notas ?? '').trim() && <span className="line-clamp-2 text-xs text-fg-3">{String((p.datos as Record<string, unknown>).notas)}</span>}
                   <span className="text-sm text-fg-3">
                     {[usaDinero ? formatoPrecio(p.precio_base, moneda) : null, p.encargos ? `${p.encargos} ${p.encargos === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : null].filter(Boolean).join(' · ') || '—'}
                   </span>

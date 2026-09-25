@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { nombreMenu } from '@/lib/pantallas'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { IconMail, IconPhone } from '@tabler/icons-react'
+import { IconMail, IconPhone, IconSearch } from '@tabler/icons-react'
+import { coincide } from '@/lib/texto'
 import { useAuth } from '@/auth/AuthProvider'
 import { ajustesMaterial, guardarUnidadProveedor, unidadesProveedor } from '@/data/materiales'
 import { encargosDeProveedor, errorNombre, guardarProveedor, haceEncargos, listarProveedoresCat, obtenerProveedor, vendeMaterial, type ProveedorFila, type TipoProveedor } from '@/data/catalogos'
@@ -21,6 +22,8 @@ export function Proveedores() {
   const puedeEditar = rol === 'ADMIN' || rol === 'OPERATIVO'
   const [lista, setLista] = React.useState<ProveedorFila[] | null>(null)
   const [inactivos, setInactivos] = React.useState(false)
+  const [soloInactivos, setSoloInactivos] = React.useState(false)
+  const [q, setQ] = React.useState('')
   const [nuevo, setNuevo] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
   const cargar = React.useCallback(async () => { if (tienda) setLista(await listarProveedoresCat(tienda.id)) }, [tienda])
@@ -32,7 +35,7 @@ export function Proveedores() {
   const deMaterial = matAj.activo && sp.get('t') === 'material'
   const tituloMat = `Proveedores de ${min(vocab.material)}`
   const delTipo = (lista ?? []).filter((p) => (deMaterial ? vendeMaterial(p) : haceEncargos(p)))
-  const visibles = delTipo.filter((p) => inactivos || p.activo)
+  const visibles = delTipo.filter((p) => (soloInactivos ? !p.activo : inactivos || p.activo) && (!q.trim() || coincide(q, [p.nombre, p.notas ?? ''])))
   const nInactivos = delTipo.filter((p) => !p.activo).length
   return (
     <>
@@ -45,9 +48,14 @@ export function Proveedores() {
           { key: 'material', label: tituloMat, count: (lista ?? []).filter((p) => p.activo && vendeMaterial(p)).length },
         ]} />
       )}
-      {(nInactivos > 0 || err) && (
+      {(delTipo.length > 0 || err) && (
         <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
-          {nInactivos > 0 && <Interruptor checked={inactivos} onChange={setInactivos} label={`Ver inactiv${gr.o('proveedor', true)} (${nInactivos})`} />}
+          <div className="relative w-[260px] max-md:w-full">
+            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
+            <Input className="h-7 pl-8" placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          {nInactivos > 0 && !soloInactivos && <Interruptor checked={inactivos} onChange={setInactivos} label={`Ver inactiv${gr.o('proveedor', true)} (${nInactivos})`} />}
+          {nInactivos > 0 && <label className="flex shrink-0 items-center gap-1.5 text-sm text-fg-2"><input type="checkbox" className="accent-gray-12" checked={soloInactivos} onChange={(e) => setSoloInactivos(e.target.checked)} />Solo inactiv{gr.o('proveedor', true)}</label>}
           {err && <span className="inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-sm text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); cargar().catch((x) => setErr(mensajeError(x))) }}>Reintentar</button></span>}
         </div>
       )}
