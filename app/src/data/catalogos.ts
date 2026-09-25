@@ -60,9 +60,12 @@ export interface ClienteFila {
   id: string; tienda_id: string; nombre: string; telefono: string | null; email: string | null
   datos: Record<string, unknown>; notas: string | null; creado_en: string
   encargos: number; en_curso: number; ultimo_encargo: string | null
+  /** Periodos en los que tiene encargos, y el último («004 · MODELO») */
+  periodos?: string[]; ultimo_resumen?: string | null
 }
-export async function listarClientesCat(tiendaId: string, q: string, pagina: number, porPagina: number) {
+export async function listarClientesCat(tiendaId: string, q: string, pagina: number, porPagina: number, periodoId?: string | null) {
   let consulta = supabase.from('v_clientes').select('*', { count: 'exact' }).eq('tienda_id', tiendaId)
+  if (periodoId) consulta = consulta.contains('periodos', [periodoId])
   const t = q.trim().replace(/[%,()]/g, ' ')
   if (t) consulta = consulta.or(filtroCliente(t, true))
   const { data, error, count } = await consulta.order('nombre').range(pagina * porPagina, pagina * porPagina + porPagina - 1)

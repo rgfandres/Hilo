@@ -20,8 +20,12 @@ import { min } from '@/lib/vocab'
 
 /** Lista de clientes: búsqueda en vivo (nombre, teléfono o correo), 50 por página. */
 export function Clientes() {
-  const { tienda, vocab, gr, rol } = useAuth()
+  const { tienda, vocab, gr, rol, periodo } = useAuth()
   const [reintento, setReintento] = React.useState(0)
+  // Solo los de la temporada activa (como la lista de la tienda de origen); se recuerda en este dispositivo
+  const [soloPeriodo, setSoloPeriodo] = React.useState(() => { try { return localStorage.getItem('hilo.clientes.todos') !== '1' } catch { return true } })
+  const cambiarSolo = (v: boolean) => { setSoloPeriodo(v); setPagina(0); try { localStorage.setItem('hilo.clientes.todos', v ? '0' : '1') } catch { /* sin almacenamiento */ } }
+  const filtroPeriodo = soloPeriodo && periodo ? periodo.id : null
   const POR_PAGINA = Number((tienda?.ajustes as Record<string, unknown> | undefined)?.tamano_pagina ?? 50)
   const nav = useNavigate()
   const puedeCrear = rol === 'ADMIN' || rol === 'OPERATIVO' || rol === 'ATENCION'
@@ -34,9 +38,9 @@ export function Clientes() {
   React.useEffect(() => { setPagina(0) }, [q])
   React.useEffect(() => {
     if (!tienda) return
-    const t = setTimeout(() => { listarClientesCat(tienda.id, q, pagina, POR_PAGINA).then(setRes).catch((x) => setErr(mensajeError(x))) }, 200)
+    const t = setTimeout(() => { listarClientesCat(tienda.id, q, pagina, POR_PAGINA, filtroPeriodo).then(setRes).catch((x) => setErr(mensajeError(x))) }, 200)
     return () => clearTimeout(t)
-  }, [tienda, q, pagina, POR_PAGINA, reintento])
+  }, [tienda, q, pagina, POR_PAGINA, reintento, filtroPeriodo])
 
   const paginas = res ? Math.max(1, Math.ceil(res.total / POR_PAGINA)) : 1
   return (
@@ -49,6 +53,12 @@ export function Clientes() {
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
           <Input className="h-7 pl-8" placeholder="Buscar por nombre, teléfono o correo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus={!window.matchMedia?.("(pointer: coarse)").matches} />
         </div>
+        {periodo && (
+          <label className="flex shrink-0 items-center gap-1.5 text-sm text-fg-2" title={`Solo quien tiene ${min(vocab.encargos)} en ${periodo.nombre}`}>
+            <input type="checkbox" className="accent-gray-12" checked={soloPeriodo} onChange={(e) => cambiarSolo(e.target.checked)} />
+            Solo {periodo.nombre}
+          </label>
+        )}
         {err && <span className="inline-flex items-center gap-2 rounded-sm bg-danger-bg px-2 py-0.5 text-sm text-danger-fg">{err}<button className="font-medium underline" onClick={() => { setErr(null); setReintento((n) => n + 1) }}>Reintentar</button></span>}
         <div className="flex-1" />
         {paginas > 1 && (
@@ -72,11 +82,11 @@ export function Clientes() {
                 <Td className="text-fg-2">{c.telefono ?? <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-2">{c.email ?? <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-2">{c.encargos === 0 ? <span className="text-fg-3">—</span> : <>{c.encargos}{c.en_curso > 0 && <span className="text-fg-3"> · {c.en_curso} en curso</span>}</>}</Td>
-                <Td className="text-fg-3">{c.ultimo_encargo ? fechaCorta(c.ultimo_encargo) : '—'}</Td>
+                <Td className="text-fg-3">{c.ultimo_encargo ? <>{c.ultimo_resumen && <span className="text-fg-2">{c.ultimo_resumen} · </span>}{fechaCorta(c.ultimo_encargo)}</> : '—'}</Td>
               </Tr>
             ))}
             {res && res.filas.length === 0 && (
-              <tr><td colSpan={5} className="h-24 text-center text-fg-3">{q ? 'Nada coincide con la búsqueda.' : `Todavía no hay ${min(vocab.clientes)}.`}</td></tr>
+              <tr><td colSpan={5} className="h-24 text-center text-fg-3">{q ? 'Nada coincide con la búsqueda.' : filtroPeriodo ? `Nadie con ${min(vocab.encargos)} en ${periodo?.nombre}. Quita «Solo ${periodo?.nombre}» para ver a todos.` : `Todavía no hay ${min(vocab.clientes)}.`}</td></tr>
             )}
           </tbody>
         </Table>
