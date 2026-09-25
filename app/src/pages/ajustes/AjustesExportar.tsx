@@ -12,6 +12,18 @@ import { min } from '@/lib/vocab'
 import type { EncargoEstado } from '@/lib/types'
 import { Bloque, Estado, Lista, FilaLista, Pagina } from './Ajustes'
 
+/** Trae todas las filas (la API corta en 1000): de 1000 en 1000 hasta el final */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function todas(mk: () => any): Promise<{ data: any[]; error: unknown }> {
+  const out: unknown[] = []
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await mk().range(desde, desde + 999)
+    if (error) return { data: out, error }
+    out.push(...(data ?? []))
+    if (!data || data.length < 1000) return { data: out, error: null }
+  }
+}
+
 type Fila = Record<string, unknown>
 
 /** CSV que Excel abre bien en España: separador «;», BOM y todo entre comillas si hace falta */
@@ -54,10 +66,10 @@ export function AjustesExportar() {
   const encargos = () => hacer('encargos', async () => {
     if (!tienda) return 0
     const [{ data: es, error }, ps, tipos, clientes] = await Promise.all([
-      supabase.from('v_encargo_estado').select('*').eq('tienda_id', tienda.id).eq('periodo_id', per).order('numero'),
+      todas(() => supabase.from('v_encargo_estado').select('*').eq('tienda_id', tienda.id).eq('periodo_id', per).order('numero').order('id')),
       plantillas(tienda.id),
       supabase.from('tipo_encargo').select('id,nombre').eq('tienda_id', tienda.id),
-      supabase.from('cliente').select('id,telefono,email').eq('tienda_id', tienda.id),
+      todas(() => supabase.from('cliente').select('id,telefono,email').eq('tienda_id', tienda.id).order('id')),
     ])
     if (error) throw error
     const filas = (es ?? []) as (EncargoEstado & { serie?: string })[]
@@ -82,7 +94,7 @@ export function AjustesExportar() {
   const clientes = () => hacer('clientes', async () => {
     if (!tienda) return 0
     const [{ data, error }, ps] = await Promise.all([
-      supabase.from('cliente').select('nombre,telefono,email,notas,datos,creado_en').eq('tienda_id', tienda.id).order('nombre'),
+      todas(() => supabase.from('cliente').select('nombre,telefono,email,notas,datos,creado_en').eq('tienda_id', tienda.id).order('nombre').order('id')),
       plantillas(tienda.id),
     ])
     if (error) throw error
@@ -94,7 +106,7 @@ export function AjustesExportar() {
 
   const productos = () => hacer('productos', async () => {
     if (!tienda) return 0
-    const { data, error } = await supabase.from('producto').select('nombre,precio_base,material_tipo,consumo,activo').eq('tienda_id', tienda.id).order('nombre')
+    const { data, error } = await todas(() => supabase.from('producto').select('nombre,precio_base,material_tipo,consumo,activo').eq('tienda_id', tienda.id).order('nombre').order('id'))
     if (error) throw error
     const out = (data ?? []).map((p: Fila) => [p.nombre, p.precio_base, p.material_tipo, p.consumo, p.activo ? 'Sí' : 'No'])
     descargar(`${tn}_${archivo(vocab.productos)}.csv`, csv(['Nombre', 'Precio', `Tipo de ${vocab.material.toLowerCase()}`, 'Consumo', 'Activo'], out))
@@ -103,7 +115,7 @@ export function AjustesExportar() {
 
   const proveedores = () => hacer('proveedores', async () => {
     if (!tienda) return 0
-    const { data, error } = await supabase.from('proveedor').select('nombre,tipo,telefono,email_contacto,unidad_pedido,notas,activo').eq('tienda_id', tienda.id).order('nombre')
+    const { data, error } = await todas(() => supabase.from('proveedor').select('nombre,tipo,telefono,email_contacto,unidad_pedido,notas,activo').eq('tienda_id', tienda.id).order('nombre').order('id'))
     if (error) throw error
     const tipo = (t: unknown) => (t === 'MATERIAL' ? `Vende ${vocab.material.toLowerCase()}` : t === 'AMBOS' ? 'Las dos cosas' : `Hace ${vocab.encargos.toLowerCase()}`)
     const out = (data ?? []).map((p: Fila) => [p.nombre, tipo(p.tipo), p.telefono, p.email_contacto, p.unidad_pedido, p.notas, p.activo ? 'Sí' : 'No'])
