@@ -48,6 +48,7 @@ export function Logistica() {
   const [prod, setProd] = React.useState('')
   const [ocultos, setOcultos] = React.useState<Set<string>>(new Set())
   const [provSel, setProvSel] = React.useState<Record<string, string>>({})
+  const [quitarProv, setQuitarProv] = React.useState<{ e: EncargoEstado; antes: string } | null>(null)
   const [ficha, setFicha] = React.useState<string | null>(null)
   const [todos, setTodos] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
@@ -149,8 +150,10 @@ export function Logistica() {
   async function cambiarProv(e: EncargoEstado, v: string) {
     const antes = provDe(e)
     if (v === antes) return
+    // Dejarlo vacío con uno ya guardado: se pregunta y, si se confirma, se quita de verdad
+    // (antes no se guardaba nada y «Llevado» lo mandaba al anterior sin avisar)
+    if (!v) { setQuitarProv({ e, antes }); return }
     setProvSel((s) => ({ ...s, [e.id]: v }))
-    if (!v) return
     try {
       await asignarProveedor(e.id, v)
       avisar({ tipo: 'ok', texto: `${num3(e)} → ${provs.find((x) => x.id === v)?.nombre ?? ''}`, accion: { label: 'Deshacer', onClick: async () => {
@@ -306,6 +309,20 @@ export function Logistica() {
           </div>
         )}
       </div>
+      <Dialog open={!!quitarProv} onOpenChange={(o) => !o && setQuitarProv(null)}
+        title={quitarProv ? `¿Quitar ${provs.find((x) => x.id === quitarProv.antes)?.nombre ?? gr.con('proveedor', 'el')} de ${num3(quitarProv.e)}?` : ''}
+        description={`${gr.Con('encargo', 'el')} se queda sin ${min(vocab.proveedor)} hasta que elijas otro.`}
+        actions={[{ label: 'Quitar', variant: 'danger', onClick: async () => {
+          const q = quitarProv; setQuitarProv(null); if (!q) return
+          try {
+            await asignarProveedor(q.e.id, null)
+            setProvSel((s) => { const n = { ...s }; delete n[q.e.id]; return n })
+            avisar({ tipo: 'ok', texto: `${num3(q.e)} sin ${min(vocab.proveedor)}`, accion: { label: 'Deshacer', onClick: async () => {
+              try { await asignarProveedor(q.e.id, q.antes); setProvSel((s) => { const n = { ...s }; delete n[q.e.id]; return n }); await cargar() } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+            } } })
+            await cargar()
+          } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+        } }]} />
       <Dialog open={todos} onOpenChange={(o) => !o && setTodos(false)} title={`¿${textoTodos}?`}
         description={actual ? `Se marca «${actual.etapas[0]?.nombre ?? actual.label}» en ${visibles.length} ${min(visibles.length === 1 ? vocab.encargo : vocab.encargos)}. Se puede deshacer todo junto.` : ''}
         actions={[{ label: 'Marcar', onClick: () => avanzarTodos(visibles) }]} />
