@@ -16,19 +16,29 @@ export async function listarEncargos(
   tiendaId: string,
   opts: { periodoId?: string | null; estado?: 'ACTIVO' | 'ANULADO' } = {},
 ): Promise<EncargoEstado[]> {
-  let q = supabase
-    .from('v_encargo_estado')
-    .select('*')
-    .eq('tienda_id', tiendaId)
-    .eq('estado', opts.estado ?? 'ACTIVO')
-  // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
-  // Con «solo la temporada activa», lo que no tiene temporada también se ve (si no, desaparecería de todas partes)
-  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId)
-    : soloPeriodoActivo ? q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null`)
-    : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
-  const { data, error } = await q.order('numero', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as EncargoEstado[]
+  const consulta = () => {
+    let q = supabase
+      .from('v_encargo_estado')
+      .select('*')
+      .eq('tienda_id', tiendaId)
+      .eq('estado', opts.estado ?? 'ACTIVO')
+    // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
+    // Con «solo la temporada activa», lo que no tiene temporada también se ve (si no, desaparecería de todas partes)
+    if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId)
+      : soloPeriodoActivo ? q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null`)
+      : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
+    return q.order('numero', { ascending: false }).order('id')
+  }
+  // El servidor devuelve como mucho 1000 filas por vez: se piden por páginas hasta tenerlas todas
+  const PAG = 1000
+  const out: EncargoEstado[] = []
+  for (let desde = 0; ; desde += PAG) {
+    const { data, error } = await consulta().range(desde, desde + PAG - 1)
+    if (error) throw error
+    out.push(...((data ?? []) as EncargoEstado[]))
+    if (!data || data.length < PAG) break
+  }
+  return out
 }
 
 export interface Anulacion { encargo_id: string; fecha: string; motivo: string | null; recuperado_en: string | null
