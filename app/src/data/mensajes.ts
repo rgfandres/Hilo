@@ -10,6 +10,8 @@ export interface PlantillaMensaje {
 }
 export interface MensajeEnviado {
   id: string; encargo_id: string; plantilla_id: string | null; canal: Canal; fecha: string; texto: string | null; destino: string | null; nombre: string | null
+  /** true = el correo lo envió la app (Resend); false = se abrió WhatsApp o el correo de la persona */
+  por_hilo?: boolean
 }
 
 function ok<T>(r: { data: T; error: unknown }): T { if (r.error) throw r.error; return r.data }
@@ -28,6 +30,24 @@ export async function borrarPlantilla(id: string) {
 }
 export async function listarEnvios(encargoId: string) {
   return ok(await supabase.from('mensaje_enviado').select('*').eq('encargo_id', encargoId).order('fecha', { ascending: false })) as MensajeEnviado[]
+}
+/**
+ * Enviar el aviso por correo desde la app (función enviar-correo → Resend). Lo pide siempre una persona.
+ * El destino es el correo de la ficha del cliente. Si la tienda aún no lo ha configurado devuelve
+ * 'sin_configurar' y la pantalla ofrece abrirlo en el correo de la persona.
+ */
+export async function enviarCorreo(m: { encargo_id: string; plantilla_id: string | null; asunto: string; texto: string; nombre: string }): Promise<'ok' | 'sin_configurar'> {
+  const { data, error } = await supabase.functions.invoke('enviar-correo', { body: m })
+  if (error) {
+    const ctx = (error as { context?: Response }).context
+    let msg = ''
+    try { msg = String(((await ctx?.json()) as { error?: string } | undefined)?.error ?? '') } catch { /* sin cuerpo */ }
+    // Sin función desplegada (404 o sin respuesta) o sin clave: se ofrece abrirlo en el correo de la persona
+    if (msg === 'sin_configurar' || !ctx?.status || ctx.status === 404) return 'sin_configurar'
+    throw new Error(msg || 'No se ha podido enviar el correo. Prueba otra vez.')
+  }
+  if ((data as { ok?: boolean } | null)?.ok !== true) throw new Error('No se ha podido enviar el correo. Prueba otra vez.')
+  return 'ok'
 }
 export async function registrarEnvio(m: { encargo_id: string; plantilla_id: string | null; canal: 'WHATSAPP' | 'EMAIL'; texto: string; destino: string; nombre: string }) {
   ok(await supabase.from('mensaje_enviado').insert(m))

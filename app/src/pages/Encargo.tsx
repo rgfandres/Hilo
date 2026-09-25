@@ -30,7 +30,7 @@ import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from 
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
 import { tiposAparte } from '@/lib/listaBandejas'
-import { EnviarMensaje } from '@/components/EnviarMensaje'
+import { AvisarMenu, EnviarMensaje, type Via } from '@/components/EnviarMensaje'
 import { listarEnvios, listarPlantillas, telefonoWhatsApp, type MensajeEnviado, type PlantillaMensaje } from '@/data/mensajes'
 import { listarAdjuntos } from '@/data/adjuntos'
 
@@ -100,7 +100,7 @@ export function Encargo() {
   const [modalErr, setModalErr] = React.useState<string | null>(null)
   const [plantillasMsg, setPlantillasMsg] = React.useState<PlantillaMensaje[]>([])
   const [envios, setEnvios] = React.useState<MensajeEnviado[]>([])
-  const [mensaje, setMensaje] = React.useState<{ inicial: string | null } | null>(null)
+  const [mensaje, setMensaje] = React.useState<{ inicial: string | null; via: Via } | null>(null)
   /** Sugerencia de aviso tras pasar a una etapa que tiene plantilla */
   const [sugerencia, setSugerencia] = React.useState<PlantillaMensaje | null>(null)
   const [ficha, setFicha] = React.useState<{ html: string; texto: string } | null>(null)
@@ -143,11 +143,11 @@ export function Encargo() {
   }, [id, tienda])
 
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
-  // Desde la lista: «Preparar mensaje» llega con ?avisar=<plantilla>
+  // Desde la lista: «Avisar» llega con ?avisar=<plantilla> y aquí sale el aviso para elegir por dónde
   const avisarPid = spA.get('avisar')
   React.useEffect(() => {
     if (!avisarPid || !e || !plantillasMsg.length) return
-    setMensaje({ inicial: avisarPid })
+    setSugerencia(plantillasMsg.find((p) => p.id === avisarPid) ?? null)
     setSpA((s) => { s.delete('avisar'); return s }, { replace: true })
   }, [avisarPid, e, plantillasMsg, setSpA])
   // Si otra persona avanza o comenta este encargo, se ve al momento
@@ -288,7 +288,8 @@ export function Encargo() {
   return (
     <>
       <PageHeader title={<span><Link to={tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? `/encargos?t=${e.tipo_encargo_id}` : '/encargos'} className="text-fg-3">{tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? e.tipo_nombre ?? vocab.encargos : vocab.encargos}</Link><span className="mx-2 text-border-strong">/</span>{num3(e)} · {e.cliente_nombre}</span>}>
-        {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
+        {!anulado && puedeAvisar && <AvisarMenu cliente={cli} onElegir={(via) => setMensaje({ inicial: plantillaEtapa?.id ?? null, via })}
+          trigger={({ toggle }) => <Button variant="ghost" onClick={toggle}>Avisar {gr.con('cliente', 'al')} ▾</Button>} />}
         <div className="contents max-md:hidden">
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
@@ -337,13 +338,11 @@ export function Encargo() {
           )}
 
           {!anulado && puedeAvisar && sugerencia && (
-            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-              <span className="text-sm text-fg-2">¿Avisar a {e.cliente_nombre}?</span>
-              <span className="font-medium">{sugerencia.nombre}</span>
-              <div className="flex gap-1.5">
-                <Button variant="primary" onClick={() => { setMensaje({ inicial: sugerencia.id }); setSugerencia(null) }}>Preparar mensaje</Button>
-                <Button variant="ghost" onClick={() => setSugerencia(null)}>Ahora no</Button>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-bg-2 px-3 py-1.5 text-sm">
+              <span className="min-w-0 flex-1 text-fg-2">💬 ¿Avisar a {e.cliente_nombre}? <span className="text-fg-3">· {sugerencia.nombre}</span></span>
+              <AvisarMenu cliente={cli} align="end" onElegir={(via) => { setMensaje({ inicial: sugerencia.id, via }); setSugerencia(null) }}
+                trigger={({ toggle }) => <button type="button" className="font-medium text-fg underline underline-offset-2" onClick={toggle}>Avisar ▾</button>} />
+              <button type="button" className="px-1 text-fg-3 hover:text-fg" aria-label="Quitar aviso" title="Ahora no" onClick={() => setSugerencia(null)}>✕</button>
             </div>
           )}
 
@@ -499,7 +498,7 @@ export function Encargo() {
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-gray-8 bg-bg" />
                         <div className="flex flex-col gap-0.5">
                           <div>Mensaje · <span className="font-medium">{ev.m.nombre ?? 'Mensaje'}</span></div>
-                          <span className="text-sm text-fg-3">{hora(ev.m.fecha)} · {ev.m.canal === 'WHATSAPP' ? 'WhatsApp' : 'Correo'}</span>
+                          <span className="text-sm text-fg-3">{hora(ev.m.fecha)} · {ev.m.canal === 'WHATSAPP' ? 'WhatsApp (abierto para enviar)' : ev.m.por_hilo ? `Correo enviado a ${ev.m.destino ?? ''}` : 'Correo (abierto para enviar)'}</span>
                           {ev.m.texto && <span className="line-clamp-3 whitespace-pre-wrap text-sm text-fg-2" title={ev.m.texto}>{ev.m.texto}</span>}
                         </div>
                       </div>
@@ -566,7 +565,7 @@ export function Encargo() {
       )}
 
       <EnviarMensaje open={!!mensaje} onOpenChange={(o) => !o && setMensaje(null)} encargo={e} cliente={cli}
-        plantillas={plantillasMsg} inicial={mensaje?.inicial} campos={[...camposEnc, ...camposCli]}
+        plantillas={plantillasMsg} inicial={mensaje?.inicial} via={mensaje?.via ?? 'WHATSAPP'} campos={[...camposEnc, ...camposCli]}
         onEnviado={() => listarEnvios(e.id).then(setEnvios).catch(() => {})} />
 
       <EditarEncargo open={editar} onOpenChange={setEditar} encargo={e} cliente={cli} camposEnc={camposEnc} camposCli={camposCli}

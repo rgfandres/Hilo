@@ -337,7 +337,7 @@ export function Encargos() {
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${e.cliente_nombre} → ${e.etapa_siguiente_nombre}`,
         accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id, hito).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
       const sug = plantillasMsg.find((p) => p.etapa_id === e.etapa_siguiente_id)
-      if (sug) avisar({ tipo: 'info', texto: `¿Avisar a ${e.cliente_nombre}? «${sug.nombre}»`, accion: { label: 'Preparar mensaje', onClick: () => nav(`/encargos/${e.id}?avisar=${sug.id}`) } })
+      if (sug) avisar({ tipo: 'info', texto: `¿Avisar a ${e.cliente_nombre}? «${sug.nombre}»`, accion: { label: 'Avisar', onClick: () => nav(`/encargos/${e.id}?avisar=${sug.id}`) } })
     } catch (ex) {
       // Si falla, la lectura de después devuelve la fila a su estado real
       avisar({ tipo: 'error', texto: mensajeError(ex) })

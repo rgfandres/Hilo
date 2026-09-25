@@ -174,21 +174,20 @@ function TarjetaPlantilla({ p, etapas, ejemplo, marcadores, onGuardar, onBorrar 
 }
 
 
-/** Cómo se dice cada etapa en los mensajes ({estado}) y con qué se abre el correo */
+/** Cómo se dice cada etapa en los mensajes ({estado}) y a qué correo llegan las respuestas */
 function FrasesYCorreo({ aj, etapas, onGuardar }: { aj: Record<string, unknown>; etapas: string[]; onGuardar: (patch: Record<string, unknown>) => Promise<void> }) {
-  const inicial = React.useMemo(() => ({ frases: { ...((aj.frases_etapa ?? {}) as Record<string, string>) }, correo: String(aj.correo_web ?? '') }), [aj])
+  const { vocab } = useAuth()
+  const inicial = React.useMemo(() => ({ frases: { ...((aj.frases_etapa ?? {}) as Record<string, string>) }, responder: String(aj.correo_respuesta ?? '') }), [aj])
   const [f, setF] = React.useState(inicial)
   React.useEffect(() => setF(inicial), [inicial])
   const sucio = JSON.stringify(f) !== JSON.stringify(inicial)
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center gap-2 max-md:flex-wrap">
-        <span className="w-[140px] shrink-0 text-fg-3">El correo se abre en</span>
-        <Select className="w-[300px]" value={f.correo} onChange={(e) => setF({ ...f, correo: e.target.value })}>
-          <option value="">El programa de correo del equipo</option>
-          <option value="gmail">Gmail en el navegador</option>
-        </Select>
+        <span className="w-[140px] shrink-0 text-fg-3">Respuestas a</span>
+        <Input className="w-[300px]" type="email" value={f.responder} placeholder="El correo de quien envía" onChange={(e) => setF({ ...f, responder: e.target.value })} />
       </div>
+      <p className="m-0 text-fg-3">Los correos a {min(vocab.clientes)} los envía la app cuando alguien pulsa «Enviar correo». Si el cliente contesta, la respuesta llega a este correo.</p>
       <details>
         <summary className="cursor-pointer text-fg-2">Cómo se dice cada etapa en los mensajes: <code>{'{estado}'}</code></summary>
         <p className="my-1 text-fg-3">«Se encuentra {'{estado}'}». Puede llevar marcadores: «en manos de {'{proveedor}'}». Vacío: el nombre de la etapa en minúscula.</p>
@@ -206,7 +205,7 @@ function FrasesYCorreo({ aj, etapas, onGuardar }: { aj: Record<string, unknown>;
           <Button variant="ghost" onClick={() => setF(inicial)}>Descartar</Button>
           <Button variant="primary" onClick={() => {
             const frases = Object.fromEntries(Object.entries(f.frases).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v))
-            return onGuardar({ frases_etapa: Object.keys(frases).length ? frases : null, correo_web: f.correo || null })
+            return onGuardar({ frases_etapa: Object.keys(frases).length ? frases : null, correo_respuesta: f.responder.trim() || null })
           }}>Guardar</Button>
         </div>
       )}
