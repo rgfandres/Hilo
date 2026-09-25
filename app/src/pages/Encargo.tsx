@@ -10,7 +10,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import type { Cliente, Comentario, EncargoEstado, Etapa, Hito } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
-import { motivosRevision } from '@/lib/bandejas'
+import { marcaDirecto, motivosRevision } from '@/lib/bandejas'
 import { Adjuntos } from '@/components/Adjuntos'
 import { CamposVista } from '@/components/CampoInput'
 import { NotaCampo } from '@/components/NotaCampo'
@@ -345,7 +345,7 @@ export function Encargo() {
                 const siguiente = x.id === e.etapa_siguiente_id
                 const fechaPaso = hecho ? pasos.filter((h) => h.etapa_id === x.id).map((h) => h.fecha).sort().pop() : undefined
                 const quien = nombresRol[x.rol_ejecuta as keyof typeof nombresRol] ?? x.rol_ejecuta
-                const suyo = rol === x.rol_ejecuta
+                const suyo = marcaDirecto(rol, x.rol_ejecuta)
                 const puedeVolver = gestion && hecho && !actual
                 return (
                   <div key={x.id} className="flex gap-2.5">

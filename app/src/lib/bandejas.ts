@@ -9,9 +9,16 @@ import { generosDe, vocabDe } from '@/lib/vocab'
 export const bloqueado = (e: EncargoEstado) => (e.puertas_pendientes ?? []).some((p) => p.dura)
 export const activo = (e: EncargoEstado) => e.estado === 'ACTIVO' && !e.es_final
 
-/** ¿Este rol puede marcar el siguiente paso? */
-export const puedeMarcar = (e: EncargoEstado, rol: Rol | null) =>
-  !!rol && (rol === 'ADMIN' || rol === 'OPERATIVO' || rol === e.etapa_siguiente_rol)
+/**
+ * ¿Un paso de este papel lo marca también este otro papel sin más? Cada uno marca lo suyo;
+ * administración y operativo, además, lo de dentro de la tienda. Lo que hace logística (fuera de la
+ * tienda) solo lo marca logística: los demás pueden hacerlo desde la ficha, pero confirmando.
+ */
+export const marcaDirecto = (rol: Rol | null, etapaRol: string | null | undefined) =>
+  !!rol && (rol === etapaRol || ((rol === 'ADMIN' || rol === 'OPERATIVO') && etapaRol !== 'LOGISTICA'))
+
+/** ¿Este rol puede marcar el siguiente paso desde las listas? */
+export const puedeMarcar = (e: EncargoEstado, rol: Rol | null) => marcaDirecto(rol, e.etapa_siguiente_rol)
 
 /** Motivo por el que está en «Revisar» (vacío = no lo está). */
 export function motivosRevision(e: EncargoEstado, ajustes: Record<string, unknown>): string[] {
