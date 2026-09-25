@@ -84,9 +84,11 @@ export function CamposForm({ campos, valores, onCambio, pegar }: {
 }) {
   const [abrirPegar, setAbrirPegar] = React.useState(false)
   const [texto, setTexto] = React.useState('')
+  // Al escribir, las medidas se ven todas (se toman de una vez); plegadas solo al consultar la ficha
+  const plegado = (c: Campo) => !!c.secundario && !c.destacado && !c.medida
   const dest = campos.filter((c) => c.destacado)
-  const normales = campos.filter((c) => !c.destacado && !c.secundario)
-  const sec = campos.filter((c) => c.secundario && !c.destacado)
+  const normales = campos.filter((c) => !c.destacado && !plegado(c))
+  const sec = campos.filter(plegado)
   const rellenosSec = sec.filter((c) => valores[c.clave]).length
   const propuesta = React.useMemo(() => leerPegado(texto, campos), [texto, campos])
   const pinta = (c: Campo) => <CampoInput key={c.clave} campo={c} value={valores[c.clave] ?? ''} onChange={(v) => onCambio(c.clave, v)} />

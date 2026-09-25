@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/auth/AuthProvider'
 import { BuscadorGlobal } from '@/components/BuscadorGlobal'
 import { listarEncargos } from '@/data/encargos'
-import { ajustesMaterial, listarMateriales, listarPedidos, pedidoAbierto, propuestaPedido, restosPendientes } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, listarPedidos, pedidoAbierto, propuestaPedido, restosPendientes } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
 import { ajustesLogistica } from '@/data/logistica'
 import { activo, bloqueado, enRevisar, miTrabajo, pendientesDe, tope99 } from '@/lib/bandejas'
@@ -85,13 +85,20 @@ export function AppShell() {
     let vivo = true
     const leer = () => {
       if (document.hidden) return
-      listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }).then((todos) => {
+      const aj0 = tienda.ajustes as Record<string, unknown>
+      // Bandejas «pedir» en rojo: hacen falta las líneas de material para contarlas también en el menú
+      const hayPedir = conMateriales && (rol === 'ADMIN' || rol === 'OPERATIVO')
+        && [bandejasLista(aj0), ...tiposAparte(aj0).map((t) => bandejasLista(aj0, t))].some((c) => c?.some((b) => b.tipo === 'pedir' && b.accionable))
+      Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }),
+        hayPedir ? Promise.all([lineasDeTienda(tienda.id), listarMateriales(tienda.id)]).catch(() => null) : Promise.resolve(null)]).then(([todos, mat]) => {
         // «Atascados» = demasiados días en manos de un proveedor (lo mismo que se ve en su pantalla)
         const aj = tienda.ajustes as Record<string, unknown>
         const ap = tiposAparte(aj)
+        const pedir = mat ? (e: { id: string }, soloFalta: boolean) => mat[0].some((l) => l.encargo_id === e.id && l.estado === 'PENDIENTE'
+          && (!soloFalta || !!avisoStock(mat[1].find((m) => m.id === l.material_id)).nivel)) : undefined
         const cuentaDe = (rs: typeof todos, tipo?: string) => {
           const conf = bandejasLista(aj, tipo)
-          return conf ? pendientesConf(conf, rs, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado, rol }) : pendientesDe(rs, rol)
+          return conf ? pendientesConf(conf, rs, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado, rol, pedir }) : pendientesDe(rs, rol)
         }
         const rows = todos.filter((r) => !ap.includes(r.tipo_encargo_id))
         if (vivo) setCuenta({ encargos: cuentaDe(rows), atascados: todos.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,

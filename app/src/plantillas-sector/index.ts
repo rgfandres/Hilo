@@ -42,7 +42,9 @@ const TERMINADOS = (nombre: string, grupo?: string): BandejaLista => ({ key: 'en
 const ANULADOS: BandejaLista = { key: 'anulados', tipo: 'anulados', nombre: '🗑️ Anulados' }
 const tB = (nombre: string, b: BandejaLista | string, tono?: TarjetaInicio['tono']): TarjetaInicio => ({ que: 'bandeja', nombre, bandeja: typeof b === 'string' ? b : b.key, tono })
 const INCIDENCIAS: TarjetaInicio = { que: 'incidencias', nombre: 'Incidencias', tono: 'danger' }
-const MEDIDAS_CUERPO = (l: string[]) => l.map((e) => ({ clave: slug(e).replace(/-/g, '_'), etiqueta: e, tipo: 'numero' as const, visible_proveedor: true, medida: true, unidad: 'cm' }))
+/** principales: las que se ven siempre; el resto va plegado en «Más datos» */
+const MEDIDAS_CUERPO = (l: string[], principales?: string[]) => l.map((e) => ({ clave: slug(e).replace(/-/g, '_'), etiqueta: e, tipo: 'numero' as const, visible_proveedor: true, medida: true, unidad: 'cm',
+  ...(principales && !principales.includes(e) ? { secundario: true } : {}) }))
 const MOD = (m: { materiales?: boolean; produccion?: boolean; logistica?: boolean }) => ({ modulos: { materiales: !!m.materiales, produccion: !!m.produccion, logistica: !!m.logistica } })
 
 // Moda a medida: bandejas de la lista (por nombre de etapa)
@@ -78,7 +80,7 @@ export const PLANTILLAS: PlantillaSector[] = [
       dias_estancado: 10, estancado_por: 'pasos', estancado_en_espera: true, dias_atasco_proveedor: 15, solo_periodo_activo: true,
       usar_importe: true, normalizar_nombres: true, segundos_deshacer: 8,
       // Una ficha por traje: cada traje nuevo copia los datos de la clienta en una ficha propia
-      cliente_por_encargo: true, repetir_copia: ['feria'],
+      cliente_por_encargo: true, repetir_copia: ['feria', '__complementos'],
       usar_complementos: true, etiqueta_complementos: 'Adornos', tipos_construccion: ['Con corte', 'Enterizo'],
       material_unidad: 'm', material_pedir: 'falta', material_contador: 'restos', material_menu_pedidos: true, umbral_material_defecto: 10,
       hoja_nombre: 'Orden de corte', hoja_campo_col: 'talla', hoja_col_etiqueta: 'Talla',
@@ -110,7 +112,7 @@ export const PLANTILLAS: PlantillaSector[] = [
       },
     },
     campos: {
-      CLIENTE: MEDIDAS_CUERPO(['Pecho', 'Cintura', 'Cadera', 'Hombro', 'Largo manga', 'Largo talle delantero', 'Largo talle espalda', 'Largo total', 'Altura pecho', 'Separación pecho', 'Contorno manga', 'Muñeca']),
+      CLIENTE: MEDIDAS_CUERPO(['Pecho', 'Cintura', 'Cadera', 'Hombro', 'Largo manga', 'Largo talle delantero', 'Largo talle espalda', 'Largo total', 'Altura pecho', 'Separación pecho', 'Contorno manga', 'Muñeca'], ['Pecho', 'Cintura', 'Cadera', 'Largo total']),
       ENCARGO: [
         { clave: 'tejido', etiqueta: 'Tipo de tela', tipo: 'texto', en_tabla: true, visible_proveedor: true, desde_material: true },
         { clave: 'talla', etiqueta: 'Talla', tipo: 'opcion', opciones: ['T.32', 'T.34', 'T.36', 'T.38', 'T.40', 'T.42', 'T.44', 'T.46', 'T.48', 'T.50', 'T.52'], en_tabla: true, visible_proveedor: true },
@@ -138,7 +140,7 @@ export const PLANTILLAS: PlantillaSector[] = [
         { clave: 'ENTREGADO', nombre: 'Entregado a clienta', rol: 'ATENCION', color: VERDE, final: true },
       ] },
       { clave: 'STOCK', nombre: 'Prendas de stock', serie: 'S', aparte: true,
-        campos: [{ clave: 'arreglo', etiqueta: 'Qué hay que hacer', tipo: 'texto', obligatorio: true, en_tabla: true }],
+        campos: [{ clave: 'arreglo', etiqueta: 'Qué hay que hacer', tipo: 'texto', en_tabla: true }],
         bandejas: [TODOS, bE('🪡 En taller', ['En taller'], { ayuda: 'Prendas de stock que se están arreglando.' }), bE('✅ Arreglados', ['Arreglado'], { accionable: false, ayuda: 'Ya arreglados, esperando a que la clienta pase a recogerlos.' }), TERMINADOS('💃 Entregados')],
         etapas: [
           { clave: 'EN_TALLER', nombre: 'En taller', rol: 'ATENCION', color: GRIS },
