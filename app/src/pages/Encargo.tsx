@@ -505,7 +505,7 @@ export function Encargo() {
             </RTabs.List>
             <RTabs.Content value="hilo" className="flex max-w-[640px] flex-col gap-1 overflow-auto p-5">
               <div className="mb-1 flex flex-wrap gap-1">
-                {([['todo', 'Todo'], ['pasos', 'Pasos'], ['com', `Comentarios (${coms.length})`], ['msg', `Mensajes al ${min(vocab.cliente)} (${envios.length})`]] as const).map(([k, l]) => (
+                {([['todo', 'Todo'], ['pasos', 'Pasos'], ['com', `Comentarios (${coms.length})`], ['msg', `Mensajes ${gr.con('cliente', 'al')} (${envios.length})`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setFiltroHilo(k)} className={cn('h-7 rounded-sm px-2 text-sm', filtroHilo === k ? 'bg-gray-12 text-bg' : 'text-fg-2 hover:bg-bg-4')}>{l}</button>
                 ))}
               </div>

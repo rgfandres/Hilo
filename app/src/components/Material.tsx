@@ -121,7 +121,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
       {lineas.length === 0 && !nuevo && <span className="text-sm text-fg-3">Sin {min(vocab.material)} asignad{gr.o('material')}.</span>}
       {lineas.map((l) => {
         const m = mats.find((x) => x.id === l.material_id)
-        const av = l.estado !== 'RECIBIDO' ? avisoStock(m) : { nivel: null, texto: '' }
+        const av = l.estado !== 'RECIBIDO' && !anulado ? avisoStock(m) : { nivel: null, texto: '' }
         const ud = unidadDe(m, aj.unidad)
         return (
           <div key={l.id} className="flex flex-col gap-1 border-b border-border-light py-1.5">
