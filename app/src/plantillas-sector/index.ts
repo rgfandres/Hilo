@@ -21,7 +21,7 @@ export interface PlantillaSector {
   tipos: { clave: string; nombre: string; serie?: string; aparte?: boolean; bandejas?: BandejaLista[]; campos?: Campo[]; etapas: Etapa[] }[]
   mensajes?: { nombre: string; texto: string; tipo?: string; etapa?: string; canal?: 'WHATSAPP' | 'EMAIL' | 'AMBOS'; asunto?: string; al_incidencia?: boolean }[]
   productos?: { nombre: string; precio?: number; consumo?: number; material_tipo?: string }[]
-  proveedores?: (string | { nombre: string; tipo?: 'ENCARGOS' | 'MATERIAL' | 'AMBOS'; unidad_pedido?: number })[]
+  proveedores?: (string | { nombre: string; tipo?: 'ENCARGOS' | 'MATERIAL' | 'AMBOS'; unidad_pedido?: number; asignable?: boolean })[]
   /** Materiales de ejemplo (nacen con stock 0) */
   materiales?: { tipo: string; variante?: string; proveedor?: string; unidad?: string; umbral?: number; unidad_pedido?: number; por_encargo?: boolean; resto_hasta?: number }[]
 }
@@ -153,12 +153,13 @@ export const PLANTILLAS: PlantillaSector[] = [
       { nombre: '🧵 Avisar: en confección', tipo: 'MEDIDA', etapa: 'TALLER', asunto: 'Tu traje ya se está confeccionando · {tienda}', texto: 'Hola {nombre_pila}, tu traje {producto} ya está en confección. Te aviso en cuanto esté listo para la prueba.' },
       { nombre: '💄 Avisar: listo para probar', tipo: 'MEDIDA', etapa: 'EN_TIENDA', asunto: 'Tu traje está listo para probar · {tienda}', texto: 'Hola {nombre_pila}, tu traje {producto} ya está listo para probártelo. ¿Qué día te viene bien pasarte por la tienda?' },
       { nombre: '💬 Mensaje de entrega', tipo: 'MEDIDA', etapa: 'ENTREGADO', asunto: 'Tu traje de {tienda}', texto: '¡Hola {nombre_pila}! Esperamos que disfrutes muchísimo tu traje. Ha sido un placer hacerlo para ti.\n\n[[Si has quedado contenta, nos ayudas mucho con una reseña: {enlace_resena}\n\n]]¡Gracias por confiar en {tienda}!' },
+      { nombre: '📅 Confirmar cita', asunto: 'Tu cita en {tienda}', texto: 'Hola {nombre_pila}, te escribo de {tienda} para confirmar tu cita para el traje {producto}. ¿Te viene bien? Si necesitas cambiarla, dímelo por aquí. Un saludo' },
       { nombre: '📏 Pedir medidas', asunto: 'Medidas para tu traje · {tienda}', texto: 'Hola {nombre_pila}, para empezar con tu traje {producto} necesitamos tus medidas. ¿Puedes pasarte esta semana por la tienda?' },
       { nombre: '⏱️ Avisar de un retraso', al_incidencia: true, asunto: 'Novedades de tu traje · {tienda}', texto: 'Hola {nombre_pila}, te escribo para avisarte de un pequeño retraso con tu traje {producto}: ahora está {estado}. Cualquier duda, dime.' },
       { nombre: '📲 Avisar: prenda arreglada', tipo: 'STOCK', etapa: 'ARREGLADO', canal: 'WHATSAPP', texto: '¡Hola {nombre_pila}! Tu traje ({producto}) ya está arreglado y listo para recoger. ¿Cuándo te viene bien pasar?' },
     ],
     productos: [{ nombre: 'Canastero 4 capas', consumo: 6.5 }, { nombre: 'Rociero', consumo: 8 }, { nombre: 'Sirena', consumo: 7 }, { nombre: 'Canastero 5 capas', consumo: 8.35 }],
-    proveedores: ['Cortador', 'Taller de confección 1', 'Taller de confección 2', { nombre: 'Almacén de tejidos', tipo: 'MATERIAL', unidad_pedido: 50 }],
+    proveedores: [{ nombre: 'Cortador', asignable: false }, 'Taller de confección 1', 'Taller de confección 2', { nombre: 'Almacén de tejidos', tipo: 'MATERIAL', unidad_pedido: 50 }],
     materiales: [
       ...['Rosa palo', 'Verde agua', 'Rojo', 'Negro'].map((v) => ({ tipo: 'Bambula', variante: v, proveedor: 'Almacén de tejidos', unidad: 'm', umbral: 10, unidad_pedido: 50, resto_hasta: 5 })),
       { tipo: 'Georgette', variante: 'Lunares blanco sobre negro', proveedor: 'Almacén de tejidos', unidad: 'm', umbral: 10, unidad_pedido: 10, resto_hasta: 5, por_encargo: true },
