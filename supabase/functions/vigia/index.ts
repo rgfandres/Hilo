@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
 
   const urgente = alertas.some((a) => a.pct >= 90)
   const asunto = alertas.length
-    ? `${urgente ? '🔴' : '🟠'} Hilo: ${alertas.map((a) => `${LIMITES[a.k].nombre} al ${a.pct} %`).join(' · ')}`
-    : '🟢 Hilo: resumen semanal de uso'
+    ? `Hilo · ${urgente ? 'urgente' : 'aviso'}: ${alertas.map((a) => `${LIMITES[a.k].nombre} al ${a.pct} %`).join(' · ')}`
+    : 'Hilo · resumen semanal de uso'
   const texto = [
     alertas.length ? 'Algo se acerca al límite del plan gratuito:' : 'Todo bajo el 70 % de los planes gratuitos.',
     ...alertas.map((a) => `• ${a.texto} → siguiente paso: ${a.paso}`),
@@ -66,9 +66,11 @@ Deno.serve(async (req) => {
     method: 'POST',
     headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: `Hilo vigía <${Deno.env.get('CORREO_REMITENTE') ?? 'avisos@conhilo.com'}>`,
+      // Mismo formato que los avisos que sí llegan (remitente «Hilo», texto y HTML)
+      from: `Hilo <${Deno.env.get('CORREO_REMITENTE') ?? 'avisos@conhilo.com'}>`,
       to: [Deno.env.get('VIGIA_DESTINO') ?? 'hola@conhilo.com'],
       subject: asunto, text: texto,
+      html: `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.55;color:#1f1f1f;white-space:pre-wrap">${texto.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!))}</div>`,
     }),
   })
   if (!r.ok) { await sb.from('vigia_envio').delete().eq('dia', hoy); return json({ error: 'Resend no lo aceptó', status: r.status }, 502) }
