@@ -96,7 +96,9 @@ export function Logistica() {
   const enBandeja = actual ? reparto.get(actual.key) ?? [] : []
   const porProd = new Map<string, number>()
   for (const e of enBandeja) porProd.set(e.producto_nombre ?? '—', (porProd.get(e.producto_nombre ?? '—') ?? 0) + 1)
-  const filtrados = enBandeja.filter((e) => !prod || (e.producto_nombre ?? '—') === prod)
+  // Si el modelo filtrado ya no está en la bandeja (se marcó el último), el filtro deja de aplicarse
+  const prodVivo = prod && porProd.has(prod) ? prod : ''
+  const filtrados = enBandeja.filter((e) => !prodVivo || (e.producto_nombre ?? '—') === prodVivo)
   const modoFiltro = actual?.conf.filtro ?? 'auto'
   const verFiltro = modoFiltro === 'siempre' ? enBandeja.length > 0 : modoFiltro === 'auto' && porProd.size > 1
   // Carpetas por proveedor si hay más de uno (o en el histórico), salvo que la tienda diga otra cosa
@@ -257,11 +259,11 @@ export function Logistica() {
             {!cfg.ocultar_llegadas && <LlegadasMaterial refresco={ultimaLectura} />}
             {verFiltro && (
               <div className="flex items-center gap-2">
-                <Select className="w-auto max-w-full" value={prod} onChange={(x) => setProd(x.target.value)} aria-label={vocab.producto}>
+                <Select className="w-auto max-w-full" value={prodVivo} onChange={(x) => setProd(x.target.value)} aria-label={vocab.producto}>
                   <option value="">{gr.genero.producto === 'f' ? 'Todas las' : 'Todos los'} {min(vocab.productos)} ({enBandeja.length})</option>
                   {[...porProd.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([n, c]) => <option key={n} value={n}>{n === '—' ? `Sin ${min(vocab.producto)}` : n} ({c})</option>)}
                 </Select>
-                {prod && <span className="text-sm text-fg-3">{filtrados.length} de {enBandeja.length}</span>}
+                {prodVivo && <span className="text-sm text-fg-3">{filtrados.length} de {enBandeja.length}</span>}
               </div>
             )}
             {puedeTodos && (!usarCarpetas || carpeta !== null) && (
