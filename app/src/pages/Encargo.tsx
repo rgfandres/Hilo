@@ -18,13 +18,13 @@ import { ArregloPuerta } from '@/components/ArregloPuerta'
 import { useTiempoReal } from '@/lib/tiempoReal'
 import { FichaImprimible } from '@/components/FichaImprimible'
 import { esPlantillaAntigua, fichaHTML, fichaTexto, obtenerPlantillaFicha, plantillaDefecto } from '@/data/ficha'
-import { listarEquipo } from '@/data/ajustes'
+import { listarEquipo, listarPuertas, type PuertaDef } from '@/data/ajustes'
 import { MaterialesEncargo } from '@/components/Material'
 import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
-import { ajustesMaterial } from '@/data/materiales'
-import { Button, Dialog, Tag, Field, SectionLabel, Input, Select, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
+import { ajustesMaterial, desasignarMaterial, lineasDeEncargo } from '@/data/materiales'
+import { Button, Dialog, Tag, Field, SectionLabel, Input, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, aHoraTienda, deHoraTienda, diasEntre } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
@@ -70,6 +70,12 @@ export function Encargo() {
   const [hitos, setHitos] = React.useState<Hito[]>([])
   const [coms, setComs] = React.useState<Comentario[]>([])
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
+  const [puertasTipo, setPuertasTipo] = React.useState<PuertaDef[]>([])
+  // Volver atrás: si hay que decidir qué pasa con el material recibido
+  const [matVolver, setMatVolver] = React.useState<{ ids: string[] } | null>(null)
+  const [devolver, setDevolver] = React.useState<'si' | 'no'>('si')
+  const [confirmarMarcar, setConfirmarMarcar] = React.useState(false)
+  const [filtroHilo, setFiltroHilo] = React.useState<'todo' | 'pasos' | 'com' | 'msg'>('todo')
   const [anul, setAnul] = React.useState<Anulacion | null>(null)
   const [checks, setChecks] = React.useState<Record<string, boolean>>({})
   const [fechasCheck, setFechasCheck] = React.useState<Record<string, string | null>>({})
@@ -118,7 +124,9 @@ export function Encargo() {
     setDefChecks(dc)
     setCamposEnc(camposDe(ps, 'ENCARGO', enc.tipo_encargo_id))
     setCamposCli(camposDe(ps, 'CLIENTE'))
-    setEtapas(et.filter((x) => x.tipo_encargo_id === enc.tipo_encargo_id))
+    const delTipo = et.filter((x) => x.tipo_encargo_id === enc.tipo_encargo_id)
+    setEtapas(delTipo)
+    listarPuertas(delTipo.map((x) => x.id)).then(setPuertasTipo).catch(() => {})
     setAnul(an[enc.id] ?? null)
     setHitos(h); setComs(c); setCli((cl.data as Cliente) ?? null)
     listarNotasCampo(id).then(setNotas).catch(() => {})
@@ -177,6 +185,19 @@ export function Encargo() {
       await cargar()
     } catch (x) { setErr(mensajeError(x)) }
   }
+  /** Volver a un paso hecho: si se vuelve antes del paso que exige el material, se pregunta qué hacer con lo recibido */
+  async function abrirVolver(x: Etapa) {
+    if (!e) return
+    setDestino(x.clave); setNota(''); setModalErr(null); setMatVolver(null); setDevolver('si')
+    const conMat = etapas.filter((y) => puertasTipo.some((pu) => pu.etapa_destino_id === y.id && pu.tipo === 'MATERIAL'))
+    const primeraMat = conMat.length ? Math.min(...conMat.map((y) => y.orden)) : null
+    if (primeraMat != null && x.orden < primeraMat) {
+      const ls = await lineasDeEncargo(e.id).catch(() => [])
+      const rec = ls.filter((l) => l.estado === 'RECIBIDO').map((l) => l.id)
+      if (rec.length) setMatVolver({ ids: rec })
+    }
+    setModal('volver')
+  }
   async function abrirFicha() {
     if (!e || !tienda) return
     try {
@@ -226,7 +247,6 @@ export function Encargo() {
   const puedeEditar = !anulado && (gestion || rol === 'ATENCION' || rol === 'LOGISTICA')
   const datos = e.datos ?? {}
   const medidas = cli?.datos ?? {}
-  const puedeMarcar = gestion || rol === e.etapa_siguiente_rol
   const duras = e.puertas_pendientes?.filter((p) => p.dura) ?? []
   const blandas = e.puertas_pendientes?.filter((p) => !p.dura) ?? []
   const vigentes = hitos.filter((h) => !h.deshecho_en)
@@ -248,7 +268,8 @@ export function Encargo() {
     ...hitos.map((h) => ({ tipo: 'hito' as const, fecha: h.fecha, h })),
     ...coms.map((c) => ({ tipo: 'com' as const, fecha: c.fecha, c })),
     ...envios.map((m) => ({ tipo: 'msg' as const, fecha: m.fecha, m })),
-  ].sort((a, b) => b.fecha.localeCompare(a.fecha))
+  ].filter((ev) => filtroHilo === 'todo' || (filtroHilo === 'pasos' ? ev.tipo === 'hito' : ev.tipo === filtroHilo))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
   const porDia = new Map<string, typeof eventos>()
   for (const ev of eventos) { const k = fechaCorta(ev.fecha); porDia.set(k, [...(porDia.get(k) ?? []), ev]) }
 
@@ -258,9 +279,9 @@ export function Encargo() {
         {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
-          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otr${gr.o('encargo')} ${min(vocab.encargo)} (ficha nueva con sus datos)` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
+          <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otr${gr.o('encargo')} ${min(vocab.encargo)}` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
         )}
-        <Button variant="ghost" onClick={abrirFicha}>Imprimir ficha</Button>
+        <Button variant="ghost" onClick={abrirFicha}>Ver ficha</Button>
       </PageHeader>
 
       <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
@@ -315,29 +336,59 @@ export function Encargo() {
             </div>
           )}
 
-          {!anulado && !e.es_final && (
-            <div className="flex flex-col gap-2 rounded-md border border-border bg-bg-2 p-3">
-              <span className="text-sm text-fg-2">Siguiente paso</span>
-              <span className="font-medium">{e.etapa_siguiente_nombre}</span>
-              {[...duras, ...blandas].map((p, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                  <span className={cn('text-sm', p.dura ? 'text-danger-fg' : 'text-warn-fg')}>{p.dura ? '' : 'Aviso: '}{p.mensaje}</span>
-                  <ArregloPuerta e={e} p={p} onHecho={() => cargar().catch((x) => setErr(mensajeError(x)))} onCompletar={() => setEditar(true)} />
-                </div>
-              ))}
-              {incAbierta && <span className="text-sm text-danger-fg">Hay una incidencia abierta: resuélvela para poder avanzar.</span>}
-              {!puedeMarcar && e.etapa_siguiente_rol && <span className="text-sm text-fg-3">Lo marca «{nombresRol[e.etapa_siguiente_rol as keyof typeof nombresRol] ?? e.etapa_siguiente_rol}».</span>}
-              <div className="mt-0.5 flex flex-wrap gap-1.5">
-                {e.etapa_actual_clave && !incAbierta && <Button onClick={() => abrir('incidencia')}>Incidencia</Button>}
-                {puedeMarcar && <Button variant="primary" disabled={duras.length > 0 || !!incAbierta} title={incAbierta ? 'Resuelve antes la incidencia' : undefined} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `${e.etapa_siguiente_nombre} igualmente` : e.etapa_siguiente_nombre}</Button>}
+          {!anulado && (
+            <div className="flex flex-col rounded-md border border-border p-3">
+              <SectionLabel className="pb-1.5">Pasos</SectionLabel>
+              {etapas.map((x) => {
+                const hecho = e.etapa_actual_orden != null && x.orden <= e.etapa_actual_orden
+                const actual = x.id === e.etapa_actual_id
+                const siguiente = x.id === e.etapa_siguiente_id
+                const fechaPaso = hecho ? pasos.filter((h) => h.etapa_id === x.id).map((h) => h.fecha).sort().pop() : undefined
+                const quien = nombresRol[x.rol_ejecuta as keyof typeof nombresRol] ?? x.rol_ejecuta
+                const suyo = rol === x.rol_ejecuta
+                const puedeVolver = gestion && hecho && !actual
+                return (
+                  <div key={x.id} className="flex gap-2.5">
+                    <div className="flex w-4 shrink-0 flex-col items-center">
+                      <span className={cn('mt-1 flex h-4 w-4 items-center justify-center rounded-full border text-[10px] leading-none',
+                        hecho ? 'border-transparent text-white' : siguiente ? 'border-gray-12 bg-bg' : 'border-border bg-bg')}
+                        style={hecho ? { background: x.color ?? 'var(--color-gray-11)' } : undefined}>{hecho ? '✓' : ''}</span>
+                      {x !== etapas[etapas.length - 1] && <span className={cn('w-px flex-1', hecho && !actual ? 'bg-gray-8' : 'bg-border')} />}
+                    </div>
+                    <div className={cn('flex min-w-0 flex-1 flex-col gap-1 pb-2.5', !hecho && !siguiente && 'text-fg-3')}>
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        {puedeVolver
+                          ? <button className="text-left font-medium hover:underline" title={`Volver a «${x.nombre}»`} onClick={() => abrirVolver(x)}>{x.nombre}</button>
+                          : <span className={cn(actual || siguiente ? 'font-medium' : '')}>{x.nombre}</span>}
+                        {actual && <Tag color="gray">ahora</Tag>}
+                        {fechaPaso && <span className="text-sm text-fg-3">{fechaCorta(fechaPaso)}</span>}
+                        {!hecho && <span className="text-sm text-fg-3">lo marca {quien}</span>}
+                      </div>
+                      {siguiente && !e.es_final && (
+                        <div className="flex flex-col gap-1.5">
+                          {[...duras, ...blandas].map((pu, i) => (
+                            <div key={i} className="flex flex-col gap-1">
+                              <span className={cn('text-sm', pu.dura ? 'text-danger-fg' : 'text-warn-fg')}>{pu.dura ? '' : 'Aviso: '}{pu.mensaje}</span>
+                              {(suyo || gestion) && <ArregloPuerta e={e} p={pu} onHecho={() => cargar().catch((z) => setErr(mensajeError(z)))} onCompletar={() => setEditar(true)} />}
+                            </div>
+                          ))}
+                          {incAbierta && <span className="text-sm text-danger-fg">Hay una incidencia abierta: resuélvela para poder avanzar.</span>}
+                          <div className="flex flex-wrap gap-1.5">
+                            {suyo && <Button size="sm" variant="primary" disabled={duras.length > 0 || !!incAbierta} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `Marcar «${x.nombre}» igualmente` : `Marcar «${x.nombre}»`}</Button>}
+                            {!suyo && gestion && <Button size="sm" disabled={duras.length > 0 || !!incAbierta} onClick={() => setConfirmarMarcar(true)}>Marcar en nombre de {quien}…</Button>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm">
+                {!e.es_final && e.etapa_actual_clave && !incAbierta && <button onClick={() => abrir('incidencia')} className="text-fg-3 hover:text-fg">Registrar incidencia…</button>}
+                {!e.es_final && puedeRevisar && !e.revisar_manual && <button onClick={() => abrir('revisar')} className="text-fg-3 hover:text-fg">Marcar para revisar…</button>}
+                {gestion && anteriores.length > 0 && <span className="text-fg-3">Pulsa un paso hecho para volver a él.</span>}
               </div>
             </div>
-          )}
-          {!anulado && !e.es_final && puedeRevisar && !e.revisar_manual && (
-            <button onClick={() => abrir('revisar')} className="-mt-2 self-start text-sm text-fg-3 hover:text-fg">Marcar para revisar…</button>
-          )}
-          {!anulado && gestion && anteriores.length > 0 && (
-            <button onClick={() => abrir('volver')} className="-mt-2 self-start text-sm text-fg-3 hover:text-fg">Volver a una etapa anterior…</button>
           )}
 
           <div className="flex flex-col">
@@ -346,6 +397,23 @@ export function Encargo() {
               ? <div className="mb-1 ml-[128px] rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 max-md:ml-0" title="Ficha técnica">{resumenFicha(fichaT, tienda?.ajustes as Record<string, unknown>)}</div>
               : puedeEditarProd && usaFichas && <Link to={`/productos?q=${encodeURIComponent(fichaT.nombre)}`} className="mb-1 ml-[128px] self-start rounded-sm bg-warn-bg px-2 py-0.5 text-sm text-warn-fg hover:underline max-md:ml-0">{gr.Con('producto', 'este')} no tiene ficha técnica: créala</Link>)}
             {(e.complementos || usaComplementos) && <Field label={fic.etiqueta}>{e.complementos || '—'}</Field>}
+            {defChecks.map((c) => {
+              const hecho = !!checks[c.clave]
+              const et = etapas.find((x) => x.id === c.etapa_destino_id)
+              const quien = et ? nombresRol[et.rol_ejecuta as keyof typeof nombresRol] ?? et.rol_ejecuta : null
+              return (
+                <Field key={c.clave} label={c.etiqueta}>
+                  <span className="flex flex-wrap items-center gap-x-2">
+                    {hecho ? <span className="text-ok-fg">✓ Hecho</span> : <span className="text-fg-3">Pendiente{quien ? ` · lo marca ${quien}` : ''}</span>}
+                    {hecho && fechasCheck[c.clave] && (rol === 'ADMIN' && !anulado
+                      ? <button type="button" className="text-sm text-fg-3 underline decoration-dotted underline-offset-2 hover:text-fg" title="Cambiar la fecha"
+                          onClick={() => { setErrFechaCheck(null); setFechaCheck({ clave: c.clave, etiqueta: c.etiqueta, valor: aLocal(fechasCheck[c.clave]!) }) }}>{fechaCorta(fechasCheck[c.clave]!)}</button>
+                      : <span className="text-sm text-fg-3">{fechaCorta(fechasCheck[c.clave]!)}</span>)}
+                    {rol === 'ADMIN' && !anulado && <button type="button" className="text-sm text-fg-3 hover:text-fg hover:underline" onClick={() => toggleCheck(c.clave)}>{hecho ? 'desmarcar' : 'marcar'}</button>}
+                  </span>
+                </Field>
+              )
+            })}
             <CamposVista campos={camposEnc} datos={datos} extra={(c) => (
               <NotaCampo etiqueta={c.etiqueta} nota={notas[c.clave]} autor={notas[c.clave]?.usuario_id ? autores[notas[c.clave].usuario_id!] : undefined}
                 editable={!anulado} onGuardar={async (t) => { await ponerNotaCampo(e.id, c.clave, t); setNotas(await listarNotasCampo(e.id)) }} />
@@ -373,22 +441,6 @@ export function Encargo() {
             </div>
           )}
 
-          {defChecks.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <SectionLabel>Comprobaciones</SectionLabel>
-              {defChecks.map((c) => (
-                <label key={c.clave} className={cn('flex h-7 items-center gap-2', anulado ? 'opacity-60' : 'cursor-pointer')}>
-                  <input type="checkbox" disabled={anulado} checked={!!checks[c.clave]} onChange={() => toggleCheck(c.clave)} className="h-3.5 w-3.5 accent-gray-12" />
-                  <span>{c.etiqueta}</span>
-                  {checks[c.clave] && fechasCheck[c.clave] && (rol === 'ADMIN' || rol === 'OPERATIVO') && !anulado
-                    ? <button type="button" className="text-sm text-fg-3 underline-offset-2 hover:text-fg hover:underline" title="Cambiar la fecha"
-                        onClick={(ev) => { ev.preventDefault(); setErrFechaCheck(null); setFechaCheck({ clave: c.clave, etiqueta: c.etiqueta, valor: aLocal(fechasCheck[c.clave]!) }) }}>{fechaCorta(fechasCheck[c.clave]!)}</button>
-                    : checks[c.clave] && fechasCheck[c.clave] ? <span className="text-sm text-fg-3">{fechaCorta(fechasCheck[c.clave]!)}</span> : null}
-                  {!c.dura && <span className="ml-auto text-sm text-fg-3">recomendado</span>}
-                </label>
-              ))}
-            </div>
-          )}
           {conMaterial && <MaterialesEncargo sugerido={fichaT ? { tipo: fichaT.material_tipo, consumo: fichaT.consumo } : null} refresco={ultima} encargo={e} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
           <div className="flex-1" />
           {rol === 'ADMIN' && !anulado && <Button variant="danger" className="self-start" onClick={() => abrir('anular')}>Anular {min(vocab.encargo)}</Button>}
@@ -398,19 +450,15 @@ export function Encargo() {
           <RTabs.Root defaultValue="hilo" className="flex min-h-0 flex-1 flex-col">
             <RTabs.List className="flex h-9 items-center border-b border-border px-5">
               <RTabs.Trigger value="hilo" className={TAB}>Hilo</RTabs.Trigger>
-              <RTabs.Trigger value="comentarios" className={TAB}>Comentarios <span className="text-fg-3">{coms.length}</span></RTabs.Trigger>
-              <RTabs.Trigger value="mensajes" className={TAB}>Mensajes</RTabs.Trigger>
               <RTabs.Trigger value="adjuntos" className={TAB}>Adjuntos</RTabs.Trigger>
             </RTabs.List>
             <RTabs.Content value="hilo" className="flex max-w-[640px] flex-col gap-1 overflow-auto p-5">
-              {!anulado && (
-                <form onSubmit={enviarComentario} className="mb-3 flex flex-col gap-1">
-                  <label htmlFor="nuevo-comentario"><SectionLabel>Añadir comentario</SectionLabel></label>
-                  <Textarea id="nuevo-comentario" rows={2} value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…"
-                    onKeyDown={(k) => { if (k.key === 'Enter' && (k.metaKey || k.ctrlKey)) { k.preventDefault(); enviarComentario(k) } }} />
-                  <div className="flex items-center justify-end gap-2"><span className="text-xs text-fg-3 max-md:hidden">Ctrl/⌘ + Intro para enviar</span><Button size="sm" type="submit" disabled={!texto.trim()}>Enviar</Button></div>
-                </form>
-              )}
+              <div className="mb-1 flex flex-wrap gap-1">
+                {([['todo', 'Todo'], ['pasos', 'Pasos'], ['com', `Comentarios (${coms.length})`], ['msg', `Mensajes al ${min(vocab.cliente)} (${envios.length})`]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setFiltroHilo(k)} className={cn('h-7 rounded-sm px-2 text-sm', filtroHilo === k ? 'bg-gray-12 text-bg' : 'text-fg-2 hover:bg-bg-4')}>{l}</button>
+                ))}
+              </div>
+              {filtroHilo === 'msg' && <p className="m-0 text-sm text-fg-3">Aquí sale cada aviso que se prepara con «Avisar {gr.con('cliente', 'al')}» y se envía por WhatsApp o correo desde la app. Lo que se escribe por fuera de la app no queda registrado.</p>}
               {[...porDia.entries()].map(([dia, evs]) => (
                 <React.Fragment key={dia}>
                   <SectionLabel className="pb-1 pt-3">{dia}</SectionLabel>
@@ -421,6 +469,7 @@ export function Encargo() {
                         <div className="flex flex-col gap-0.5">
                           <div>Mensaje · <span className="font-medium">{ev.m.nombre ?? 'Mensaje'}</span></div>
                           <span className="text-sm text-fg-3">{hora(ev.m.fecha)} · {ev.m.canal === 'WHATSAPP' ? 'WhatsApp' : 'Correo'}</span>
+                          {ev.m.texto && <span className="line-clamp-3 whitespace-pre-wrap text-sm text-fg-2" title={ev.m.texto}>{ev.m.texto}</span>}
                         </div>
                       </div>
                     )
@@ -463,35 +512,14 @@ export function Encargo() {
                   })}
                 </React.Fragment>
               ))}
-            </RTabs.Content>
-            <RTabs.Content value="comentarios" className="flex max-w-[640px] flex-col gap-3 overflow-auto p-5">
               {!anulado && (
-                <form onSubmit={enviarComentario} className="flex flex-col gap-1">
-                  <Textarea aria-label="Nuevo comentario" rows={2} value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…"
+                <form onSubmit={enviarComentario} className="mt-3 flex flex-col gap-1 border-t border-border-light pt-3">
+                  <label htmlFor="nuevo-comentario"><SectionLabel>Añadir comentario</SectionLabel></label>
+                  <Textarea id="nuevo-comentario" rows={2} value={texto} onChange={(x) => setTexto(x.target.value)} placeholder="Escribe algo para el equipo…"
                     onKeyDown={(k) => { if (k.key === 'Enter' && (k.metaKey || k.ctrlKey)) { k.preventDefault(); enviarComentario(k) } }} />
                   <div className="flex items-center justify-end gap-2"><span className="text-xs text-fg-3 max-md:hidden">Ctrl/⌘ + Intro para enviar</span><Button size="sm" type="submit" disabled={!texto.trim()}>Enviar</Button></div>
                 </form>
               )}
-              {coms.length === 0 && <span className="text-fg-3">Sin comentarios.</span>}
-              {[...coms].sort((a, b) => b.fecha.localeCompare(a.fecha)).map((c) => (
-                <div key={c.id} className="flex flex-col gap-0.5 border-b border-border-light pb-2">
-                  <span className="text-sm text-fg-3">{(c.usuario_id && autores[c.usuario_id]) || 'Alguien del equipo'} · {fechaCorta(c.fecha)} {hora(c.fecha)}</span>
-                  <span className="whitespace-pre-wrap">{c.texto}</span>
-                </div>
-              ))}
-            </RTabs.Content>
-            <RTabs.Content value="mensajes" className="flex max-w-[640px] flex-col gap-3 overflow-auto p-5">
-              {!anulado && puedeAvisar && <div><Button onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Nuevo mensaje</Button></div>}
-              {envios.length === 0 && <span className="text-fg-3">Todavía no se ha avisado {gr.con('cliente', 'al')} desde aquí.</span>}
-              {envios.map((m) => (
-                <div key={m.id} className="flex flex-col gap-1 rounded-md border border-border p-3">
-                  <div className="flex items-center gap-2 text-sm text-fg-3">
-                    <span className="font-medium text-fg">{m.nombre ?? 'Mensaje'}</span>
-                    <span>· {m.canal === 'WHATSAPP' ? 'WhatsApp' : 'Correo'} · {fechaCorta(m.fecha)} {hora(m.fecha)}</span>
-                  </div>
-                  {m.texto && <p className="whitespace-pre-wrap text-fg-2">{m.texto}</p>}
-                </div>
-              ))}
             </RTabs.Content>
             <RTabs.Content value="adjuntos" className="flex max-w-[760px] flex-col overflow-auto p-5">
               <Adjuntos entidad="encargo" entidadId={e.id} soloLectura={anulado || rol === 'LOGISTICA'} />
@@ -549,15 +577,25 @@ export function Encargo() {
       </Dialog>
 
       <Dialog open={modal === 'volver'} onOpenChange={() => setModal(null)} error={modalErr}
-        title="Volver a una etapa anterior"
-        description="Para arreglos o repeticiones. Las etapas posteriores tendrán que marcarse otra vez; el hilo conserva lo anterior."
-        actions={[{ label: 'Volver', disabled: !destino, onClick: () => hacer(() => crearHito(e.id, destino, { tipo: 'REENTRADA', nota: nota.trim() || undefined })) }]}>
-        <Select value={destino} onChange={(x) => setDestino(x.target.value)}>
-          <option value="">Elige la etapa…</option>
-          {anteriores.map((x) => <option key={x.id} value={x.clave}>{x.nombre}</option>)}
-        </Select>
+        title={`¿Volver a «${etapas.find((x) => x.clave === destino)?.nombre ?? ''}»?`}
+        description="Los pasos de después quedan deshechos y habrá que marcarlos otra vez. El hilo conserva todo lo anterior."
+        actions={[{ label: 'Volver', variant: 'danger', disabled: !destino, onClick: () => hacer(async () => {
+          if (matVolver && devolver === 'si') for (const id of matVolver.ids) await desasignarMaterial(id)
+          await crearHito(e.id, destino, { tipo: 'REENTRADA', nota: nota.trim() || undefined })
+        }) }]}>
+        {matVolver && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-warn-bg bg-warn-bg/40 p-3">
+            <span className="text-sm font-medium text-warn-fg">{gr.Con('material', 'el')} ya se había recibido. ¿Qué hacemos?</span>
+            <label className="flex items-center gap-2"><input type="radio" name="devolver" checked={devolver === 'si'} onChange={() => setDevolver('si')} />Vuelve al stock</label>
+            <label className="flex items-center gap-2"><input type="radio" name="devolver" checked={devolver === 'no'} onChange={() => setDevolver('no')} />Se queda asignad{gr.o('material')} a {gr.con('encargo', 'este')}</label>
+          </div>
+        )}
         <Input value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
       </Dialog>
+
+      <Dialog open={confirmarMarcar} onOpenChange={setConfirmarMarcar} title={`¿Marcar «${e.etapa_siguiente_nombre ?? ''}»?`}
+        description={`Este paso lo marca «${nombresRol[e.etapa_siguiente_rol as keyof typeof nombresRol] ?? e.etapa_siguiente_rol ?? ''}». Márcalo tú solo si ya está hecho de verdad (por ejemplo, para corregir un olvido).`}
+        actions={[{ label: 'Marcar', onClick: async () => { setConfirmarMarcar(false); await avanzar() } }]} />
 
       <Dialog open={modal === 'anular'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Anular ${min(vocab.encargo)} ${num3(e)}`}
