@@ -4,7 +4,7 @@ import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
   anularEncargo, cambiarFechaCheck, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
-  editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia, volverAEtapa, materialAlAnular,
+  editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, revisadoSigueIgual, recuperarEncargo, resolverIncidencia, volverAEtapa, materialAlAnular,
   type Anulacion,
 } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
@@ -383,9 +383,11 @@ export function Encargo() {
               <span className="text-sm font-medium text-warn-fg">En «Revisar» por:</span>
               <ul className="m-0 flex list-disc flex-col gap-0.5 pl-4 text-sm text-fg-2">{motivos.map((m) => <li key={m}>{m}</li>)}</ul>
               <span className="text-sm text-fg-3">Última modificación: {fechaCorta(e.actualizado_en)}</span>
-              {e.revisar_manual && puedeRevisar && (
-                <div><Button size="sm" onClick={() => quitarRevisar(e.id).then(cargar).catch((x) => setErr(mensajeError(x)))}>Quitar marca: ya está revisad{gr.o('encargo')}</Button></div>
-              )}
+              {e.revisar_manual && <span className="text-sm text-warn-fg">Mientras esté marcad{gr.o('encargo')} no se puede avanzar.</span>}
+              <div className="flex flex-wrap gap-2">
+                {e.revisar_manual && puedeRevisar && <Button size="sm" onClick={() => quitarRevisar(e.id).then(cargar).catch((x) => setErr(mensajeError(x)))}>Quitar marca: ya está revisad{gr.o('encargo')}</Button>}
+                {e.estancado && puedeRevisar && <Button size="sm" onClick={() => revisadoSigueIgual(e.id).then(cargar).catch((x) => setErr(mensajeError(x)))} title="Se reinicia la cuenta de días y queda anotado en el hilo">Revisado, sigue igual</Button>}
+              </div>
             </div>
           )}
 
@@ -434,9 +436,10 @@ export function Encargo() {
                             </div>
                           ))}
                           {incAbierta && <span className="text-sm text-danger-fg">Hay una incidencia abierta: resuélvela para poder avanzar.</span>}
+                          {!incAbierta && e.revisar_manual && <span className="text-sm text-warn-fg">Marcad{gr.o('encargo')} para revisar: quita la marca para poder avanzar.</span>}
                           <div className="flex flex-wrap gap-1.5">
-                            {suyo && <Button size="sm" variant="primary" disabled={duras.length > 0 || !!incAbierta} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `Marcar «${x.nombre}» igualmente` : `Marcar «${x.nombre}»`}</Button>}
-                            {!suyo && gestion && <Button size="sm" disabled={duras.length > 0 || !!incAbierta} onClick={() => setConfirmarMarcar(true)}>Marcar en nombre de {quien}…</Button>}
+                            {suyo && <Button size="sm" variant="primary" disabled={duras.length > 0 || !!incAbierta || !!e.revisar_manual} onClick={() => avanzar()}>{blandas.length > 0 && duras.length === 0 ? `Marcar «${x.nombre}» igualmente` : `Marcar «${x.nombre}»`}</Button>}
+                            {!suyo && gestion && <Button size="sm" disabled={duras.length > 0 || !!incAbierta || !!e.revisar_manual} onClick={() => setConfirmarMarcar(true)}>Marcar en nombre de {quien}…</Button>}
                           </div>
                         </div>
                       )}
@@ -619,7 +622,7 @@ export function Encargo() {
 
       <Dialog open={modal === 'revisar'} onOpenChange={() => setModal(null)} error={modalErr}
         title="Marcar para revisar"
-        description={`${gr.Con('encargo', 'el')} no cambia de etapa: entra en la bandeja «Revisar» hasta que alguien quite la marca.`}
+        description={`${gr.Con('encargo', 'el')} no cambia de etapa ni puede avanzar: entra en la bandeja «Revisar» hasta que alguien quite la marca.`}
         actions={[{ label: 'Marcar', onClick: () => hacer(() => marcarRevisar(e.id, nota)) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="¿Qué hay que revisar? (opcional)" />
       </Dialog>

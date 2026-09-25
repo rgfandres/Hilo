@@ -293,7 +293,7 @@ export function Encargos() {
     const d2 = d.filter(util)
     // En «Bloqueados» se agrupa por el motivo del bloqueo
     return bandeja === 'bloqueados'
-      ? [{ clave: 'motivo', etiqueta: 'Motivo', vacio: 'Sin motivo', valor: (e) => e.puertas_pendientes.find((p) => p.dura)?.mensaje ?? '' }, ...d2]
+      ? [{ clave: 'motivo', etiqueta: 'Motivo', vacio: 'Sin motivo', valor: (e) => e.puertas_pendientes.find((p) => p.dura)?.mensaje ?? (e.revisar_manual ? 'Marcado para revisar' : '') }, ...d2]
       : d2
   }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda, rows, matNombres])
 

@@ -6,7 +6,7 @@ import { generosDe, vocabDe } from '@/lib/vocab'
  * Un único cálculo por encargo: cada criterio es una función pura sobre la fila.
  */
 
-export const bloqueado = (e: EncargoEstado) => (e.puertas_pendientes ?? []).some((p) => p.dura)
+export const bloqueado = (e: EncargoEstado) => (e.puertas_pendientes ?? []).some((p) => p.dura) || !!e.revisar_manual
 export const activo = (e: EncargoEstado) => e.estado === 'ACTIVO' && !e.es_final
 
 /**

@@ -142,6 +142,7 @@ export function mensajeError(e: unknown): string {
   if (/PASO_ATRAS/.test(m)) return 'Ese paso ya está hecho o es anterior al actual. Recarga para ver el estado real.'
   if (/VOLVER_ADELANTE/.test(m)) return 'Solo se puede volver a una etapa anterior a la actual.'
   if (/INCIDENCIA_ABIERTA/.test(m)) return 'Hay una incidencia abierta: resuélvela antes de avanzar.'
+  if (/MARCADO_REVISAR/.test(m)) return 'Está marcado para revisar: quita la marca antes de avanzar.'
   if (/YA_NO_ES_ULTIMO/.test(m)) return 'Ya no se puede deshacer: alguien ha hecho otro paso después.'
   if (/NO_DESHACER_ALTA/.test(m)) return 'El primer paso no se puede deshacer. Si sobra, anúlalo.'
   if (/SIN_PERMISO_IMPORTAR/.test(m)) return 'Solo administración puede importar o deshacer importaciones.'
@@ -322,6 +323,11 @@ export async function listarProductos(tiendaId: string) {
 
 export async function marcarRevisar(encargoId: string, nota: string) {
   const { error } = await supabase.rpc('marcar_revisar', { p_encargo: encargoId, p_nota: nota })
+  if (error) throw error
+}
+/** Estancado pero revisado: sigue igual, se reinicia la cuenta de días (queda en el hilo) */
+export async function revisadoSigueIgual(encargoId: string) {
+  const { error } = await supabase.rpc('revisado_sigue_igual', { p_encargo: encargoId })
   if (error) throw error
 }
 export async function quitarRevisar(encargoId: string) {
