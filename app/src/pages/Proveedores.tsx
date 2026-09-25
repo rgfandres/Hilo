@@ -84,7 +84,7 @@ export function Proveedores() {
           <tbody>
             {visibles.map((p) => (
               <Tr key={p.id} className="cursor-pointer" onClick={() => nav(`/proveedores/${p.id}`)}>
-                <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactiv{gr.o('proveedor')}</Tag>}</Td>
+                <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactiv{gr.o('proveedor')}</Tag>}{p.asignable === false && <Tag color="gray" className="ml-2">no se asigna</Tag>}</Td>
                 <Td>{p.en_su_mano > 0 ? <span className="font-medium">{p.en_su_mano}</span> : <span className="text-fg-3">—</span>}</Td>
                 <Td>{p.atascados ? <span className="font-medium text-danger-fg">{p.atascados}</span> : <span className="text-fg-3">—</span>}</Td>
                 <Td className="text-fg-2">{p.asignados || <span className="text-fg-3">—</span>}</Td>

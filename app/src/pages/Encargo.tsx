@@ -357,7 +357,7 @@ export function Encargo() {
             </div>
             {foto && fotoGrande && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setFotoGrande(false)} role="dialog" aria-label="Foto">
-                <img src={foto} alt="Foto" className="max-h-full max-w-full rounded-md object-contain" />
+                <img src={foto} alt="Foto" className="max-h-full w-full max-w-[900px] rounded-md object-contain" />
                 <button type="button" className="absolute right-4 top-4 rounded-sm bg-bg px-3 py-1.5 text-sm" onClick={() => setFotoGrande(false)}>Cerrar</button>
               </div>
             )}
