@@ -12,9 +12,12 @@ export interface LineaHoja {
   aviso_anulado_visto?: boolean
 }
 export interface Impresion { id: string; producto_id: string | null; fecha: string; usuario_id: string | null; n_lineas: number; contenido: ContenidoImpresion }
+export interface FirmaFila { m: string; c: string; v: string }
 export interface ContenidoImpresion {
   titulo: string; producto: string; tienda: string; fecha: string
-  columnas: string[]; curva: string[]; filas: { celdas: string[]; valor: string }[]
+  columnas: string[]; curva: string[]
+  /** f: lo que llevaba al imprimirse (material, complementos, valor), para avisar si cambia después */
+  filas: { celdas: string[]; valor: string; encargo_id?: string; f?: FirmaFila }[]
   /** Marca de la rejilla (● por defecto; X como en una orden de corte) */
   marca?: string
   /** Cabecera «PRODUCTO X» en grande con el nombre de la hoja debajo */
@@ -50,6 +53,13 @@ export async function marcarImprimir(ids: string[], v: boolean) {
 }
 export async function registrarImpresion(tiendaId: string, productoId: string | null, lineas: string[], contenido: ContenidoImpresion): Promise<string> {
   return ok(await supabase.rpc('registrar_impresion', { p_tienda: tiendaId, p_producto: productoId, p_lineas: lineas, p_contenido: contenido })) as string
+}
+/** Contenido de unas impresiones concretas (las de las líneas ya impresas) */
+export async function impresionesPorId(ids: string[]): Promise<Record<string, ContenidoImpresion>> {
+  if (!ids.length) return {}
+  const { data, error } = await supabase.from('impresion_produccion').select('id,contenido').in('id', ids)
+  if (error) throw error
+  return Object.fromEntries((data ?? []).map((x) => [x.id, x.contenido as ContenidoImpresion]))
 }
 export async function listarImpresiones(tiendaId: string, productoId: string | null, periodoId?: string | null): Promise<Impresion[]> {
   let q = supabase.from('impresion_produccion').select('*').eq('tienda_id', tiendaId).order('fecha', { ascending: false }).limit(30)

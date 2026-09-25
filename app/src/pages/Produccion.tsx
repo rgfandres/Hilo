@@ -4,8 +4,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { IconPencil, IconPrinter } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  ajustesHoja, marcarAvisoVisto, imprimirHoja, listarImpresiones, listarLineas, marcarImprimir, materialDeEncargos, notasProduccion, registrarImpresion,
-  type ContenidoImpresion, type Impresion, type LineaHoja,
+  ajustesHoja, marcarAvisoVisto, imprimirHoja, listarImpresiones, listarLineas, marcarImprimir, materialDeEncargos, notasProduccion, registrarImpresion, impresionesPorId,
+  type ContenidoImpresion, type FirmaFila, type Impresion, type LineaHoja,
 } from '@/data/produccion'
 import { actualizarEncargo, crearHito, esSoloPeriodoActivo, listarEncargos, listarEtapas, mensajeError, ponerNotaCampo } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
@@ -107,6 +107,21 @@ export function Produccion() {
   const nombreProd = productos.get(prod)?.nombre ?? ''
   const etiquetaCol = hoja.etiquetaCol
   const valor = (l: LineaHoja) => (hoja.campoCol ? String((l.datos ?? {})[hoja.campoCol] ?? '') : '')
+  // Lo que cuenta para la hoja: si cambia después de imprimir, hay que revisarla (como la columna REVISAR de siempre)
+  const firma = (l: LineaHoja): FirmaFila => ({ m: [...new Set((mats[l.encargo_id] ?? []).map((m) => m.nombre))].sort().join(' · '), c: (l.complementos ?? '').trim(), v: valor(l) })
+  const [impLineas, setImpLineas] = React.useState<Record<string, ContenidoImpresion>>({})
+  const idsImp = [...new Set(todas.map((l) => l.impresion_id).filter(Boolean))].sort().join(',')
+  React.useEffect(() => { impresionesPorId(idsImp ? idsImp.split(',') : []).then(setImpLineas).catch(() => {}) }, [idsImp])
+  const cambios = (l: LineaHoja): string[] => {
+    if (!l.impreso_en || !l.impresion_id || l.coherencia === 'ANULADO') return []
+    const antes = impLineas[l.impresion_id]?.filas.find((f) => f.encargo_id === l.encargo_id)?.f
+    if (!antes) return []
+    const ahora = firma(l), out: string[] = []
+    if (antes.v !== ahora.v) out.push(`${etiquetaCol || 'valor'} ${antes.v || '—'} → ${ahora.v || '—'}`)
+    if (antes.m !== ahora.m && mat.activo) out.push(min(vocab.material))
+    if (antes.c !== ahora.c) out.push(min(fic.etiqueta))
+    return out
+  }
   const txtMat = (id: string) => (mats[id] ?? []).map((m) => `${m.nombre}${m.cantidad ? ` ${mat.activo ? cant(m.cantidad, mat.unidad) : m.cantidad}` : ''}${m.estado !== 'RECIBIDO' ? ` (${m.estado === 'PEDIDO' ? 'pedido' : 'pendiente'})` : ''}`).join(' · ')
 
   async function toggleImprimir(l: LineaHoja) {
@@ -168,7 +183,7 @@ export function Produccion() {
       titulo: hoja.nombre, producto: nombreProd, tienda: tienda?.nombre ?? '', fecha: new Date().toLocaleString(locale(), { timeZone: zona(), dateStyle: 'medium', timeStyle: 'short' }),
       columnas: cols, curva: hoja.campoCol ? hoja.curva : [], marca: hoja.marca, cabecera: hoja.cabecera,
       filas: ls.map((l) => ({
-        valor: valor(l),
+        valor: valor(l), encargo_id: l.encargo_id, f: firma(l),
         celdas: [num3(l), ...(hoja.impCliente ? [l.cliente_nombre ?? ''] : []), ...(mat.activo ? [matImp(l.encargo_id)] : []), l.complementos ?? '', ...(hoja.campoCol && !hoja.curva.length ? [valor(l)] : []), ...(hoja.impNota ? [notas[l.encargo_id]?.texto ?? ''] : [])],
       })),
     }
@@ -292,6 +307,13 @@ export function Produccion() {
                         : <Td>{valor(l) || '—'}</Td>)}
                       <Td title={l.motivos.join(' · ')}>
                         <Tag color={COH[l.coherencia].color}>{cohTxt(l.coherencia)}</Tag>
+                        {cambios(l).length > 0 && (
+                          <div className="mt-0.5 flex max-w-[240px] flex-col items-start gap-0.5 text-xs">
+                            <Tag color="amber">Revisar</Tag>
+                            <span className="text-warn-fg">Cambió tras imprimir: {cambios(l).join(' · ')}</span>
+                            {gestion && !l.imprimir && <button className="text-fg-2 underline hover:text-fg" onClick={() => toggleImprimir(l)}>Marcar para reimprimir</button>}
+                          </div>
+                        )}
                         {l.motivos.length > 0 && <div className="mt-0.5 max-w-[220px] text-xs text-fg-3">{l.motivos.join(' · ')}</div>}
                       </Td>
                       <Td>
