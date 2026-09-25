@@ -80,7 +80,7 @@ export const PLANTILLAS: PlantillaSector[] = [
       dias_estancado: 10, estancado_por: 'pasos', estancado_en_espera: true, dias_atasco_proveedor: 15, solo_periodo_activo: true,
       usar_importe: true, normalizar_nombres: true, segundos_deshacer: 8,
       // Una ficha por traje: cada traje nuevo copia los datos de la clienta en una ficha propia
-      cliente_por_encargo: true, repetir_copia: ['feria', '__complementos'],
+      cliente_por_encargo: true, repetir_copia: ['feria'],
       usar_complementos: true, etiqueta_complementos: 'Adornos', tipos_construccion: ['Con corte', 'Enterizo'],
       material_unidad: 'm', material_pedir: 'falta', material_contador: 'restos', material_menu_pedidos: true, umbral_material_defecto: 10,
       hoja_nombre: 'Orden de corte', hoja_campo_col: 'talla', hoja_col_etiqueta: 'Talla',
