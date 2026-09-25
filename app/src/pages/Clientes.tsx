@@ -111,13 +111,15 @@ export function Cliente() {
   const campos: Campo[] = camposDe(ps, 'CLIENTE')
   const prefijo = String((tienda?.ajustes as Record<string, unknown>)?.prefijo_telefono ?? '34')
   const wa = telefonoWhatsApp(c.telefono, prefijo)
+  // El nuevo parte del último (para copiar lo que se repite, como la temporada o la feria)
+  const ultimo = encs.find((e) => e.estado !== 'ANULADO') ?? encs[0]
   const color = (e: EncargoEstado) => tagColorFromHex(etapas.find((x) => x.id === e.etapa_actual_id)?.color)
 
   return (
     <>
       <PageHeader title={<span><Link to="/clientes" className="text-fg-3">{vocab.clientes}</Link><span className="mx-2 text-border-strong">/</span>{c.nombre}</span>}>
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
-        {puedeEditar && <Button variant="primary" asChild><Link to={`/encargos/nuevo?cliente=${c.id}`}>+ {vocab.encargo}</Link></Button>}
+        {puedeEditar && <Button variant="primary" asChild><Link to={`/encargos/nuevo?cliente=${c.id}${ultimo ? `&desde=${ultimo.id}` : ''}`}>+ {vocab.encargo}</Link></Button>}
       </PageHeader>
       <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
         <aside className="flex w-[380px] shrink-0 flex-col gap-4 overflow-auto border-r border-border p-5 max-md:w-full max-md:overflow-visible max-md:border-b max-md:border-r-0 max-md:p-4">
