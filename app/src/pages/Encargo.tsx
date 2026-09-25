@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
-  anularEncargo, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
+  anularEncargo, cambiarFechaCheck, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
   editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
   type Anulacion,
 } from '@/data/encargos'
@@ -72,6 +72,9 @@ export function Encargo() {
   const [etapas, setEtapas] = React.useState<Etapa[]>([])
   const [anul, setAnul] = React.useState<Anulacion | null>(null)
   const [checks, setChecks] = React.useState<Record<string, boolean>>({})
+  const [fechasCheck, setFechasCheck] = React.useState<Record<string, string | null>>({})
+  const [fechaCheck, setFechaCheck] = React.useState<{ clave: string; etiqueta: string; valor: string } | null>(null)
+  const [errFechaCheck, setErrFechaCheck] = React.useState<string | null>(null)
   const [defChecks, setDefChecks] = React.useState<CheckDef[]>([])
   const [camposEnc, setCamposEnc] = React.useState<Campo[]>([])
   const [camposCli, setCamposCli] = React.useState<Campo[]>([])
@@ -103,7 +106,7 @@ export function Encargo() {
     const [h, c, cl, ck, dc, ps, et, an, pm, ev] = await Promise.all([
       listarHitos(id), listarComentarios(id),
       supabase.from('cliente').select('*').eq('id', enc.cliente_id).maybeSingle(),
-      supabase.from('check_encargo').select('clave,marcado').eq('encargo_id', id),
+      supabase.from('check_encargo').select('clave,marcado,fecha').eq('encargo_id', id),
       checksDelFlujo(enc.tipo_encargo_id),
       plantillas(enc.tienda_id),
       listarEtapas(enc.tienda_id),
@@ -122,6 +125,7 @@ export function Encargo() {
     // Nombres de quien escribe (si se puede leer el equipo)
     listarEquipo(enc.tienda_id).then((eq) => setAutores(Object.fromEntries(eq.map((m) => [m.user_id, m.email.split('@')[0]])))).catch(() => {})
     setChecks(Object.fromEntries(((ck.data ?? []) as { clave: string; marcado: boolean }[]).map((x) => [x.clave, x.marcado])))
+    setFechasCheck(Object.fromEntries(((ck.data ?? []) as { clave: string; fecha: string | null }[]).map((x) => [x.clave, x.fecha])))
   }, [id, tienda])
 
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
@@ -376,6 +380,10 @@ export function Encargo() {
                 <label key={c.clave} className={cn('flex h-7 items-center gap-2', anulado ? 'opacity-60' : 'cursor-pointer')}>
                   <input type="checkbox" disabled={anulado} checked={!!checks[c.clave]} onChange={() => toggleCheck(c.clave)} className="h-3.5 w-3.5 accent-gray-12" />
                   <span>{c.etiqueta}</span>
+                  {checks[c.clave] && fechasCheck[c.clave] && (rol === 'ADMIN' || rol === 'OPERATIVO') && !anulado
+                    ? <button type="button" className="text-sm text-fg-3 underline-offset-2 hover:text-fg hover:underline" title="Cambiar la fecha"
+                        onClick={(ev) => { ev.preventDefault(); setErrFechaCheck(null); setFechaCheck({ clave: c.clave, etiqueta: c.etiqueta, valor: aLocal(fechasCheck[c.clave]!) }) }}>{fechaCorta(fechasCheck[c.clave]!)}</button>
+                    : checks[c.clave] && fechasCheck[c.clave] ? <span className="text-sm text-fg-3">{fechaCorta(fechasCheck[c.clave]!)}</span> : null}
                   {!c.dura && <span className="ml-auto text-sm text-fg-3">recomendado</span>}
                 </label>
               ))}
@@ -587,6 +595,14 @@ export function Encargo() {
           { label: 'Tal como estaba', onClick: () => hacer(() => recuperarEncargo(e.id, false)) },
         ]} />
 
+      <Dialog open={!!fechaCheck} onOpenChange={() => setFechaCheck(null)} error={errFechaCheck} title="Cambiar fecha"
+        description={fechaCheck ? `${fechaCheck.etiqueta}. No puede ser futura.` : ''}
+        actions={[{ label: 'Guardar', disabled: !fechaCheck?.valor, onClick: async () => {
+          if (!fechaCheck) return
+          try { await cambiarFechaCheck(e.id, fechaCheck.clave, deHoraTienda(fechaCheck.valor)); setFechaCheck(null); await cargar() } catch (x) { setErrFechaCheck(mensajeError(x)) }
+        } }]}>
+        <Input type="datetime-local" value={fechaCheck?.valor ?? ''} max={aLocal(new Date().toISOString())} onChange={(x) => setFechaCheck((f) => (f ? { ...f, valor: x.target.value } : f))} />
+      </Dialog>
       <Dialog open={!!modal && typeof modal === 'object' && 'fecha' in modal} onOpenChange={() => setModal(null)} error={modalErr}
         title="Cambiar fecha"
         description={modal && typeof modal === 'object' && 'fecha' in modal ? `${modal.fecha.tipo === 'INCIDENCIA' ? 'Incidencia en ' : ''}${modal.fecha.etapa?.nombre}. No puede ser futura ni saltarse el paso anterior o el siguiente.` : ''}

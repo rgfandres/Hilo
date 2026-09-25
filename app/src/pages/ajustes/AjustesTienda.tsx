@@ -10,7 +10,7 @@ import { listarEtapas } from '@/data/encargos'
 import type { Etapa } from '@/lib/types'
 import { mensajeError } from '@/data/encargos'
 import { Button, FormRow, Input, Select } from '@/ui'
-import { ROLES, ROLES_DEFECTO, VOCAB_DEFECTO, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
+import { ROLES, ROLES_DEFECTO, VOCAB_DEFECTO, min, ayudaRoles, generoAuto, generosDe, gramatica, rolesDe, vocabDe, type ClaveVocab, type Genero, type Vocab } from '@/lib/vocab'
 import { Link } from 'react-router-dom'
 import { Avanzado, BarraGuardar, Bloque, FilaForm, Info, Interruptor, ListaTextos, Pagina } from './Ajustes'
 
@@ -20,6 +20,7 @@ const PALABRAS: { k: ClaveVocab; kp: keyof Vocab; ayuda: string }[] = [
   { k: 'producto', kp: 'productos', ayuda: 'Lo que se ofrece (catálogo)' },
   { k: 'proveedor', kp: 'proveedores', ayuda: 'Quien fabrica o transforma fuera' },
   { k: 'material', kp: 'materiales', ayuda: 'Lo que se gasta en cada encargo (si usas el módulo)' },
+  { k: 'periodo', kp: 'periodos', ayuda: 'Cada etapa del año: temporada, año, campaña…' },
 ]
 const ZONAS = ['Europe/Madrid', 'Atlantic/Canary', 'Europe/Lisbon', 'Europe/London', 'Europe/Paris', 'America/Mexico_City', 'America/Bogota', 'America/Argentina/Buenos_Aires', 'America/Santiago', 'America/Lima', 'America/New_York']
 const COLORES = ['#333333', '#1F3A5F', '#2B4C9B', '#5A3E96', '#9C1049', '#C2185B', '#A32E24', '#8A5A00', '#1E6B3C', '#0F766E']
@@ -416,7 +417,7 @@ export function AjustesReglas() {
             </div>
           </FormRow>
           <FormRow label="Numeración">
-            <Interruptor checked={f.reinicia} onChange={(v) => setF({ ...f, reinicia: v })} label="Empieza en 001 en cada periodo" />
+            <Interruptor checked={f.reinicia} onChange={(v) => setF({ ...f, reinicia: v })} label={`Empieza en 001 en cada ${min(f.vocab.periodo)}`} />
           </FormRow>
           <FormRow label="Nombres" ayuda="Se aplica a lo nuevo y a lo que se edite. Buscar ignora las tildes siempre.">
             <Interruptor checked={f.normalizar} onChange={(v) => setF({ ...f, normalizar: v })} label="Guardar en mayúsculas y sin tildes" />
@@ -590,7 +591,7 @@ export function AjustesLogistica() {
         <div className="flex flex-col gap-1">
           <FormRow label="Histórico">
             <div className="flex flex-wrap items-center gap-3">
-              <Interruptor checked={!!L.historico_periodo} onChange={(v) => setL({ historico_periodo: v })} label="Todo el periodo" />
+              <Interruptor checked={!!L.historico_periodo} onChange={(v) => setL({ historico_periodo: v })} label={`Tod${f.generos.periodo === 'f' ? 'a' : 'o'} ${f.generos.periodo === 'f' ? 'la' : 'el'} ${min(f.vocab.periodo)}`} />
               {!L.historico_periodo && <span className="inline-flex items-center gap-1.5"><Input className="h-7 w-20" inputMode="numeric" value={f.diasHist} onChange={(e) => setF({ ...f, diasHist: e.target.value })} /> días atrás</span>}
             </div>
           </FormRow>

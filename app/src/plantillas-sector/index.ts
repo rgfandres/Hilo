@@ -70,12 +70,12 @@ export const PLANTILLAS: PlantillaSector[] = [
     id: 'moda',
     nombre: 'Moda a medida: flamenca, novia y fiesta',
     descripcion: 'Trajes a medida con stock de telas, orden de corte, cortador, talleres de confección, reparto y prendas de stock para arreglar.',
-    vocab: { encargo: 'Traje', encargos: 'Trajes', cliente: 'Clienta', clientes: 'Clientas', producto: 'Modelo', productos: 'Modelos', proveedor: 'Taller', proveedores: 'Talleres', material: 'Tela', materiales: 'Telas' },
-    vocab_generos: { encargo: 'm', producto: 'm', proveedor: 'm', material: 'f' },
+    vocab: { encargo: 'Traje', encargos: 'Trajes', cliente: 'Clienta', clientes: 'Clientas', producto: 'Modelo', productos: 'Modelos', proveedor: 'Taller', proveedores: 'Talleres', material: 'Tela', materiales: 'Telas', periodo: 'Temporada', periodos: 'Temporadas' },
+    vocab_generos: { encargo: 'm', producto: 'm', proveedor: 'm', material: 'f', periodo: 'f' },
     roles: { ATENCION: 'Dependienta', OPERATIVO: 'Producción', LOGISTICA: 'Reparto' },
     ajustes: {
       ...MOD({ materiales: true, produccion: true, logistica: true }),
-      dias_estancado: 10, estancado_por: 'pasos', estancado_en_espera: true, dias_atasco_proveedor: 15,
+      dias_estancado: 10, estancado_por: 'pasos', estancado_en_espera: true, dias_atasco_proveedor: 15, solo_periodo_activo: true,
       usar_importe: true, normalizar_nombres: true, segundos_deshacer: 8,
       // Una ficha por traje: cada traje nuevo copia los datos de la clienta en una ficha propia
       cliente_por_encargo: true, repetir_copia: ['feria'],

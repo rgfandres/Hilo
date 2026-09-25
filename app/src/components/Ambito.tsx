@@ -19,13 +19,14 @@ export function useAmbito(clave: string) {
 }
 
 export function SelectorAmbito({ periodos, ambito, onCambio, clave }: { periodos: PeriodoFila[]; ambito: string; onCambio: (v: string) => void; clave: string }) {
+  const { vocab, gr } = useAuth()
   if (!periodos.length) return null
   return (
     <label className="flex flex-wrap items-center gap-2 text-sm">
       <span className="text-fg-3">Configurar para</span>
       <Select className="w-auto" value={ambito} onChange={(e) => onCambio(e.target.value)}>
         <option value="">Toda la tienda</option>
-        {periodos.map((p) => <option key={p.id} value={p.id}>Periodo {p.nombre}{p.ajustes?.[clave] != null ? ' (propia)' : ''}{p.activo ? ' · activo' : ''}</option>)}
+        {periodos.map((p) => <option key={p.id} value={p.id}>{vocab.periodo} {p.nombre}{p.ajustes?.[clave] != null ? ' (propia)' : ''}{p.activo ? ` · activ${gr.o('periodo')}` : ''}</option>)}
       </Select>
     </label>
   )

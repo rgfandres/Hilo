@@ -37,7 +37,7 @@ const MAS: { titulo: string; items: Sec[] }[] = [
     { to: 'ficha', label: ({ vocab }) => `Hoja de ${vocab.encargo.toLowerCase()}`, quien: 'admin', buscar: 'hoja ficha imprimir pdf' },
     { to: 'guia', label: () => 'Guía de medidas', quien: 'admin', buscar: 'guia medidas tallas tabla' },
     { to: 'ficha-tecnica', label: () => 'Ficha técnica', quien: 'admin', buscar: 'ficha tecnica escandallo consumo receta' },
-    { to: 'periodos', label: () => 'Periodos', quien: 'admin', buscar: 'periodo temporada año numeracion' },
+    { to: 'periodos', label: ({ vocab }) => vocab.periodos, quien: 'admin', buscar: 'periodo temporada campaña año numeracion activa' },
     { to: 'exportar', label: () => 'Exportar datos', quien: 'admin', buscar: 'exportar descargar excel csv copia datos guardar' },
   ] },
   { titulo: 'Módulos', items: [

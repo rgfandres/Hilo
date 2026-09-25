@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { setSoloLectura, supabase } from '@/lib/supabase'
 import { setLocale, setZona } from '@/lib/utils'
 import type { Miembro, Periodo, Rol, Tienda } from '@/lib/types'
-import { contextoErrores, mensajeError } from '@/data/encargos'
+import { contextoErrores, fijarSoloPeriodoActivo, mensajeError } from '@/data/encargos'
 import { setSegundosDeshacer } from '@/ui/Avisos'
 import { setModoPedido } from '@/data/materiales'
 
@@ -146,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const elegida = prev && nueva && prev.id === nueva.id && JSON.stringify(prev) === JSON.stringify(nueva) ? prev : nueva
       await cargarPeriodo(elegida?.id ?? null)
       if (!alive) return
+      fijarSoloPeriodoActivo((elegida?.ajustes as Record<string, unknown> | undefined)?.solo_periodo_activo === true)
       setTiendaState(elegida)
       if (!alive) return
       setLoading(false)
@@ -194,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     nombresRol: rolesDe(tienda?.ajustes),
     recargar: async () => { setVersion((v) => v + 1) },
     avisoInvitacion, cerrarAvisoInvitacion: () => setAvisoInvitacion(null),
-    setTienda: (t) => { localStorage.setItem(LS_TIENDA, t.id); setTiendaState(t) },
+    setTienda: (t) => { localStorage.setItem(LS_TIENDA, t.id); fijarSoloPeriodoActivo((t.ajustes as Record<string, unknown> | undefined)?.solo_periodo_activo === true); setTiendaState(t) },
     setTiendaPorId: (id) => { localStorage.setItem(LS_TIENDA, id); setTiendaState((prev) => (prev?.id === id ? prev : null)) },
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password })

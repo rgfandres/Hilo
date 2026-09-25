@@ -157,7 +157,7 @@ export function Informes() {
             </Select>
           )}
           <Select className="h-7 w-[130px]" value={tipo} onChange={(e) => { setTipo(e.target.value as TipoIntervalo); setRef(new Date()) }} aria-label="Intervalo">
-            {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
+            {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.k === 'periodo' ? vocab.periodo : t.label}</option>)}
           </Select>
           <Button variant="ghost" aria-label="Anterior" disabled={!prev} onClick={() => prev && setRef(prev.ini)}><IconChevronLeft size={14} /></Button>
           <Button variant="ghost" aria-label="Siguiente" disabled={!sig} onClick={() => sig && setRef(sig.ini)}><IconChevronRight size={14} /></Button>
@@ -286,7 +286,7 @@ function PorDatoPeriodo({ encargos, importeDe, campos, usaImporte, moneda }: { e
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <SectionLabel className="flex-1">Todo el periodo por</SectionLabel>
+        <SectionLabel className="flex-1">Tod{gr.o('periodo')} {gr.con('periodo', 'el')} por</SectionLabel>
         <Select className="no-imprimir h-7 w-[180px]" value={dato} onChange={(e) => setDato(e.target.value)} aria-label="Dato">
           <option value="producto">{vocab.producto}</option>
           {campos.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
@@ -381,7 +381,7 @@ function Embudo({ actuales, etapas, entregados }: { actuales: EncargoEstado[]; e
         </div>
       ))}
       <div className="mt-1 flex gap-4 text-sm text-fg-2">
-        <span>Terminad{gr.o('encargo', true)} en el periodo: <b className="tabular">{entregados}</b></span>
+        <span>Terminad{gr.o('encargo', true)} en {gr.con('periodo', 'el')}: <b className="tabular">{entregados}</b></span>
         <span>En curso: <b className="tabular">{actuales.length}</b> · Total: <b className="tabular">{actuales.length + entregados}</b></span>
         <span><Tag color="red">Incidencia</Tag> {inc}</span>
         <span className="text-danger-fg">Atascad{gr.o('encargo', true)}: {atasc}</span>

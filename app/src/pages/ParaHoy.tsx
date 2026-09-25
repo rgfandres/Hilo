@@ -93,7 +93,7 @@ export function ParaHoy() {
     return { k: `t${i}`, label: t.nombre, n, to: aLista({ b: t.bandeja, desde: t.nombre }), title: b?.ayuda ?? b?.nombre, tono: t.tono }
   })
   const indicadores = indicadoresTienda ?? [
-    { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar (lo abierto de cualquier periodo)' },
+    { k: 'curso', label: 'En curso', n: enCurso.length, to: '/encargos', title: 'Sin terminar' },
     { k: 'mio', label: 'Mi trabajo', n: mios.length, to: aLista({ b: 'mio', desde: 'Mi trabajo' }), title: 'El siguiente paso lo marca tu rol y nada lo bloquea' },
     { k: 'listos', label: fin.listos, n: listos.length, to: aLista({ b: 'listos', desde: fin.listos }), title: fin.listosTitulo, tono: 'ok' },
     { k: 'revisar', label: 'Revisar', n: revisar.length, to: aLista({ b: 'revisar', desde: 'Revisar' }), title: `Incidencias, marcad${gr.o('encargo', true)} a mano, estancad${gr.o('encargo', true)} y atascad${gr.o('encargo', true)}`, tono: 'danger' },

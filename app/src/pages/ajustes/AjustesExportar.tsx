@@ -8,6 +8,7 @@ import { listarMateriales } from '@/data/materiales'
 import { ajustesFicha } from '@/data/catalogos'
 import { Button, Select } from '@/ui'
 import { num3 } from '@/lib/utils'
+import { min } from '@/lib/vocab'
 import type { EncargoEstado } from '@/lib/types'
 import { Bloque, Estado, Lista, FilaLista, Pagina } from './Ajustes'
 
@@ -73,7 +74,7 @@ export function AjustesExportar() {
         c.telefono ?? '', c.email ?? '', e.producto_nombre ?? '', e.proveedor_nombre ?? '', e.importe ?? '', e.a_cuenta || '', e.complementos ?? '', fecha(e.creado_en),
         ...campos.map((k) => (k.tipo === 'fecha' ? fecha(e.datos?.[k.clave]) : valor(e.datos?.[k.clave])))]
     })
-    const nombre = periodos.find((p) => p.id === per)?.nombre ?? 'periodo'
+    const nombre = periodos.find((p) => p.id === per)?.nombre ?? min(vocab.periodo)
     descargar(`${tn}_${archivo(vocab.encargos)}_${archivo(nombre)}.csv`, csv(cab, out))
     return out.length
   })
@@ -135,7 +136,7 @@ export function AjustesExportar() {
       <Bloque titulo="Qué quieres descargar">
         <Lista>
           {fila('encargos', `${vocab.encargos} de un periodo`, 'Con su etapa, cliente, fechas y todos los datos que guardáis, anulados incluidos.', encargos,
-            <Select className="w-[200px]" value={per} onChange={(e) => setPer(e.target.value)} aria-label="Periodo">
+            <Select className="w-[200px]" value={per} onChange={(e) => setPer(e.target.value)} aria-label={vocab.periodo}>
               {periodos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </Select>)}
           {fila('clientes', vocab.clientes, 'Nombre, contacto y medidas.', clientes)}

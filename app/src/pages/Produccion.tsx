@@ -7,7 +7,8 @@ import {
   ajustesHoja, marcarAvisoVisto, imprimirHoja, listarImpresiones, listarLineas, marcarImprimir, materialDeEncargos, notasProduccion, registrarImpresion,
   type ContenidoImpresion, type Impresion, type LineaHoja,
 } from '@/data/produccion'
-import { actualizarEncargo, crearHito, listarEncargos, listarEtapas, mensajeError, ponerNotaCampo } from '@/data/encargos'
+import { actualizarEncargo, crearHito, esSoloPeriodoActivo, listarEncargos, listarEtapas, mensajeError, ponerNotaCampo } from '@/data/encargos'
+import { supabase } from '@/lib/supabase'
 import { ajustesFicha } from '@/data/catalogos'
 import { ajustesMaterial, cant } from '@/data/materiales'
 import type { EncargoEstado, Etapa } from '@/lib/types'
@@ -30,7 +31,7 @@ const SIN = '_'
  * solo se imprime lo enviado y coherente, y cada impresión queda registrada y se puede repetir igual.
  */
 export function Produccion() {
-  const { tienda, vocab, rol, gr } = useAuth()
+  const { tienda, vocab, rol, gr, periodo } = useAuth()
   const cohTxt = (c: LineaHoja['coherencia']) => c === 'REVISAR' ? 'Revisar' : COH[c].txt + gr.o('encargo')
   const avisar = useAvisos()
   const aj = tienda?.ajustes as Record<string, unknown>
@@ -55,12 +56,18 @@ export function Produccion() {
 
   const cargar = React.useCallback(async () => {
     if (!tienda) return
-    const [l, e, et] = await Promise.all([listarLineas(tienda.id), listarEncargos(tienda.id), listarEtapas(tienda.id)])
+    let [l, e, et] = await Promise.all([listarLineas(tienda.id), listarEncargos(tienda.id), listarEtapas(tienda.id)])
+    // Solo la temporada activa: fuera las líneas y los encargos de otros periodos
+    if (esSoloPeriodoActivo() && periodo) {
+      const { data } = await supabase.from('encargo').select('id,periodo_id').in('id', l.map((x) => x.encargo_id))
+      const deOtro = new Set(((data ?? []) as { id: string; periodo_id: string | null }[]).filter((x) => x.periodo_id !== periodo.id).map((x) => x.id))
+      l = l.filter((x) => !deOtro.has(x.encargo_id)); e = e.filter((x) => x.periodo_id === periodo.id)
+    }
     setLineas(l); setEncs(e); setEtapas(et)
     const ids = l.map((x) => x.encargo_id)
     const [m, n] = await Promise.all([materialDeEncargos(ids), notasProduccion(ids)])
     setMats(m); setNotas(n)
-  }, [tienda])
+  }, [tienda, periodo])
   React.useEffect(() => { cargar().catch((x) => setErr(mensajeError(x))) }, [cargar])
   useTiempoReal(tienda?.id, () => cargar().catch(() => {}))
 

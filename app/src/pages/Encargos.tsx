@@ -478,7 +478,7 @@ export function Encargos() {
           )
         })}
         {hayFiltro && <button onClick={() => setP({ q: null, f: null })} className="text-fg-3 underline-offset-2 hover:text-fg hover:underline">Limpiar todo</button>}
-        {!periodo && <span>· sin periodo activo: se muestran todos</span>}
+        {!periodo && <span>· sin {min(vocab.periodo)} activ{gr.o('periodo')}: se muestran todos</span>}
         {desde && (
           <span className="inline-flex h-6 items-center gap-1.5 rounded-sm bg-bg-4 px-2 text-fg-2">
             Desde el panel: <span className="font-medium text-fg">{desde}</span> ({visibles.length})

@@ -15,6 +15,7 @@ type CampoMini = { clave: string; etiqueta: string; entidad: string; tipo: strin
 /** Ajustes → Guía de medidas: tabla de referencia, reglas de sugerencia e importación. */
 export function AjustesGuia() {
   const { tienda, recargar, gr } = useAuth()
+  const P = gr.con('periodo', 'el'), Pdel = gr.con('periodo', 'del')
   const aj = (tienda?.ajustes ?? {}) as Record<string, unknown>
   const amb = useAmbito('guia_medidas')
   // La del periodo elegido si la tiene; si no, se parte de la de la tienda
@@ -71,8 +72,8 @@ export function AjustesGuia() {
       <div className="flex flex-wrap items-center gap-3">
         <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="guia_medidas" />
         {amb.periodo && (amb.propio == null
-          ? <span className="text-sm text-fg-3">Este periodo usa la guía de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>
-          : <Button size="sm" variant="ghost" onClick={() => setQuitarPropia(true)}>Quitar la guía propia del periodo</Button>)}
+          ? <span className="text-sm text-fg-3">{gr.Con('periodo', 'este')} usa la guía de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>
+          : <Button size="sm" variant="ghost" onClick={() => setQuitarPropia(true)}>Quitar la guía propia {Pdel}</Button>)}
       </div>
       <Bloque titulo="Cómo funciona">
         <div className="flex flex-col gap-1">
@@ -157,8 +158,8 @@ export function AjustesGuia() {
 
       <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={guardar} onDescartar={() => { setG(inicial); setErr(null) }} />
 
-      <Dialog open={quitarPropia} onOpenChange={setQuitarPropia} title="Quitar la guía propia del periodo"
-        description="El periodo vuelve a usar la guía de la tienda y su tabla propia se borra."
+      <Dialog open={quitarPropia} onOpenChange={setQuitarPropia} title={`Quitar la guía propia ${Pdel}`}
+        description={`${P.charAt(0).toUpperCase() + P.slice(1)} vuelve a usar la guía de la tienda y su tabla propia se borra.`}
         actions={[{ label: 'Quitar', variant: 'danger', onClick: async () => { setQuitarPropia(false); await ponerAjustePeriodo(amb.periodo!.id, 'guia_medidas', null); await amb.recargarPeriodos(); await recargar(); setOk('El periodo vuelve a usar la guía de la tienda') } }]} />
       <Dialog open={importar !== null} onOpenChange={(o) => { if (!o) { setImportar(null); setImpErr(null) } }} error={impErr} title="Pegar desde hoja de cálculo"
         description="Copia la tabla con su cabecera: una fila por valor y una columna por medida, o al revés. Los nombres de las medidas deben coincidir con los de Ajustes → Datos que guardáis."

@@ -91,7 +91,7 @@ export function AjustesFicha() {
     <Pagina titulo={`Hoja ${gr.con('encargo', 'del')}`} ayuda={`Lo que sale al pulsar «Imprimir ficha» en cada ${vocab.encargo.toLowerCase()} (también en PDF o como texto).`} />
     <Bloque titulo="Contenido">
       <SelectorAmbito periodos={amb.periodos} ambito={amb.ambito} onCambio={(a) => confirmarSalida(() => amb.setAmbito(a))} clave="ficha" />
-      {amb.periodo && amb.propio == null && <span className="text-sm text-fg-3">Este periodo usa la ficha de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>}
+      {amb.periodo && amb.propio == null && <span className="text-sm text-fg-3">{gr.Con('periodo', 'este')} usa la ficha de la tienda. Si la cambias y guardas, tendrá la suya propia.</span>}
       <div className="flex flex-col gap-1.5">
         <span className="text-sm text-fg-3">«# » título · «## » sección · los bloques van solos en su línea. Pulsa un marcador para insertarlo.</span>
         <div className="flex flex-wrap gap-1">
@@ -115,9 +115,9 @@ export function AjustesFicha() {
         </div>
       </div>
       <BarraGuardar sucio={sucio} busy={busy} ok={ok} err={err} onGuardar={() => guardar(texto)} onDescartar={() => setTexto(guardado ?? (amb.periodo ? deTienda ?? defecto : defecto))}
-        extra={guardado != null && <Button variant="ghost" onClick={() => setConfirmarQuitar(true)}>{amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}</Button>} />
-      <Dialog open={confirmarQuitar} onOpenChange={setConfirmarQuitar} title={amb.periodo ? 'Quitar la ficha propia del periodo' : 'Volver a la ficha por defecto'}
-        description={amb.periodo ? 'El periodo vuelve a usar la ficha de la tienda y la suya se borra.' : 'Se borra la ficha personalizada de la tienda y se usa la de por defecto.'}
+        extra={guardado != null && <Button variant="ghost" onClick={() => setConfirmarQuitar(true)}>{amb.periodo ? `Quitar la ficha propia ${gr.con('periodo', 'del')}` : 'Volver a la ficha por defecto'}</Button>} />
+      <Dialog open={confirmarQuitar} onOpenChange={setConfirmarQuitar} title={amb.periodo ? `Quitar la ficha propia ${gr.con('periodo', 'del')}` : 'Volver a la ficha por defecto'}
+        description={amb.periodo ? `${gr.Con('periodo', 'el')} vuelve a usar la ficha de la tienda y la suya se borra.` : 'Se borra la ficha personalizada de la tienda y se usa la de por defecto.'}
         actions={[{ label: 'Confirmar', variant: 'danger', onClick: () => { setConfirmarQuitar(false); guardar(null) } }]} />
     </Bloque>
     </>

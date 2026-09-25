@@ -7,6 +7,11 @@ import type { Comentario, EncargoEstado, Etapa, Hito, TipoHito } from '@/lib/typ
  * Encargos de la tienda. Con periodo: los de ese periodo y, además, todo lo que sigue abierto
  * de periodos anteriores (lo abierto se ve siempre; el periodo solo filtra lo terminado).
  */
+/** Ajuste de la tienda: ver solo lo del periodo activo (también lo abierto de otros periodos queda oculto) */
+let soloPeriodoActivo = false
+export function fijarSoloPeriodoActivo(v: boolean) { soloPeriodoActivo = v }
+export function esSoloPeriodoActivo() { return soloPeriodoActivo }
+
 export async function listarEncargos(
   tiendaId: string,
   opts: { periodoId?: string | null; estado?: 'ACTIVO' | 'ANULADO' } = {},
@@ -17,7 +22,7 @@ export async function listarEncargos(
     .eq('tienda_id', tiendaId)
     .eq('estado', opts.estado ?? 'ACTIVO')
   // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
-  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId) : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
+  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' || soloPeriodoActivo ? q.eq('periodo_id', opts.periodoId) : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
   const { data, error } = await q.order('numero', { ascending: false })
   if (error) throw error
   return (data ?? []) as EncargoEstado[]
@@ -163,6 +168,10 @@ export async function resolverIncidencia(encargoId: string, nota?: string) {
   if (error) throw error
 }
 
+export async function cambiarFechaCheck(encargoId: string, clave: string, fecha: Date) {
+  const { error } = await supabase.rpc('cambiar_fecha_check', { p_encargo: encargoId, p_clave: clave, p_fecha: fecha.toISOString() })
+  if (error) throw error
+}
 export async function cambiarFechaHito(hitoId: string, fecha: Date) {
   const { error } = await supabase.rpc('cambiar_fecha_hito', { p_hito: hitoId, p_fecha: fecha.toISOString() })
   if (error) throw error
