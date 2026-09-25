@@ -39,6 +39,7 @@ export async function listarEnvios(encargoId: string) {
 export async function enviarCorreo(m: { encargo_id: string; plantilla_id: string | null; asunto: string; texto: string; nombre: string }): Promise<'ok' | 'sin_configurar'> {
   const { data, error } = await supabase.functions.invoke('enviar-correo', { body: m })
   if (error) {
+    if ((error as Error).name === 'SoloLectura') throw error
     const ctx = (error as { context?: Response }).context
     let msg = ''
     try { msg = String(((await ctx?.json()) as { error?: string } | undefined)?.error ?? '') } catch { /* sin cuerpo */ }

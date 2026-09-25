@@ -62,3 +62,10 @@ const storageFrom = supabase.storage.from.bind(supabase.storage)
   for (const m of ['upload', 'remove', 'update', 'move'] as const) (s as unknown as Record<string, unknown>)[m] = () => bloqueada()
   return s
 }) as typeof supabase.storage.from
+
+// Las funciones del servidor (p. ej. enviar un correo) tampoco se llaman en solo lectura
+const invokeOriginal = supabase.functions.invoke.bind(supabase.functions)
+;(supabase.functions as unknown as { invoke: unknown }).invoke = ((...args: unknown[]) =>
+  soloLectura
+    ? Promise.resolve({ data: null, error: Object.assign(new Error(soloLectura), { name: 'SoloLectura' }) })
+    : (invokeOriginal as (...a: unknown[]) => unknown)(...args)) as typeof supabase.functions.invoke
