@@ -691,11 +691,12 @@ export function Encargo() {
         description={`No se borra: queda en «Anulad${gr.o('encargo', true)}» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
         actions={[{ label: impacto || impactoErr ? 'Anular' : 'Comprobando…', variant: 'danger', disabled: !impacto && !impactoErr, onClick: () => hacer(async () => {
           // Material y anulación en una sola operación del servidor (o todo o nada)
-          await anularEncargo(e.id, nota, recibidoMat.length || impactoErr ? devolverMat : null)
+          // Lo que queda por hacer se guarda con la anulación (con quién la hizo): se ve en «Anulados»
+          const pend = pendientesAlAnular(impacto)
+          const motivo = [nota.trim(), pend.length ? `Quedó por hacer: ${pend.join(' · ')}` : ''].filter(Boolean).join(' · ')
+          await anularEncargo(e.id, motivo, recibidoMat.length || impactoErr ? devolverMat : null)
         }, () => {
           const manual = pendientesAlAnular(impacto)
-          // Lo que queda por hacer se guarda en el hilo (con quién lo anuló), no solo en el aviso
-          if (manual.length) comentar(e.id, `Al anular quedó por hacer: ${manual.join(' · ')}`).catch(() => {})
           if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulad${gr.o('encargo')}. Queda por hacer a mano: ${manual.join(' · ')}` })
           nav('/encargos')
         }) }]}>
