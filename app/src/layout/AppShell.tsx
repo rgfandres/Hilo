@@ -7,6 +7,7 @@ import {
 } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { BuscadorGlobal } from '@/components/BuscadorGlobal'
+import { AvisoPeriodo, SelectorPeriodo } from '@/components/SelectorPeriodo'
 import { listarEncargos } from '@/data/encargos'
 import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, listarPedidos, pedidoAbierto, propuestaPedido, restosPendientes } from '@/data/materiales'
 import { ajustesHoja } from '@/data/produccion'
@@ -46,7 +47,7 @@ function Item({ to, icon, children, count, title }: { to: string; icon: React.Re
 }
 
 export function AppShell() {
-  const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, rol, verComo, setVerComo, nombresRol, gr } = useAuth()
+  const { tienda, tiendas, setTienda, session, signOut, vocab, periodo, periodoActivo, rol, verComo, setVerComo, nombresRol, gr } = useAuth()
   const loc = useLocation()
   const logo = ((tienda?.ajustes as Record<string, unknown> | undefined)?.logo_url as string | undefined) ?? null
   const [cuenta, setCuenta] = React.useState<{ encargos: number; atascados: number; logistica: number; porTipo: Record<string, number> }>({ encargos: 0, atascados: 0, logistica: 0, porTipo: {} })
@@ -213,7 +214,7 @@ export function AppShell() {
               </button>
             </div>
           )}
-          {periodo && <div className="px-2 pt-0.5 text-sm text-fg-3" title="Periodo activo">{periodo.nombre}</div>}
+          <SelectorPeriodo />
         </div>
         <button onClick={() => setBuscar(true)} className="mb-2 flex h-7 items-center gap-2 rounded-sm border border-border bg-bg px-2 text-fg-3 hover:border-border-strong">
           <IconSearch size={14} /><span className="flex-1 text-left">Buscar</span><span className="text-xs">{esMac ? '⌘K' : 'Ctrl K'}</span>
@@ -257,7 +258,7 @@ export function AppShell() {
         <button onClick={() => setMenu(true)} aria-label="Abrir menú" aria-expanded={menu} className="flex h-9 w-9 items-center justify-center rounded-sm hover:bg-bg-4"><IconMenu2 size={20} /></button>
         {logo ? <img src={logo} alt="" className="h-6 w-6 shrink-0 rounded-sm object-contain" /> : <span className="h-4 w-4 shrink-0 rounded-sm" style={{ background: 'var(--accent)' }} />}
         <span className="min-w-0 flex-1 truncate text-md font-semibold">{tienda?.nombre ?? 'Hilo'}</span>
-        {periodo && <span className="text-sm text-fg-3">{periodo.nombre}</span>}
+        {periodo && <button onClick={() => setMenu(true)} className={cn('text-sm', periodo.id !== periodoActivo?.id ? 'font-medium text-warn-fg' : 'text-fg-3')}>{periodo.nombre}</button>}
         <button onClick={() => setBuscar(true)} aria-label="Buscar" className="flex h-9 w-9 items-center justify-center rounded-sm hover:bg-bg-4"><IconSearch size={20} /></button>
       </div>
 
@@ -283,6 +284,7 @@ export function AppShell() {
             <span className="h-1.5 w-1.5 rounded-full bg-danger" /> Sin conexión: lo que cambies no se guardará hasta que vuelva.
           </div>
         )}
+        <AvisoPeriodo />
         <Outlet />
       </main>
 

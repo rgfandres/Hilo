@@ -17,8 +17,14 @@ interface AuthState {
   tiendas: Tienda[]
   tienda: Tienda | null
   rol: Rol | null
-  /** Periodo activo de la tienda (listas e indicadores dependen de él) */
+  /** Periodo con el que se trabaja: el activo de la tienda o el que esta persona está mirando */
   periodo: Periodo | null
+  /** Periodo activo de la tienda (el mismo para todos) */
+  periodoActivo: Periodo | null
+  /** Mirar otro periodo solo en esta sesión (null = volver al activo). No cambia el de los demás */
+  verPeriodo: (p: Periodo | null) => void
+  /** Vuelve a leer el periodo activo (tras activarlo o crearlo) */
+  recargarPeriodo: () => Promise<void>
   esProveedor: boolean
   /** Tiendas en las que la persona es proveedor (portal) y no miembro */
   tiendasProveedor: Set<string>
@@ -161,7 +167,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('visibilitychange', volver)
     return () => document.removeEventListener('visibilitychange', volver)
   }, [tienda, cargarPeriodo])
-  const periodo = periodoDe && periodoDe.tiendaId === tienda?.id ? periodoDe.p : null
+  const periodoActivo = periodoDe && periodoDe.tiendaId === tienda?.id ? periodoDe.p : null
+  // Otro periodo que esta persona mira (solo en esta pestaña; al cerrar, vuelve al activo)
+  const [mirando, setMirando] = React.useState<{ tiendaId: string; p: Periodo } | null>(() => {
+    try { const x = sessionStorage.getItem('hilo_ver_periodo'); return x ? JSON.parse(x) : null } catch { return null }
+  })
+  const mirandoAqui = mirando && mirando.tiendaId === tienda?.id && mirando.p.id !== periodoActivo?.id ? mirando.p : null
+  const periodo = mirandoAqui ?? periodoActivo
   const periodoListo = !tienda || periodoDe?.tiendaId === tienda.id
 
   // Acento y formato local por tienda
@@ -189,7 +201,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   contextoErrores(tienda?.ajustes as Record<string, unknown> | undefined)
   const esProveedor = !rolReal && !!tienda && tiendasProveedor.has(tienda.id)
   const value: AuthState = {
-    loading: loading || !periodoListo, session, tiendas, tienda, rol, periodo, esProveedor, tiendasProveedor,
+    loading: loading || !periodoListo, session, tiendas, tienda, rol, periodo, periodoActivo, esProveedor, tiendasProveedor,
+    verPeriodo: (p) => {
+      const v = p && tienda && p.id !== periodoActivo?.id ? { tiendaId: tienda.id, p } : null
+      setMirando(v)
+      try { if (v) sessionStorage.setItem('hilo_ver_periodo', JSON.stringify(v)); else sessionStorage.removeItem('hilo_ver_periodo') } catch { /* solo en memoria */ }
+    },
+    recargarPeriodo: async () => { if (tienda) await cargarPeriodo(tienda.id) },
     vocab: vocabDe(tienda?.ajustes),
     gr: gramatica(vocabDe(tienda?.ajustes), generosDe(tienda?.ajustes, vocabDe(tienda?.ajustes))),
     nombresRol: rolesDe(tienda?.ajustes),
