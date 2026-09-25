@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
 import { haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
 import { LlegadasMaterial } from '@/pages/Logistica'
-import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
+import { ajustesMaterial, avisoStock, lineasDeTienda, listarMateriales, nombreMaterial, nombresMaterialPorEncargo, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
 import type { EncargoEstado, Etapa } from '@/lib/types'
 import { PageHeader } from '@/layout/AppShell'
@@ -100,6 +100,7 @@ export function Encargos() {
 
   const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
   const [matsEst, setMatsEst] = React.useState<MaterialEstado[]>([])
+  const [matNombres, setMatNombres] = React.useState<Record<string, string>>({})
   const filtroMat = params.get('m')
   // Cada lectura lleva número: si llega una más vieja después de otra más nueva, se descarta
   const nLectura = React.useRef(0)
@@ -116,9 +117,18 @@ export function Encargos() {
     setRows(r.filter(delaVista)); setAnulados(a.filter(delaVista)); setEtapas(tipoVista ? e.filter((x) => x.tipo_encargo_id === tipoVista) : e.filter((x) => !aparte.includes(x.tipo_encargo_id))); setPs(p); setCargado(true)
     if (ajustesMaterial(tienda.ajustes as Record<string, unknown>).activo) {
       const [l, m] = await Promise.all([lineasDeTienda(tienda.id).catch(() => []), listarMateriales(tienda.id).catch(() => [])])
+      if (n !== nLectura.current) return
       setLineasMat(l); setMatsEst(m)
+      // Columnas que, vacías, enseñan el material asignado: hacen falta también las líneas ya recibidas
+      if (p.some((pc) => pc.entidad === 'ENCARGO' && pc.campos.some((c) => c.desde_material))) {
+        const nm = await nombresMaterialPorEncargo(tienda.id, r.map((x) => x.id)).catch(() => ({}))
+        if (n !== nLectura.current) return
+        setMatNombres(nm)
+      }
     }
-    setMotivos(await listarAnulaciones(a.map((x) => x.id)))
+    const mot = await listarAnulaciones(a.map((x) => x.id))
+    if (n !== nLectura.current) return
+    setMotivos(mot)
   }, [tienda, periodo, delaVista, tipoVista, aparte])
 
   React.useEffect(() => { recargar().catch((e) => setErr(mensajeError(e))) }, [recargar])
@@ -147,11 +157,12 @@ export function Encargos() {
     if (!activo(e)) return null
     const l = lineasMat.find((x) => x.encargo_id === e.id && x.estado === 'PENDIENTE')
     if (!l) return null
+    if (conf?.some((b) => b.tipo === 'pedir' && b.solo_falta) && !pideYa(e)) return null
     const m = matsEst.find((x) => x.id === l.material_id)
     const bajo = m && avisoStock(m).nivel
     return (
       <button className={cn('inline-flex shrink-0 items-center rounded-sm px-1 text-xs font-normal', bajo ? 'bg-danger-bg text-danger-fg' : 'bg-warn-bg text-warn-fg')}
-        title={`${nombreMaterial(m)}: ver ${min(vocab.encargos)} que lo esperan`}
+        title={`${nombreMaterial(m)}: ver ${min(vocab.encargos)} que l${gr.o('material')} esperan`}
         onClick={(x) => { x.stopPropagation(); setP({ b: 'mat-pedir', m: l.material_id, q: null, f: null }) }}>
         {bajo ? 'stock bajo · pedir' : 'pedir'}
       </button>
@@ -180,6 +191,7 @@ export function Encargos() {
       case 'anulados': return false
     }
   }
+  const nPedir = rows.filter((r) => activo(r) && matPedir.has(r.id)).length
   const tabsConf = conf?.map((b) => {
     const n = b.tipo === 'anulados' ? anulados.length : rows.filter((r) => enConf(b, r)).length
     return { key: b.key, label: b.nombre, count: n, grupo: b.grupo?.trim() || null, aviso: !!b.accionable && n > 0,
@@ -198,7 +210,7 @@ export function Encargos() {
           aviso: !e.es_espera && aqui.some((r) => miTrabajo(r, rol)), title: `Ahora mismo en «${e.nombre}»${e.es_espera ? ' (espera)' : ''}` }
       })
       .filter((t) => t.count > 0 || bandeja === t.key),
-    ...(matPedir.size || bandeja === 'mat-pedir' ? [{ key: 'mat-pedir', label: `Pedir ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matPedir.has(r.id)).length, aviso: rol === 'ADMIN' || rol === 'OPERATIVO', title: `Llevan ${min(vocab.material)} que aún no se ha pedido ni recibido`, grupo: finGrupo }] : []),
+    ...(nPedir || bandeja === 'mat-pedir' ? [{ key: 'mat-pedir', label: `Pedir ${min(vocab.material)}`, count: nPedir, aviso: nPedir > 0 && (rol === 'ADMIN' || rol === 'OPERATIVO'), title: `Llevan ${min(vocab.material)} que aún no se ha pedid${gr.o('material')} ni recibid${gr.o('material')}`, grupo: finGrupo }] : []),
     ...(matEspera.size || bandeja === 'mat-espera' ? [{ key: 'mat-espera', label: `Esperando ${min(vocab.material)}`, count: rows.filter((r) => activo(r) && matEspera.has(r.id)).length, title: `${vocab.material} pedid${gr.o('material')} que aún no ha llegado`, grupo: finGrupo }] : []),
     { key: 'revisar', label: 'Revisar', count: revisar.length, tone: 'danger' as const, aviso: revisar.length > 0, title: CRITERIO_REVISAR, grupo: finGrupo },
     ...(bloqueados.length || bandeja === 'bloqueados' ? [{ key: 'bloqueados', label: `Bloquead${gr.o('encargo', true)}`, count: bloqueados.length, title: 'El siguiente paso tiene una condición que bloquea: se puede resolver desde aquí', grupo: finGrupo }] : []),
@@ -335,7 +347,13 @@ export function Encargos() {
     try {
       const hito = await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: (e.puertas_pendientes ?? []).some((p) => !p.dura) })
       avisar({ tipo: 'ok', texto: `${num3(e)} · ${e.cliente_nombre} → ${e.etapa_siguiente_nombre}`,
-        accion: { label: 'Deshacer', onClick: () => { deshacerUltimoHito(e.id, hito).then(recargar).catch((x) => avisar({ tipo: 'error', texto: mensajeError(x) })) } } })
+        accion: { label: 'Deshacer', onClick: () => {
+          enCola.current++
+          cola.current = cola.current.then(async () => {
+            try { await deshacerUltimoHito(e.id, hito) } catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) }
+            finally { enCola.current--; if (enCola.current === 0) await recargar().catch(() => {}) }
+          })
+        } } })
       const sug = plantillasMsg.find((p) => p.etapa_id === e.etapa_siguiente_id)
       if (sug) avisar({ tipo: 'info', texto: `¿Avisar a ${e.cliente_nombre}? «${sug.nombre}»`, accion: { label: 'Avisar', onClick: () => nav(`/encargos/${e.id}?avisar=${sug.id}`) } })
     } catch (ex) {
@@ -462,7 +480,7 @@ export function Encargos() {
         <div className="flex flex-wrap items-center gap-2 border-b border-border-light px-4 py-1.5 text-sm">
           <span className="text-fg-2">{String(aj.hoja_nombre ?? 'Hoja de producción')} por {min(vocab.producto)}:</span>
           {porProductoHoja.map(([id, nombre, n]) => (
-            <Button key={id} size="sm" onClick={() => nav(`/produccion?p=${encodeURIComponent(id)}&enviar=1`)}>🖨️ {nombre} ({n})</Button>
+            <Button key={id} size="sm" onClick={() => nav(`/produccion?p=${encodeURIComponent(id)}&enviar=1&ids=${base.filter((e) => activo(e) && e.etapa_siguiente_id && etProd.has(e.etapa_siguiente_id) && (e.producto_id ?? '_') === id).map((e) => e.id).join(',')}`)}>🖨️ {nombre} ({n})</Button>
           ))}
         </div>
       )}
@@ -547,7 +565,7 @@ export function Encargos() {
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{e.cliente_nombre}</span>
                             {e.revisar_manual && <IconAlertTriangle size={13} className="shrink-0 text-warn-fg" aria-label={`Marcad${gr.o('encargo')} para revisar`} />}
-                            {(e.estancado || e.atascado) && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg"><IconClock size={11} />{e.atascado ? e.dias_en_etapa : Math.floor((Date.now() - new Date(e.actualizado_en).getTime()) / 864e5)} d</span>}
+                            {(e.estancado || e.atascado) && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg"><IconClock size={11} />{e.atascado || aj.estancado_por === 'pasos' ? e.dias_en_etapa ?? 0 : Math.floor((Date.now() - new Date(e.actualizado_en).getTime()) / 864e5)} d</span>}
                             {chipMat(e)}
                             {e.n_comentarios > 0 && <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-fg-3" title={`${e.n_comentarios} comentario${e.n_comentarios === 1 ? '' : 's'}`}><IconMessage size={12} />{e.n_comentarios}</span>}
                           </span>
@@ -557,7 +575,7 @@ export function Encargos() {
                         {ver('producto') && <Td className="max-w-[160px] truncate" title={e.producto_nombre ?? undefined}>{e.producto_nombre ?? <span className="text-fg-3">—</span>}</Td>}
                         {cols.filter((c) => ver('c:' + c.clave)).map((c) => {
                           let v = formatearValor(c, e.datos?.[c.clave])
-                          if (v === '—' && c.desde_material) v = lineasMat.filter((l) => l.encargo_id === e.id).map((l) => matsEst.find((m) => m.id === l.material_id)).filter(Boolean).map((m) => nombreMaterial(m)).join(', ') || '—'
+                          if (v === '—' && c.desde_material) v = matNombres[e.id] || '—'
                           return <Td key={c.clave} className={cn('max-w-[160px] truncate', v === '—' ? 'text-fg-3' : 'text-fg-2')} title={v}>{v}</Td>
                         })}
                         {ver('etapa') && (
@@ -604,7 +622,7 @@ export function Encargos() {
         </div>
       )}
       {sel && vista === 'lista' && (
-        <AccionLote seleccion={visibles.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
+        <AccionLote seleccion={seleccionables.filter((x) => sel.has(x.id))} etapas={etapas} rol={rol} vocabEncargo={vocab.encargo} vocabEncargos={vocab.encargos}
           onTodos={() => setSel(new Set(seleccionables.map((v) => v.id)))} onSalir={() => setSel(null)} onHecho={() => recargar().catch(() => {})} />
       )}
       <Dialog open={!!confirmar} onOpenChange={(o) => !o && setConfirmar(null)}

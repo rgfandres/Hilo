@@ -70,6 +70,19 @@ export async function ajustarStock(materialId: string, nuevo: number, motivo: st
 export async function lineasDeEncargo(encargoId: string): Promise<LineaMaterial[]> {
   return ok(await supabase.from('encargo_material').select('*, consumo:consumo_id(fecha), material:material_id(tipo,variante)').eq('encargo_id', encargoId).order('creado_en')) as LineaMaterial[]
 }
+/** Nombre del material de cada encargo (todas sus líneas, también las recibidas), para columnas de la lista */
+export async function nombresMaterialPorEncargo(tiendaId: string, encargoIds: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string[]> = {}
+  for (let i = 0; i < encargoIds.length; i += 150) {
+    const { data, error } = await supabase.from('encargo_material').select('encargo_id, material:material_id(tipo,variante)')
+      .eq('tienda_id', tiendaId).in('encargo_id', encargoIds.slice(i, i + 150)).order('creado_en')
+    if (error) throw error
+    for (const l of (data ?? []) as unknown as { encargo_id: string; material: { tipo: string; variante: string } | null }[]) {
+      if (l.material) (out[l.encargo_id] ??= []).push(nombreMaterial(l.material))
+    }
+  }
+  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [...new Set(v)].join(', ')]))
+}
 /** Líneas de todos los encargos activos de la tienda (para las bandejas) */
 export async function lineasDeTienda(tiendaId: string): Promise<LineaMaterial[]> {
   // Solo encargos en curso (ni anulados ni terminados)
@@ -108,8 +121,8 @@ export async function crearPedido(tiendaId: string, proveedorId: string | null, 
 export async function cerrarLineaPedido(lineaId: string, motivo?: string) {
   ok(await supabase.rpc('cerrar_linea_pedido', { p_linea: lineaId, p_motivo: motivo ?? null }))
 }
-export async function recibirLinea(lineaId: string, cantidad: number, asignar: boolean): Promise<{ stock: number; asignados: number }> {
-  return ok(await supabase.rpc('recibir_linea', { p_linea: lineaId, p_cantidad: cantidad, p_asignar: asignar })) as { stock: number; asignados: number }
+export async function recibirLinea(lineaId: string, cantidad: number, asignar: boolean): Promise<{ stock: number; asignados: number; sin_asignar?: number }> {
+  return ok(await supabase.rpc('recibir_linea', { p_linea: lineaId, p_cantidad: cantidad, p_asignar: asignar })) as { stock: number; asignados: number; sin_asignar?: number }
 }
 
 export async function listarRestos(tiendaId: string): Promise<Resto[]> {

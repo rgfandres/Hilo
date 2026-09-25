@@ -574,7 +574,7 @@ export function DialogoRecibir({ linea, unidad, onClose, onHecho }: { linea: Lin
         try {
           const r = await recibirLinea(linea.id, x, asignar)
           const pasan = asignar && avanzar ? await avanzarPorMaterial(vivos.map((e) => e.id)).catch(() => 0) : 0
-          avisar({ tipo: 'ok', texto: `Recibido ${cant(x, unidad)}${r.asignados ? ` · asignado a ${r.asignados} ${r.asignados === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : ''}${pasan ? ` · ${pasan} pasan al paso siguiente (en su ficha puedes avisar ${gr.con('cliente', 'al')})` : ''} · stock ${cant(r.stock, unidad)}` })
+          avisar({ tipo: 'ok', texto: `Recibido ${cant(x, unidad)}${r.asignados ? ` · asignado a ${r.asignados} ${r.asignados === 1 ? min(vocab.encargo) : min(vocab.encargos)}` : ''}${pasan ? ` · ${pasan} pasan al paso siguiente (en su ficha puedes avisar ${gr.con('cliente', 'al')})` : ''}${r.sin_asignar ? ` · ${r.sin_asignar} sin asignar: no alcanza, esperan a que llegue el resto` : ''} · stock ${cant(r.stock, unidad)}`, persistente: !!r.sin_asignar })
           onClose(); await onHecho(Number(r.stock))
         } catch (e) { setErr(mensajeError(e)) }
       } }]}>

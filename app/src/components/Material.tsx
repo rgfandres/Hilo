@@ -69,8 +69,10 @@ export function SelectorMaterial({ materiales, valor, onCambio, onCreado, puedeC
 }
 
 /** Sección «Material» en la ficha del encargo: qué lleva, en qué punto está y recibirlo (consume del stock). */
-export function MaterialesEncargo({ encargo, editable, onCambio, refresco, sugerido }: {
+export function MaterialesEncargo({ encargo, editable, onCambio, refresco, sugerido, puedeDeshacer = true }: {
   refresco?: Date
+  /** false si ya pasó del paso que pide el material: devolverlo se hace volviendo atrás (se pregunta si está cortado) */
+  puedeDeshacer?: boolean
   /** De la ficha técnica del producto: tipo de material y consumo que se proponen al añadir */
   sugerido?: { tipo: string | null; consumo: number | null } | null
   encargo: { id: string; tienda_id: string; numero: number; serie?: string | null; estado: string; etapa_siguiente_nombre?: string | null }
@@ -111,6 +113,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
   }
   async function anadir() {
     if (!nuevo?.material_id) { setErr(`Elige ${min(vocab.material)} y variante`); return }
+    if (!(Number(nuevo.cantidad) > 0)) { setErr('Pon la cantidad'); return }
     await hacer('nuevo', async () => { await anadirLinea(encargo.tienda_id, encargo.id, nuevo.material_id, Number(nuevo.cantidad || 0)); setNuevo(null) })
   }
 
@@ -132,11 +135,17 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
             </div>
             {!anulado && (
               <div className="flex flex-wrap gap-1.5">
-                {l.estado === 'PENDIENTE' && Number(m?.stock ?? 0) < Number(l.cantidad) ? null
-                  : l.estado !== 'RECIBIDO'
-                  ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={l.estado === 'PENDIENTE' ? `Usa lo que hay en stock para ${gr.con('encargo', 'este')} (sin pedirlo)` : `Resta del stock y cuenta como recibido para ${gr.con('encargo', 'este')}`}>{l.estado === 'PENDIENTE' ? 'Usar del stock' : 'Recibido'}</Button>
-                  : <Button size="sm" variant="ghost" cargando={busy === l.id} onClick={() => hacer(l.id, () => desasignarMaterial(l.id))} title="Devuelve el consumo al stock">Deshacer recibido</Button>}
-                {puedeEditar && l.estado !== 'RECIBIDO' && <Button size="sm" variant="ghost" onClick={() => hacer(l.id, () => quitarLinea(l.id))}>Quitar</Button>}
+                {l.estado === 'RECIBIDO'
+                  ? (puedeDeshacer
+                    ? <Button size="sm" variant="ghost" cargando={busy === l.id} onClick={() => hacer(l.id, () => desasignarMaterial(l.id))} title="Devuelve el consumo al stock">Deshacer recibido</Button>
+                    : <span className="text-sm text-fg-3">Para devolverl{gr.o('material')} al stock, vuelve a un paso anterior en «Pasos».</span>)
+                  : Number(l.cantidad) > 0 && Number(m?.stock ?? 0) >= Number(l.cantidad)
+                    ? <Button size="sm" cargando={busy === l.id} onClick={() => recibir(l)} title={`Usa lo que hay en stock para ${gr.con('encargo', 'este')}${l.estado === 'PEDIDO' ? ' (lo pedido llegará igual y quedará en stock)' : ' (sin pedirlo)'}`}>Usar del stock</Button>
+                    : l.estado === 'PEDIDO' && <span className="text-sm text-fg-3">Se da por recibid{gr.o('material')} al apuntar la llegada en <Link to="/materiales?v=pedidos" className="underline">Pedidos</Link>.</span>}
+                {puedeEditar && l.estado !== 'RECIBIDO' && <Button size="sm" variant="ghost" onClick={() => hacer(l.id, async () => {
+                  await quitarLinea(l.id)
+                  if (l.estado === 'PEDIDO') avisar({ tipo: 'info', texto: `Quitad${gr.o('material')}. Lo que ya estaba pedido llegará igual y quedará en stock.` })
+                })}>Quitar</Button>}
               </div>
             )}
             {av.nivel && m && (

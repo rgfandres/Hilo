@@ -4,7 +4,7 @@ import * as RTabs from '@radix-ui/react-tabs'
 import { useAuth } from '@/auth/AuthProvider'
 import {
   anularEncargo, cambiarFechaCheck, cambiarFechaHito, comentar, crearHito, deshacerUltimoHito, listarAnulaciones, listarComentarios,
-  editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia,
+  editarNotaHito, impactoAnular, type ImpactoAnular, listarNotasCampo, ponerNotaCampo, type NotaCampo as TNota, listarEtapas, listarHitos, marcarCheck, marcarRevisar, mensajeError, obtenerEncargo, quitarRevisar, recuperarEncargo, resolverIncidencia, volverAEtapa, materialAlAnular,
   type Anulacion,
 } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
@@ -23,7 +23,7 @@ import { MaterialesEncargo } from '@/components/Material'
 import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
-import { ajustesMaterial, desasignarMaterial, lineasDeEncargo, nombreMaterial } from '@/data/materiales'
+import { ajustesMaterial, lineasDeEncargo, nombreMaterial } from '@/data/materiales'
 import { Button, Dialog, Popover, Tag, Field, SectionLabel, Input, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, aHoraTienda, deHoraTienda, diasEntre } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
@@ -76,6 +76,7 @@ export function Encargo() {
   const [puertasTipo, setPuertasTipo] = React.useState<PuertaDef[]>([])
   // Volver atrás: si hay que decidir qué pasa con el material recibido
   const [matVolver, setMatVolver] = React.useState<{ ids: string[] } | null>(null)
+  const [matAnul, setMatAnul] = React.useState<boolean | null | undefined>(undefined)
   const [devolver, setDevolver] = React.useState<'si' | 'no'>('si')
   // Si aún no se había mandado a producción (cortar), el material vuelve solo al stock, sin preguntar
   const [matAuto, setMatAuto] = React.useState(false)
@@ -171,8 +172,13 @@ export function Encargo() {
     if (i.n_mensajes > 0) out.push(`avisar ${gr.con('cliente', 'al')} (ya se le escribió ${i.n_mensajes} ${i.n_mensajes === 1 ? 'vez' : 'veces'})`)
     return out
   }
+  // ¿Pasó alguna vez por producción (aunque luego se volviera atrás)? Entonces el material puede estar cortado
+  // Primera etapa que pide el material: a partir de ahí, devolverlo es volver atrás
+  const primeraMatOrden = (() => { const o = etapas.filter((y) => puertasTipo.some((pu) => pu.etapa_destino_id === y.id && pu.tipo === 'MATERIAL')).map((y) => y.orden); return o.length ? Math.min(...o) : null })()
+  const pasoPorProduccion = hitos.some((h) => h.tipo === 'NORMAL' && etapas.find((y) => y.id === h.etapa_id)?.es_produccion)
   function abrir(m: Modal) {
-    if (m === 'anular' && e) { setImpacto(null); setImpactoErr(false); impactoAnular(e.id).then(setImpacto).catch(() => setImpactoErr(true)) }
+    if (m === 'anular' && e) { setImpacto(null); setImpactoErr(false); setDevolverMat(!pasoPorProduccion); impactoAnular(e.id).then(setImpacto).catch(() => setImpactoErr(true)) }
+    if (m === 'recuperar' && e) { setMatAnul(undefined); materialAlAnular(e.id).then(setMatAnul).catch(() => setMatAnul(null)) }
     setModal(m); setNota(''); setModalErr(null)
     if (m && typeof m === 'object' && 'fecha' in m) setFecha(aLocal(m.fecha.fecha))
     if (m && typeof m === 'object' && 'nota' in m) setNota(m.nota.nota ?? '')
@@ -203,7 +209,8 @@ export function Encargo() {
   async function abrirVolver(x: Etapa) {
     if (!e) return
     setDestino(x.clave); setNota(''); setModalErr(null); setMatVolver(null); setDevolver('si'); setMatAuto(false)
-    const conMat = etapas.filter((y) => puertasTipo.some((pu) => pu.etapa_destino_id === y.id && pu.tipo === 'MATERIAL'))
+    const pts = puertasTipo.length ? puertasTipo : await listarPuertas(etapas.map((y) => y.id)).catch(() => [] as PuertaDef[])
+    const conMat = etapas.filter((y) => pts.some((pu) => pu.etapa_destino_id === y.id && pu.tipo === 'MATERIAL'))
     const primeraMat = conMat.length ? Math.min(...conMat.map((y) => y.orden)) : null
     if (primeraMat != null && x.orden < primeraMat) {
       const ls = await lineasDeEncargo(e.id).catch(() => [])
@@ -211,8 +218,7 @@ export function Encargo() {
       if (rec.length) {
         setMatVolver({ ids: rec })
         // ¿Ya pasó por el paso de producción (p. ej. «Enviado a corte»)? Entonces puede estar cortada: se pregunta
-        const prod = etapas.filter((y) => y.es_produccion).map((y) => y.orden)
-        const yaEnProduccion = prod.length > 0 && e.etapa_actual_orden != null && e.etapa_actual_orden >= Math.min(...prod)
+        const yaEnProduccion = pasoPorProduccion
         setMatAuto(!yaEnProduccion); setDevolver(yaEnProduccion ? 'no' : 'si')
       }
     }
@@ -359,11 +365,11 @@ export function Encargo() {
           )}
 
           {!anulado && puedeAvisar && avisoVisible && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-bg-2 px-3 py-1.5 text-sm">
-              <span className="min-w-0 flex-1 text-fg-2">💬 ¿Avisar a {e.cliente_nombre}? <span className="text-fg-3">· {avisoVisible.nombre}</span></span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-tag-blue-fg/25 bg-tag-blue-bg px-3 py-2 text-sm text-tag-blue-fg">
+              <span className="min-w-0 flex-1">💬 ¿Avisar a {e.cliente_nombre}? <span className="opacity-75">· {avisoVisible.nombre}</span></span>
               <AvisarMenu cliente={cli} align="end" onElegir={(via) => { setMensaje({ inicial: avisoVisible.id, via }); setSugerencia(null) }}
-                trigger={({ toggle }) => <button type="button" className="font-medium text-fg underline underline-offset-2" onClick={toggle}>Avisar ▾</button>} />
-              <button type="button" className="px-1 text-fg-3 hover:text-fg" aria-label="Quitar aviso" title="Ahora no" onClick={quitarAviso}>✕</button>
+                trigger={({ toggle }) => <Button size="sm" variant="primary" onClick={toggle}>Avisar ▾</Button>} />
+              <button type="button" className="px-1 opacity-70 hover:opacity-100" aria-label="Quitar aviso" title="Ahora no" onClick={quitarAviso}>✕</button>
             </div>
           )}
 
@@ -492,7 +498,7 @@ export function Encargo() {
             </div>
           )}
 
-          {conMaterial && <MaterialesEncargo sugerido={fichaT ? { tipo: fichaT.material_tipo, consumo: fichaT.consumo } : null} refresco={ultima} encargo={e} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
+          {conMaterial && <MaterialesEncargo sugerido={fichaT ? { tipo: fichaT.material_tipo, consumo: fichaT.consumo } : null} refresco={ultima} encargo={e} puedeDeshacer={primeraMatOrden == null || e.etapa_actual_orden == null || e.etapa_actual_orden < primeraMatOrden} editable={rol !== 'LOGISTICA'} onCambio={() => cargar().catch(() => {})} />}
           <div className="flex-1" />
           {rol === 'ADMIN' && !anulado && <Button variant="danger" className="self-start" onClick={() => abrir('anular')}>Anular {min(vocab.encargo)}</Button>}
         </aside>
@@ -638,8 +644,7 @@ export function Encargo() {
         title={`¿Volver a «${etapas.find((x) => x.clave === destino)?.nombre ?? ''}»?`}
         description="Los pasos de después quedan deshechos y habrá que marcarlos otra vez. El hilo conserva todo lo anterior."
         actions={[{ label: 'Volver', variant: 'danger', disabled: !destino, onClick: () => hacer(async () => {
-          if (matVolver && devolver === 'si') for (const id of matVolver.ids) await desasignarMaterial(id)
-          await crearHito(e.id, destino, { tipo: 'REENTRADA', nota: nota.trim() || undefined })
+          await volverAEtapa(e.id, destino, !!matVolver && devolver === 'si', nota.trim() || undefined)
         }) }]}>
         {matVolver && matAuto && <p className="m-0 rounded-md bg-bg-3 px-3 py-2 text-sm text-fg-2">{gr.Con('material', 'el')} recibid{gr.o('material')} vuelve al stock (aún no se había mandado a producción).</p>}
         {matVolver && !matAuto && (
@@ -661,7 +666,7 @@ export function Encargo() {
         description={`No se borra: queda en «Anulad${gr.o('encargo', true)}» con una copia de cómo estaba y se puede recuperar. El número ${num3(e)} no se reutiliza.`}
         actions={[{ label: impacto || impactoErr ? 'Anular' : 'Comprobando…', variant: 'danger', disabled: !impacto && !impactoErr, onClick: () => hacer(async () => {
           // Material y anulación en una sola operación del servidor (o todo o nada)
-          await anularEncargo(e.id, nota, recibidoMat.length ? devolverMat : null)
+          await anularEncargo(e.id, nota, recibidoMat.length || impactoErr ? devolverMat : null)
         }, () => {
           const manual = pendientesAlAnular(impacto)
           if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulad${gr.o('encargo')}. Queda por hacer a mano: ${manual.join(' · ')}` })
@@ -669,7 +674,7 @@ export function Encargo() {
         }) }]}>
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
         {impactoErr && <p className="m-0 text-sm text-warn-fg">No se ha podido comprobar qué queda por hacer (material, cobros, avisos). Revísalo tú antes de anular.</p>}
-        {recibidoMat.length > 0 && (
+        {(recibidoMat.length > 0 || impactoErr) && (
           <div className="mt-2 flex flex-col gap-1 rounded-sm bg-bg-3 px-3 py-2 text-sm">
             <div className="font-medium">{vocab.material} ya asignad{gr.o('material')}: {recibidoMat.map((x) => `${x.material} (${x.cantidad} ${ajMat.unidad})`).join(', ')}</div>
             <label className="flex items-center gap-2"><input type="radio" checked={devolverMat} onChange={() => setDevolverMat(true)} /> Devolverl{gr.o('material')} al stock (no se ha usado), con los restos que dejó</label>
@@ -686,10 +691,12 @@ export function Encargo() {
 
       <Dialog open={modal === 'recuperar'} onOpenChange={() => setModal(null)} error={modalErr}
         title={`Recuperar ${min(vocab.encargo)} ${num3(e)}`}
-        description="Puede volver tal como estaba o empezar el flujo desde la primera etapa (el hilo anterior se conserva tachado)."
-        actions={[
-          { label: 'Empezar de nuevo', variant: 'default', onClick: () => hacer(() => recuperarEncargo(e.id, true)) },
-          { label: 'Tal como estaba', onClick: () => hacer(() => recuperarEncargo(e.id, false)) },
+        description={matAnul === true ? `Al anular, ${gr.con('material', 'el')} volvió al stock: empieza desde la primera etapa y se descontará otra vez por el camino normal.`
+          : matAnul === false ? `Al anular, ${gr.con('material', 'el')} se dio por usad${gr.o('material')}: vuelve tal como estaba, sin descontar otra vez.`
+          : 'Puede volver tal como estaba o empezar el flujo desde la primera etapa (el hilo anterior se conserva tachado).'}
+        actions={matAnul === undefined ? [] : [
+          ...(matAnul !== false ? [{ label: 'Empezar de nuevo', variant: (matAnul === true ? 'primary' : 'default') as 'primary' | 'default', onClick: () => hacer(() => recuperarEncargo(e.id, true)) }] : []),
+          ...(matAnul !== true ? [{ label: 'Tal como estaba', onClick: () => hacer(() => recuperarEncargo(e.id, false)) }] : []),
         ]} />
 
       <Dialog open={!!fechaCheck} onOpenChange={() => setFechaCheck(null)} error={errFechaCheck} title="Cambiar fecha"

@@ -237,6 +237,7 @@ export function NuevoEncargo() {
       if (din.usa && importe !== '' && aCuenta !== '' && Number(aCuenta) > Number(importe)) throw new Error('Lo entregado a cuenta no puede ser mayor que el importe')
       const malas = mLineas.filter((l) => l.tipo && !l.material_id)
       if (malas.length) throw new Error(`Elige la variante de ${min(vocab.material)} (o quita la línea)`)
+      if (mLineas.some((l) => l.material_id && !(Number(String(l.cantidad).replace(',', '.')) > 0))) throw new Error(`Pon la cantidad de ${min(vocab.material)} (o quita la línea)`)
       // Cliente, encargo y primer paso en una sola operación: o se crea todo o nada
       const { data: encId, error: e2 } = await supabase.rpc('crear_encargo', {
         p_tienda: tienda.id, p_periodo: periodo?.id ?? null, p_tipo: tipo, p_cliente_id: existente?.id ?? null,

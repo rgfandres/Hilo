@@ -91,7 +91,7 @@ export function AppShell() {
         const ap = tiposAparte(aj)
         const cuentaDe = (rs: typeof todos, tipo?: string) => {
           const conf = bandejasLista(aj, tipo)
-          return conf ? pendientesConf(conf, rs, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado }) : pendientesDe(rs, rol)
+          return conf ? pendientesConf(conf, rs, { miTrabajo: (e) => miTrabajo(e, rol), revisar: enRevisar, bloqueado, rol }) : pendientesDe(rs, rol)
         }
         const rows = todos.filter((r) => !ap.includes(r.tipo_encargo_id))
         if (vivo) setCuenta({ encargos: cuentaDe(rows), atascados: todos.filter((r) => activo(r) && r.atascado && r.en_proveedor).length,

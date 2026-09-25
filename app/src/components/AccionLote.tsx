@@ -6,14 +6,15 @@ import { Button, CapaCarga, Dialog, Select, useAvisos } from '@/ui'
 import { num3 } from '@/lib/utils'
 import { min } from '@/lib/vocab'
 import { useAuth } from '@/auth/AuthProvider'
+import { marcaDirecto } from '@/lib/bandejas'
 
-type Motivo = 'anulado' | 'tipo' | 'yaEsta' | 'permiso' | 'bloqueado' | 'salto'
+type Motivo = 'anulado' | 'tipo' | 'yaEsta' | 'permiso' | 'bloqueado' | 'salto' | 'produccion' | 'incidencia'
 interface Plan {
   pasan: { e: EncargoEstado; salta: string[]; avisos: string[] }[]
   fuera: { e: EncargoEstado; motivo: Motivo; detalle?: string }[]
 }
 const TEXTO_MOTIVO: Record<Motivo, string> = {
-  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado', salto: 'se saltaría etapas (solo quien administra la tienda puede saltarlas)',
+  anulado: 'anulado', tipo: 'otro tipo', yaEsta: 'ya está ahí o más adelante', permiso: 'tu rol no marca esa etapa', bloqueado: 'bloqueado', salto: 'se saltaría etapas (solo quien administra la tienda puede saltarlas)', produccion: 'se saltaría el paso de producción: hay que marcarlo', incidencia: 'tienen una incidencia abierta',
 }
 
 /**
@@ -55,7 +56,11 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
       if (e.tipo_encargo_id !== et.tipo_encargo_id) { p.fuera.push({ e, motivo: 'tipo' }); continue }
       const actual = e.etapa_actual_orden ?? -1
       if (actual >= et.orden) { p.fuera.push({ e, motivo: 'yaEsta' }); continue }
-      if (!(rol === 'ADMIN' || rol === 'OPERATIVO' || rol === et.rol_ejecuta)) { p.fuera.push({ e, motivo: 'permiso' }); continue }
+      if (e.en_revision) { p.fuera.push({ e, motivo: 'incidencia' }); continue }
+      const intermedias = delFlujo.filter((x) => x.orden > actual && x.orden < et.orden)
+      // Los pasos de logística los marca logística (igual que desde la fila); desde la ficha se puede «en su nombre»
+      if (!marcaDirecto(rol, et.rol_ejecuta) || intermedias.some((x) => !marcaDirecto(rol, x.rol_ejecuta))) { p.fuera.push({ e, motivo: 'permiso' }); continue }
+      if (intermedias.some((x) => x.es_produccion)) { p.fuera.push({ e, motivo: 'produccion' }); continue }
       const esSiguiente = e.etapa_siguiente_id === et.id
       const duras = esSiguiente ? (e.puertas_pendientes ?? []).filter((x) => x.dura) : []
       if (duras.length) { p.fuera.push({ e, motivo: 'bloqueado', detalle: duras.map((x) => x.mensaje).join(' · ') }); continue }
@@ -110,7 +115,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
       <div role="toolbar" aria-label="Acciones con la selección"
         className="fixed bottom-4 left-1/2 z-30 flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-md border border-border bg-bg px-3 py-2 shadow-strong max-md:bottom-[calc(64px+env(safe-area-inset-bottom))]">
         <span className="font-medium tabular">{seleccion.length} seleccionad{gr.o('encargo', seleccion.length !== 1)}</span>
-        <button className="text-sm text-fg-3 underline-offset-2 hover:text-fg hover:underline" onClick={onTodos}>Marcar los de esta página</button>
+        <button className="text-sm text-fg-3 underline-offset-2 hover:text-fg hover:underline" onClick={onTodos}>Marcar {gr.con('encargo', 'los')} de esta página</button>
         {seleccion.length > 0 && destinos.length > 0 && <>
           <span className="text-fg-3">· Pasar a</span>
           <Select className="h-7 w-[190px]" value={destino} onChange={(x) => setDestino(x.target.value)} aria-label="Etapa de destino">
@@ -150,7 +155,7 @@ export function AccionLote({ seleccion, etapas, rol, vocabEncargo, vocabEncargos
               <span>{conAvisoN} tienen avisos ({[...new Set(plan.pasan.flatMap((x) => x.avisos))].slice(0, 3).join(' · ')}). Pasarl{gr.o('encargo', true)} también.</span>
             </label>
           )}
-          {(['bloqueado', 'salto', 'yaEsta', 'permiso', 'tipo', 'anulado'] as Motivo[]).map((m) => {
+          {(['bloqueado', 'incidencia', 'produccion', 'salto', 'yaEsta', 'permiso', 'tipo', 'anulado'] as Motivo[]).map((m) => {
             const xs = porMotivo(m)
             if (!xs.length) return null
             return (

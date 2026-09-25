@@ -108,16 +108,21 @@ export function bandejasPorDefecto(etapas: Etapa[], nombres: { todos: string; te
  * Número del menú con bandejas configuradas: la suma de las marcadas «en rojo»
  * (las de material se cuentan en su pantalla; aquí no se leen las líneas de material).
  */
-export function pendientesConf(conf: BandejaLista[], rows: EncargoEstado[], extra: { miTrabajo: (e: EncargoEstado) => boolean; revisar: (e: EncargoEstado) => boolean; bloqueado: (e: EncargoEstado) => boolean }): number {
-  let n = 0
+export function pendientesConf(conf: BandejaLista[], rows: EncargoEstado[], extra: { miTrabajo: (e: EncargoEstado) => boolean; revisar: (e: EncargoEstado) => boolean; bloqueado: (e: EncargoEstado) => boolean; rol?: string | null }): number {
+  // Cada encargo cuenta una vez aunque esté en dos bandejas; fuera de gestión, solo lo que le toca a su rol
+  const gestion = extra.rol === 'ADMIN' || extra.rol === 'OPERATIVO'
+  const revisa = gestion || extra.rol === 'ATENCION'
+  const ids = new Set<string>()
   for (const b of conf) {
     if (!b.accionable) continue
-    if (b.tipo === 'etapas') n += rows.filter((r) => enEtapas(b, r)).length
-    else if (b.tipo === 'revisar') n += rows.filter(extra.revisar).length
-    else if (b.tipo === 'mio') n += rows.filter(extra.miTrabajo).length
-    else if (b.tipo === 'bloqueados') n += rows.filter((r) => r.estado === 'ACTIVO' && !r.es_final && extra.bloqueado(r)).length
+    const xs = b.tipo === 'etapas' ? rows.filter((r) => enEtapas(b, r) && (gestion || extra.miTrabajo(r)))
+      : b.tipo === 'revisar' ? (revisa ? rows.filter(extra.revisar) : [])
+      : b.tipo === 'mio' ? rows.filter(extra.miTrabajo)
+      : b.tipo === 'bloqueados' ? (gestion ? rows.filter((r) => r.estado === 'ACTIVO' && !r.es_final && extra.bloqueado(r)) : [])
+      : []
+    for (const r of xs) ids.add(r.id)
   }
-  return n
+  return ids.size
 }
 
 /**

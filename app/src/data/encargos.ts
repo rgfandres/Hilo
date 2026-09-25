@@ -22,7 +22,10 @@ export async function listarEncargos(
     .eq('tienda_id', tiendaId)
     .eq('estado', opts.estado ?? 'ACTIVO')
   // Lo abierto se ve siempre; lo terminado y lo anulado, solo el de su periodo
-  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' || soloPeriodoActivo ? q.eq('periodo_id', opts.periodoId) : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
+  // Con «solo la temporada activa», lo que no tiene temporada también se ve (si no, desaparecería de todas partes)
+  if (opts.periodoId) q = (opts.estado ?? 'ACTIVO') === 'ANULADO' ? q.eq('periodo_id', opts.periodoId)
+    : soloPeriodoActivo ? q.or(`periodo_id.eq.${opts.periodoId},periodo_id.is.null`)
+    : q.or(`periodo_id.eq.${opts.periodoId},es_final.is.null,es_final.eq.false`)
   const { data, error } = await q.order('numero', { ascending: false })
   if (error) throw error
   return (data ?? []) as EncargoEstado[]
@@ -111,7 +114,12 @@ export function mensajeError(e: unknown): string {
   if (/El rol \w+ no puede marcar la etapa/.test(m)) return 'Tu rol no puede marcar esa etapa. Lo marca otra persona del equipo.'
   if (/timeout|timed out|canceling statement/i.test(m)) return 'El servidor tarda demasiado en responder. Comprueba la conexión y pulsa «Reintentar» o recarga la página.'
   if (/JWT expired|invalid JWT|refresh token/i.test(m)) return 'Tu sesión ha caducado. Vuelve a entrar.'
-  if (/Proveedor no válido o inactivo/i.test(m)) return 'Tu cuenta no está asociada a ningún proveedor activo de esta tienda. Pide a la tienda que te añada.'
+  if (/Proveedor no válido o inactivo/i.test(m)) return 'Ese proveedor no es válido o está desactivado. (Si eres tú el proveedor: pide a la tienda que te active.)'
+  if (/YA_EN_CAMINO/.test(m)) return 'Ya ha pasado del paso que pide el material: para devolverlo, vuelve a un paso anterior desde «Pasos» (allí se pregunta si vuelve al stock).'
+  if (/SIN_CANTIDAD/.test(m)) return 'Pon antes la cantidad: sin cantidad no se puede dar por recibido.'
+  if (/ELEGIR_MATERIAL/.test(m)) return 'Elige qué pasa con el material ya recibido (vuelve al stock o se da por usado).'
+  const prod = m.match(/SALTO_PRODUCCION:(.*)$/)
+  if (prod) return `No se puede saltar «${prod[1]}»: hay que marcarlo (crea la orden de producción).`
   if (/duplicate key|unique constraint/i.test(m)) return 'Ya existe uno igual (mismo nombre o número).'
   if (/NO_REVERTIR_STOCK/.test(m)) return 'No se puede revertir: parte de lo recibido ya se ha usado y el stock quedaría en negativo. Corrige el stock a mano si hace falta.'
   if (/PRIMERA_ETAPA/.test(m)) return 'En la primera etapa las condiciones solo pueden avisar: si bloquearan, no se podría crear ninguno.'
@@ -181,6 +189,19 @@ export async function cambiarFechaHito(hitoId: string, fecha: Date) {
 export async function anularEncargo(encargoId: string, motivo: string, devolverMaterial: boolean | null = null) {
   const { error } = await supabase.rpc('anular_encargo', { p_encargo: encargoId, p_motivo: motivo, p_devolver_material: devolverMaterial })
   if (error) throw error
+}
+
+/** Volver a una etapa anterior, todo junto en el servidor: material (si se pide) y paso atrás. */
+export async function volverAEtapa(encargoId: string, etapaClave: string, devolverMaterial: boolean, nota?: string) {
+  const { data, error } = await supabase.rpc('volver_a_etapa', { p_encargo: encargoId, p_etapa_clave: etapaClave, p_devolver: devolverMaterial, p_nota: nota ?? null })
+  if (error) throw error
+  return data as string
+}
+
+/** Qué se hizo con el material al anular (true: volvió al stock; false: se dio por usado; null: no había) */
+export async function materialAlAnular(encargoId: string): Promise<boolean | null> {
+  const { data } = await supabase.from('anulacion').select('material_devuelto').eq('encargo_id', encargoId).is('recuperado_en', null).order('fecha', { ascending: false }).limit(1)
+  return ((data ?? [])[0] as { material_devuelto: boolean | null } | undefined)?.material_devuelto ?? null
 }
 
 export async function recuperarEncargo(encargoId: string, reiniciar: boolean) {

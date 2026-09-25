@@ -132,13 +132,15 @@ export function Produccion() {
   React.useEffect(() => {
     if (sp.get('enviar') !== '1' || yaEnviado.current || !lineas || !gestion) return
     yaEnviado.current = true
-    const xs = listos
+    // Solo los que se veían en la bandeja de la lista (si vienen); los avisos no se saltan
+    const ids0 = (sp.get('ids') ?? '').split(',').filter(Boolean)
+    const xs = ids0.length ? listos.filter((e) => ids0.includes(e.id)) : listos
     ;(async () => {
       setBusy('enviar')
       const mal: string[] = []
       const ids: string[] = []
       for (const e of xs) {
-        try { await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: true }); ids.push(e.id) } catch (x) { mal.push(`${num3(e)}: ${mensajeError(x)}`) }
+        try { await crearHito(e.id, e.etapa_siguiente_clave!, { forzarBlandas: ids0.length === 0 }); ids.push(e.id) } catch (x) { mal.push(`${num3(e)}: ${mensajeError(x)}`) }
       }
       const nuevas = await listarLineas(tienda!.id)
       const deProd = nuevas.filter((l) => (l.producto_id ?? SIN) === prod)
@@ -147,7 +149,7 @@ export function Produccion() {
       const estas = deProd.filter((l) => ids.includes(l.encargo_id)).map((l) => l.id)
       if (estas.length) await marcarImprimir(estas, true)
       setBusy(null); setRecienEnviados(estas.length)
-      setSp((p) => { const n = new URLSearchParams(p); n.delete('enviar'); return n }, { replace: true })
+      setSp((p) => { const n = new URLSearchParams(p); n.delete('enviar'); n.delete('ids'); return n }, { replace: true })
       await cargar()
       if (mal.length) avisar({ tipo: 'error', persistente: true, texto: `No se enviaron ${mal.length}: ${mal.join(' · ')}` })
     })().catch((x) => { setBusy(null); avisar({ tipo: 'error', texto: mensajeError(x) }) })
