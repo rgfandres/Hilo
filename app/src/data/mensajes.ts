@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { enSoloLectura, supabase } from '@/lib/supabase'
 
 export type Canal = 'WHATSAPP' | 'EMAIL' | 'AMBOS'
 export interface PlantillaMensaje {
@@ -37,9 +37,12 @@ export async function listarEnvios(encargoId: string) {
  * 'sin_configurar' y la pantalla ofrece abrirlo en el correo de la persona.
  */
 export async function enviarCorreo(m: { encargo_id: string; plantilla_id: string | null; asunto: string; texto: string; nombre: string }): Promise<'ok' | 'sin_configurar'> {
+  // «Ver como» (solo lectura): no se llama al servidor. (supabase.functions crea un cliente nuevo en cada
+  // acceso, así que no se puede interceptar como las tablas: se comprueba aquí, antes de enviar.)
+  const bloqueo = enSoloLectura()
+  if (bloqueo) throw new Error(bloqueo)
   const { data, error } = await supabase.functions.invoke('enviar-correo', { body: m })
   if (error) {
-    if ((error as Error).name === 'SoloLectura') throw error
     const ctx = (error as { context?: Response }).context
     let msg = ''
     try { msg = String(((await ctx?.json()) as { error?: string } | undefined)?.error ?? '') } catch { /* sin cuerpo */ }
