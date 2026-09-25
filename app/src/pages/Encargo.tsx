@@ -171,6 +171,9 @@ export function Encargo() {
     if (!i) return []
     const out: string[] = []
     if (i.proveedor && i.en_proveedor) out.push(`avisar a ${i.proveedor} de que pare el trabajo`)
+    // En producción (o ya en la hoja impresa): quien produce tiene que saber que no lo haga
+    const enProd = !!etapas.find((y) => y.id === e?.etapa_actual_id)?.es_produccion
+    if (enProd || i.orden_impresa) out.push(`avisar a producción de que no lo haga (${i.orden_impresa ? 'la hoja ya estaba impresa' : 'ya está en la hoja'})`)
     if (Number(i.a_cuenta) > 0) out.push(`decidir qué hacer con ${dinero(i.a_cuenta, din.moneda)} entregados a cuenta`)
     if (i.material_pedido) out.push(`${min(vocab.material)} pedid${gr.o('material')} para ${gr.con('encargo', 'este')} (${i.material_pedido}): llegará igual y quedará en stock`)
     if (i.n_mensajes > 0) out.push(`avisar ${gr.con('cliente', 'al')} (ya se le escribió ${i.n_mensajes} ${i.n_mensajes === 1 ? 'vez' : 'veces'})`)
@@ -676,9 +679,12 @@ export function Encargo() {
           await anularEncargo(e.id, nota, recibidoMat.length || impactoErr ? devolverMat : null)
         }, () => {
           const manual = pendientesAlAnular(impacto)
+          // Lo que queda por hacer se guarda en el hilo (con quién lo anuló), no solo en el aviso
+          if (manual.length) comentar(e.id, `Al anular quedó por hacer: ${manual.join(' · ')}`).catch(() => {})
           if (manual.length) avisar({ tipo: 'aviso', persistente: true, texto: `${num3(e)} anulad${gr.o('encargo')}. Queda por hacer a mano: ${manual.join(' · ')}` })
           nav('/encargos')
         }) }]}>
+        {e.es_final && <p className="m-0 mb-2 rounded-sm bg-warn-bg px-3 py-2 text-sm text-warn-fg">{gr.Con('encargo', 'este')} ya está en «{e.etapa_actual_nombre}»: anúlal{gr.o('encargo')} solo si de verdad no sigue adelante.</p>}
         <Textarea autoFocus value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />
         {impactoErr && <p className="m-0 text-sm text-warn-fg">No se ha podido comprobar qué queda por hacer (material, cobros, avisos). Revísalo tú antes de anular.</p>}
         {(recibidoMat.length > 0 || impactoErr) && (
