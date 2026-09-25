@@ -2,6 +2,7 @@ import * as React from 'react'
 import { nombreMenu } from '@/lib/pantallas'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthProvider'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
 import { elegible, haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
@@ -103,6 +104,23 @@ export function Encargos() {
   const [lineasMat, setLineasMat] = React.useState<LineaMaterial[]>([])
   const [matsEst, setMatsEst] = React.useState<MaterialEstado[]>([])
   const [matNombres, setMatNombres] = React.useState<Record<string, string>>({})
+  // Notas de campo (💬 junto a un dato): se avisa en la fila, como en la lista de la tienda de origen
+  const [notasFila, setNotasFila] = React.useState<Record<string, { campo: string; texto: string }[]>>({})
+  const idsActivos = React.useMemo(() => rows.filter((r) => r.estado === 'ACTIVO' && !r.es_final).map((r) => r.id).sort().join(','), [rows])
+  React.useEffect(() => {
+    const ids = idsActivos ? idsActivos.split(',') : []
+    if (!ids.length) { setNotasFila({}); return }
+    let vivo = true
+    ;(async () => {
+      const m: Record<string, { campo: string; texto: string }[]> = {}
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data } = await supabase.from('nota_campo').select('encargo_id,campo,texto').in('encargo_id', ids.slice(i, i + 200)).neq('campo', 'produccion')
+        for (const n of (data ?? []) as { encargo_id: string; campo: string; texto: string }[]) if (n.texto?.trim()) (m[n.encargo_id] ??= []).push(n)
+      }
+      if (vivo) setNotasFila(m)
+    })().catch(() => {})
+    return () => { vivo = false }
+  }, [idsActivos])
   const filtroMat = params.get('m')
   // Cada lectura lleva número: si llega una más vieja después de otra más nueva, se descarta
   const nLectura = React.useRef(0)
@@ -574,6 +592,9 @@ export function Encargos() {
                             {e.revisar_manual && <IconAlertTriangle size={13} className="shrink-0 text-warn-fg" aria-label={`Marcad${gr.o('encargo')} para revisar`} />}
                             {(e.estancado || e.atascado) && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg"><IconClock size={11} />{e.atascado || aj.estancado_por === 'pasos' ? e.dias_en_etapa ?? 0 : Math.floor((Date.now() - new Date(e.actualizado_en).getTime()) / 864e5)} d</span>}
                             {chipMat(e)}
+                            {activo(e) && !e.producto_id && <span className="inline-flex shrink-0 items-center rounded-sm bg-warn-bg px-1 text-xs font-normal text-warn-fg">sin {min(vocab.producto)}</span>}
+                            {notasFila[e.id] && <span className="inline-flex shrink-0 items-center text-xs font-normal text-fg-3"
+                              title={notasFila[e.id].map((n) => `${camposTodos.find((c) => c.clave === n.campo)?.etiqueta ?? n.campo}: ${n.texto}`).join('\n')}>💬 nota</span>}
                             {e.n_comentarios > 0 && <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-fg-3" title={`${e.n_comentarios} comentario${e.n_comentarios === 1 ? '' : 's'}`}><IconMessage size={12} />{e.n_comentarios}</span>}
                           </span>
                           {/* Celda combinada: si la columna del producto está oculta, va debajo del nombre */}
