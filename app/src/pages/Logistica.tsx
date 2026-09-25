@@ -347,7 +347,8 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFu
   receta?: string
   armado: boolean; onAccion: () => void; onAbrir: () => void
 }) {
-  const { vocab, gr } = useAuth()
+  const { vocab, gr, rol, nombresRol } = useAuth()
+  const enNombre = rol === 'ADMIN' || rol === 'OPERATIVO'
   const duras = (e.puertas_pendientes ?? []).filter((p) => p.dura)
   const bloqueo = b.tipo === 'etapa' ? duras.filter((p) => !(p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'proveedor_id')) : []
   const blandas = (e.puertas_pendientes ?? []).filter((p) => !p.dura && !(p.tipo === 'CHECK' && checkHecho))
@@ -412,6 +413,7 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFu
                 {b.tipo === 'check' && <span className={cn('inline-flex h-7 w-7 items-center justify-center rounded-sm border-2', armado ? 'border-inverted-fg' : 'border-border-strong')}>{armado ? '✓' : ''}</span>}
                 {armado ? `¿${texto}? Toca otra vez` : texto}
               </Button>}
+          {enNombre && bloqueo.length === 0 && <span className="text-xs text-fg-3">Lo marcas en nombre de {nombresRol.LOGISTICA}.</span>}
           {b.tipo === 'check' && <span className="text-xs text-fg-3">Para desmarcarlo, desde la ficha {gr.con('encargo', 'del')}.</span>}
         </>
       )}
@@ -423,13 +425,14 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFu
 function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
   id: string | null; provs: ProveedorFila[]; ps: PlantillaCampos[]; checks: { ref: string; etiqueta: string }[]; onClose: () => void; onCambio: () => Promise<void>
 }) {
-  const { tienda, vocab, rol } = useAuth()
+  const { tienda, vocab, rol, gr } = useAuth()
   const avisar = useAvisos()
   const [e, setE] = React.useState<EncargoEstado | null>(null)
   const [errFicha, setErrFicha] = React.useState<string | null>(null)
   const [intento, setIntento] = React.useState(0)
   const [ft, setFt] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
   const [prov, setProv] = React.useState('')
+  const [confirmarQuitar, setConfirmarQuitar] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [marcados, setMarcados] = React.useState<Record<string, { marcado: boolean; fecha: string | null }>>({})
   const [email, setEmail] = React.useState<string | null>(null)
@@ -442,7 +445,7 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
     if (!id) return
     // Siempre datos frescos al abrir
     obtenerEncargo(id).then((x) => {
-      setE(x); setProv(x?.proveedor_id ?? '')
+      setE(x); setProv(x?.proveedor_id ?? ''); setConfirmarQuitar(false)
       if (x?.producto_id) fichaProducto(x.producto_id).then(setFt).catch(() => {})
       if (x) {
         leerChecks(x.id).catch(() => {})
@@ -487,16 +490,19 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
         <div className="flex flex-col gap-1">
           <span className="text-sm text-fg-3">{vocab.proveedor}</span>
           <div className="flex gap-1.5">
-            <Select value={prov} onChange={(x) => setProv(x.target.value)} disabled={rol === 'ATENCION'}>
+            <Select value={prov} onChange={(x) => { setProv(x.target.value); setConfirmarQuitar(false) }} disabled={rol === 'ATENCION'}>
               <option value="">— sin {min(vocab.proveedor)} —</option>
-              {provs.filter((p) => elegible(p, prov)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              {provs.filter((p) => elegible(p, e.proveedor_id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </Select>
-            <Button variant="primary" disabled={prov === (e.proveedor_id ?? '') || busy} cargando={busy} onClick={async () => {
+            <Button variant={!prov && e.proveedor_id ? 'danger' : 'primary'} disabled={prov === (e.proveedor_id ?? '') || busy} cargando={busy} onClick={async () => {
+              // Quitarlo pide confirmación (como en la tienda de origen)
+              if (!prov && e.proveedor_id && !confirmarQuitar) { setConfirmarQuitar(true); return }
               setBusy(true)
               try { await asignarProveedor(e.id, prov || null); avisar({ tipo: 'ok', texto: 'Guardado' }); await onCambio(); onClose() }
               catch (x) { avisar({ tipo: 'error', texto: mensajeError(x) }) } finally { setBusy(false) }
-            }}>Guardar</Button>
+            }}>{!prov && e.proveedor_id ? (confirmarQuitar ? 'Sí, quitar' : 'Quitar') : 'Guardar'}</Button>
           </div>
+          {confirmarQuitar && <span className="text-sm text-warn-fg">¿Quitar {provs.find((p) => p.id === e.proveedor_id)?.nombre ?? gr.con('proveedor', 'el')} de {num3(e)}? Pulsa «Sí, quitar».</span>}
           <span className="text-xs text-fg-3">Cambiarlo no marca ningún paso ni fecha.</span>
         </div>
         <Link to={`/encargos/${e.id}`} className="text-sm text-fg-2 underline">Abrir la ficha completa</Link>

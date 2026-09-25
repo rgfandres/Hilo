@@ -161,7 +161,7 @@ export function ParaHoy() {
       </PageHeader>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <div className="flex max-w-[980px] flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
-          {err && <div className="rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}</div>}
+          {err && <div className="flex items-center gap-2 rounded-sm bg-danger-bg px-3 py-2 text-danger-fg">{err}<Button size="sm" onClick={() => { setErr(null); leer().catch((e) => setErr(mensajeError(e))) }}>↻ Reintentar</Button></div>}
           {!cargado && !err && <p className="m-0 text-fg-3">Cargando…</p>}
           {cargado && <>
           <p className="m-0 leading-relaxed text-fg-2">

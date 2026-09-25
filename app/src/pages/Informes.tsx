@@ -161,6 +161,7 @@ export function Informes() {
           </Select>
           <Button variant="ghost" aria-label="Anterior" disabled={!prev} onClick={() => prev && setRef(prev.ini)}><IconChevronLeft size={14} /></Button>
           <Button variant="ghost" aria-label="Siguiente" disabled={!sig} onClick={() => sig && setRef(sig.ini)}><IconChevronRight size={14} /></Button>
+          <Button variant="ghost" onClick={() => cargar()} title="Volver a leer los datos">↻ Actualizar</Button>
           <Button variant="ghost" onClick={() => window.print()}><IconPrinter size={14} />Imprimir</Button>
         </div>
       </PageHeader>

@@ -83,6 +83,7 @@ export function Encargo() {
   const [confirmarMarcar, setConfirmarMarcar] = React.useState(false)
   const [menuMovil, setMenuMovil] = React.useState(false)
   const [foto, setFoto] = React.useState<string | null>(null)
+  const [fotoGrande, setFotoGrande] = React.useState(false)
   const [filtroHilo, setFiltroHilo] = React.useState<'todo' | 'pasos' | 'com' | 'msg'>('todo')
   const [anul, setAnul] = React.useState<Anulacion | null>(null)
   const [checks, setChecks] = React.useState<Record<string, boolean>>({})
@@ -344,8 +345,22 @@ export function Encargo() {
       <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
         <aside className="flex w-[380px] shrink-0 flex-col gap-4 overflow-auto border-r border-border p-5 max-md:w-full max-md:overflow-visible max-md:border-b max-md:border-r-0 max-md:p-4">
           <div className="flex flex-col gap-1.5">
-            <Link to={`/clientes/${e.cliente_id}`} className="text-xl font-semibold tracking-tight hover:underline">{e.cliente_nombre}</Link>
-            {foto && <a href={foto} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border"><img src={foto} alt="" className="max-h-40 w-full object-cover" /></a>}
+            {/* La foto va en pequeño junto al nombre; al tocarla se amplía */}
+            <div className="flex items-center gap-3">
+              {foto && (
+                <button type="button" onClick={() => setFotoGrande(true)} title="Ampliar la foto"
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border">
+                  <img src={foto} alt="Foto" className="h-full w-full object-cover" />
+                </button>
+              )}
+              <Link to={`/clientes/${e.cliente_id}`} className="min-w-0 text-xl font-semibold tracking-tight hover:underline">{e.cliente_nombre}</Link>
+            </div>
+            {foto && fotoGrande && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setFotoGrande(false)} role="dialog" aria-label="Foto">
+                <img src={foto} alt="Foto" className="max-h-full max-w-full rounded-md object-contain" />
+                <button type="button" className="absolute right-4 top-4 rounded-sm bg-bg px-3 py-1.5 text-sm" onClick={() => setFotoGrande(false)}>Cerrar</button>
+              </div>
+            )}
             {cli?.telefono && (
               <div className="flex flex-wrap gap-x-3 text-sm">
                 <a href={`tel:${cli.telefono.replace(/\s/g, '')}`} className="text-fg-2 underline-offset-2 hover:text-fg hover:underline">Llamar</a>
