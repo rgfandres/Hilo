@@ -1,3 +1,4 @@
+import { min } from '@/lib/vocab'
 import * as React from 'react'
 import { IconArrowDown, IconArrowUp, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
@@ -25,6 +26,7 @@ type CampoExt = Campo & { visible_proveedor?: boolean }
  */
 export function AjustesCampos() {
   const { tienda, vocab, gr } = useAuth()
+  const modMat = ((tienda?.ajustes as Record<string, unknown> | undefined)?.modulos as Record<string, boolean> | undefined)?.materiales === true
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
   const [dest, setDest] = React.useState<Destino>({ entidad: 'CLIENTE', tipoId: null })
@@ -181,6 +183,7 @@ export function AjustesCampos() {
               {c.tipo === 'numero' && dest.entidad !== 'PRODUCTO' && <Interruptor checked={!!c.medida} label="Es una medida" onChange={(v) => set(i, { medida: v })} />}
               {c.tipo === 'numero' && c.medida && <Input className="h-6 w-20 text-sm" placeholder="Unidad" value={c.unidad ?? ''} onChange={(e) => set(i, { unidad: e.target.value || undefined })} aria-label="Unidad de la medida" />}
               {esEncargo && <Interruptor checked={!!c.en_tabla} label="Columna en la lista" onChange={(v) => set(i, { en_tabla: v })} />}
+              {esEncargo && c.tipo === 'texto' && modMat && <Interruptor checked={!!c.desde_material} label={`Si está vacío, ${min(vocab.material)} asignad${gr.o('material')}`} onChange={(v) => set(i, { desde_material: v || undefined })} />}
               {verProveedor && <Interruptor checked={!!c.visible_proveedor} label={`Lo ve ${gr.con('proveedor', 'el')}`} onChange={(v) => set(i, { visible_proveedor: v })} />}
               <Interruptor checked={!!c.destacado} label="Destacado" onChange={(v) => set(i, { destacado: v, ...(v ? { secundario: false } : {}) })} />
               <Interruptor checked={!!c.secundario} disabled={!!c.obligatorio} label="Plegado en «Más datos»" onChange={(v) => set(i, { secundario: v, ...(v ? { destacado: false } : {}) })} />

@@ -17,6 +17,8 @@ export interface LineaMaterial {
   id: string; encargo_id: string; material_id: string; cantidad: number; estado: 'PENDIENTE' | 'PEDIDO' | 'RECIBIDO'; creado_en: string
   /** Solo en lineasDeEncargo: cuándo se recibió (el consumo del stock) */
   consumo?: { fecha: string } | null
+  /** Solo en lineasDeEncargo: el material, para enseñar su nombre */
+  material?: { tipo: string; variante: string } | null
   /** Solo en lineasDeTienda */
   encargo?: { numero: number; serie: string | null; estado: string; cliente: { nombre: string } | null } | null
 }
@@ -66,7 +68,7 @@ export async function ajustarStock(materialId: string, nuevo: number, motivo: st
 }
 
 export async function lineasDeEncargo(encargoId: string): Promise<LineaMaterial[]> {
-  return ok(await supabase.from('encargo_material').select('*, consumo:consumo_id(fecha)').eq('encargo_id', encargoId).order('creado_en')) as LineaMaterial[]
+  return ok(await supabase.from('encargo_material').select('*, consumo:consumo_id(fecha), material:material_id(tipo,variante)').eq('encargo_id', encargoId).order('creado_en')) as LineaMaterial[]
 }
 /** Líneas de todos los encargos activos de la tienda (para las bandejas) */
 export async function lineasDeTienda(tiendaId: string): Promise<LineaMaterial[]> {

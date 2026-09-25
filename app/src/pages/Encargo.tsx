@@ -23,7 +23,7 @@ import { MaterialesEncargo } from '@/components/Material'
 import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
-import { ajustesMaterial, desasignarMaterial, lineasDeEncargo } from '@/data/materiales'
+import { ajustesMaterial, desasignarMaterial, lineasDeEncargo, nombreMaterial } from '@/data/materiales'
 import { Button, Dialog, Popover, Tag, Field, SectionLabel, Input, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, aHoraTienda, deHoraTienda, diasEntre } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
@@ -90,6 +90,7 @@ export function Encargo() {
   const [errFechaCheck, setErrFechaCheck] = React.useState<string | null>(null)
   const [defChecks, setDefChecks] = React.useState<CheckDef[]>([])
   const [camposEnc, setCamposEnc] = React.useState<Campo[]>([])
+  const [matTxt, setMatTxt] = React.useState('')
   const [camposCli, setCamposCli] = React.useState<Campo[]>([])
   const [texto, setTexto] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
@@ -155,6 +156,10 @@ export function Encargo() {
   }, [avisarPid, e, plantillasMsg, setSpA])
   // Si otra persona avanza o comenta este encargo, se ve al momento
   const { ultima } = useTiempoReal(tienda?.id, () => cargar().catch(() => {}), (f) => f.encargo_id === id || f.id === id)
+  React.useEffect(() => {
+    if (!id || !camposEnc.some((c) => c.desde_material)) return
+    lineasDeEncargo(id).then((ls) => setMatTxt(ls.filter((l) => l.material).map((l) => nombreMaterial(l.material)).join(', '))).catch(() => {})
+  }, [id, ultima, camposEnc])
 
   /** Lo que la app no puede deshacer sola al anular: se avisa antes y se deja apuntado después. */
   function pendientesAlAnular(i: ImpactoAnular | null): string[] {
@@ -260,7 +265,8 @@ export function Encargo() {
   const puedeAvisar = puedeRevisar
   const motivos = motivosRevision(e, (tienda?.ajustes ?? {}) as Record<string, unknown>).filter((m) => !m.startsWith('Incidencia'))
   const puedeEditar = !anulado && (gestion || rol === 'ATENCION' || rol === 'LOGISTICA')
-  const datos = e.datos ?? {}
+  // Campos que, vacíos, enseñan el material asignado (así no se escribe dos veces)
+  const datos = { ...(e.datos ?? {}), ...Object.fromEntries(camposEnc.filter((c) => c.desde_material && (e.datos?.[c.clave] == null || e.datos?.[c.clave] === '') && matTxt).map((c) => [c.clave, matTxt])) }
   const medidas = cli?.datos ?? {}
   const duras = e.puertas_pendientes?.filter((p) => p.dura) ?? []
   const blandas = e.puertas_pendientes?.filter((p) => !p.dura) ?? []

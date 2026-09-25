@@ -556,7 +556,8 @@ export function Encargos() {
                         </Td>
                         {ver('producto') && <Td className="max-w-[160px] truncate" title={e.producto_nombre ?? undefined}>{e.producto_nombre ?? <span className="text-fg-3">—</span>}</Td>}
                         {cols.filter((c) => ver('c:' + c.clave)).map((c) => {
-                          const v = formatearValor(c, e.datos?.[c.clave])
+                          let v = formatearValor(c, e.datos?.[c.clave])
+                          if (v === '—' && c.desde_material) v = lineasMat.filter((l) => l.encargo_id === e.id).map((l) => matsEst.find((m) => m.id === l.material_id)).filter(Boolean).map((m) => nombreMaterial(m)).join(', ') || '—'
                           return <Td key={c.clave} className={cn('max-w-[160px] truncate', v === '—' ? 'text-fg-3' : 'text-fg-2')} title={v}>{v}</Td>
                         })}
                         {ver('etapa') && (

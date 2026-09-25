@@ -15,6 +15,8 @@ export interface Campo {
   medida?: boolean
   /** Unidad de la medida (cm, mm…) */
   unidad?: string
+  /** Si está vacío, se enseña el material asignado al encargo (para no escribirlo dos veces) */
+  desde_material?: boolean
 }
 export interface PlantillaCampos { entidad: 'CLIENTE' | 'ENCARGO' | 'PRODUCTO'; tipo_encargo_id: string | null; campos: Campo[] }
 export interface CheckDef { clave: string; etiqueta: string; dura: boolean; etapa_destino_id: string }

@@ -5,7 +5,7 @@
  */
 import type { BandejaLista, TarjetaInicio } from '@/lib/listaBandejas'
 
-type Campo = { clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion'; opciones?: string[]; obligatorio?: boolean; en_tabla?: boolean; visible_proveedor?: boolean; medida?: boolean; unidad?: string }
+type Campo = { clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion'; opciones?: string[]; obligatorio?: boolean; en_tabla?: boolean; visible_proveedor?: boolean; medida?: boolean; unidad?: string; desde_material?: boolean }
 type Puerta = { tipo: 'HITO_PREVIO' | 'CAMPO_NO_VACIO' | 'CHECK' | 'MATERIAL'; ref: string; mensaje: string; dura?: boolean; etiqueta?: string }
 type Etapa = { clave: string; nombre: string; rol?: 'ADMIN' | 'OPERATIVO' | 'ATENCION' | 'LOGISTICA'; color?: string; visible?: boolean; marca?: boolean; espera?: boolean; final?: boolean; grupo?: string; produccion?: boolean; puertas?: Puerta[] }
 export interface PlantillaSector {
@@ -112,7 +112,7 @@ export const PLANTILLAS: PlantillaSector[] = [
     campos: {
       CLIENTE: MEDIDAS_CUERPO(['Pecho', 'Cintura', 'Cadera', 'Hombro', 'Largo manga', 'Largo talle delantero', 'Largo talle espalda', 'Largo total', 'Altura pecho', 'Separación pecho', 'Contorno manga', 'Muñeca']),
       ENCARGO: [
-        { clave: 'tejido', etiqueta: 'Tipo de tela', tipo: 'texto', en_tabla: true, visible_proveedor: true },
+        { clave: 'tejido', etiqueta: 'Tipo de tela', tipo: 'texto', en_tabla: true, visible_proveedor: true, desde_material: true },
         { clave: 'talla', etiqueta: 'Talla', tipo: 'opcion', opciones: ['T.32', 'T.34', 'T.36', 'T.38', 'T.40', 'T.42', 'T.44', 'T.46', 'T.48', 'T.50', 'T.52'], en_tabla: true, visible_proveedor: true },
         { clave: 'feria', etiqueta: 'Feria o evento', tipo: 'texto', visible_proveedor: true },
         { clave: 'fecha_limite', etiqueta: 'Lo necesita para', tipo: 'fecha', en_tabla: true },
