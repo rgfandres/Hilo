@@ -20,8 +20,7 @@ import { useDobleToque } from '@/lib/movil'
 import { haceCuanto, useTiempoReal } from '@/lib/tiempoReal'
 import { cn, fechaCorta, num3, locale, zona } from '@/lib/utils'
 import { min } from '@/lib/vocab'
-import { ajustesMaterial, cant, guardarResto, listarMateriales, listarPedidos, nombreMaterial, restoCandidato, unidadDe, type LineaPedido, type MaterialEstado } from '@/data/materiales'
-import { DialogoResto } from '@/components/Material'
+import { ajustesMaterial, cant, listarPedidos, nombreMaterial, type LineaPedido } from '@/data/materiales'
 import { DialogoRecibir } from '@/pages/Materiales'
 
 /** Bandeja con los textos ya resueltos (los de la tienda o los de por defecto) */
@@ -488,7 +487,6 @@ export function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
   const [lineas, setLineas] = React.useState<LineaPedido[]>([])
   const [abierto, setAbierto] = React.useState(false)
   const [recibir, setRecibir] = React.useState<LineaPedido | null>(null)
-  const [resto, setResto] = React.useState<{ m: MaterialEstado; cantidad: number } | null>(null)
   const cargar = React.useCallback(async () => {
     if (!tienda || !am.activo) return
     setLineas((await listarPedidos(tienda.id)).filter((l) => l.estado === 'PENDIENTE' || l.estado === 'PARCIAL'))
@@ -518,15 +516,8 @@ export function LlegadasMaterial({ refresco }: { refresco?: unknown }) {
           ))}
         </ul>
       )}
-      <DialogoRecibir linea={recibir} unidad={recibir?.unidad || am.unidad} onClose={() => setRecibir(null)} onHecho={async (stock) => {
-        const matId = recibir?.material_id
-        await cargar()
-        // Como en la pantalla de pedidos: si lo que queda ya no llega a una unidad, se ofrece guardarlo como resto
-        const m = tienda && matId ? (await listarMateriales(tienda.id).catch(() => [])).find((x) => x.id === matId) : undefined
-        const r = m ? restoCandidato(stock, m.unidad_efectiva, m.resto_hasta ?? 0) : 0
-        if (m && r > 0) setResto({ m, cantidad: r })
-      }} />
-      <DialogoResto resto={resto} unidad={unidadDe(resto?.m, am.unidad)} onCerrar={() => setResto(null)} onGuardar={async (r) => { await guardarResto(r.m.id, r.cantidad, 'Sobrante tras recibir'); await cargar() }} />
+      {/* Aquí no se ofrece guardar restos: eso se decide en Telas → Pedidos */}
+      <DialogoRecibir linea={recibir} unidad={recibir?.unidad || am.unidad} onClose={() => setRecibir(null)} onHecho={async () => { await cargar() }} />
     </section>
   )
 }
