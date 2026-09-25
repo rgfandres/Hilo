@@ -32,7 +32,7 @@ import { EditarEncargo } from '@/components/EditarEncargo'
 import { tiposAparte } from '@/lib/listaBandejas'
 import { AvisarMenu, EnviarMensaje, type Via } from '@/components/EnviarMensaje'
 import { listarEnvios, listarPlantillas, telefonoWhatsApp, type MensajeEnviado, type PlantillaMensaje } from '@/data/mensajes'
-import { listarAdjuntos } from '@/data/adjuntos'
+import { enlacesAdjuntos, listarAdjuntos } from '@/data/adjuntos'
 
 const TAB = 'flex h-9 items-center gap-1.5 px-1 mr-4 text-base font-medium text-fg-2 data-[state=active]:text-fg data-[state=active]:shadow-[inset_0_-1px_0_var(--color-gray-12)]'
 
@@ -140,7 +140,11 @@ export function Encargo() {
     setAnul(an[enc.id] ?? null)
     setHitos(h); setComs(c); setCli((cl.data as Cliente) ?? null)
     listarNotasCampo(id).then(setNotas).catch(() => {})
-    listarAdjuntos('encargo', id).then((as) => setFoto(as.find((a) => (a.tipo ?? '').startsWith('image/'))?.url ?? null)).catch(() => {})
+    // La foto se enseña con un enlace firmado (el almacén es privado: la ruta sola no carga)
+    listarAdjuntos('encargo', id).then(async (as) => {
+      const img = as.find((a) => (a.tipo ?? '').startsWith('image/'))
+      setFoto(img ? (await enlacesAdjuntos([img]))[img.id] ?? null : null)
+    }).catch(() => {})
     // Nombres de quien escribe (si se puede leer el equipo)
     listarEquipo(enc.tienda_id).then((eq) => setAutores(Object.fromEntries(eq.map((m) => [m.user_id, m.email.split('@')[0]])))).catch(() => {})
     setChecks(Object.fromEntries(((ck.data ?? []) as { clave: string; marcado: boolean }[]).map((x) => [x.clave, x.marcado])))
