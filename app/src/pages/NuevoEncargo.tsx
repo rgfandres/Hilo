@@ -3,7 +3,7 @@ import { tiposAparte } from '@/lib/listaBandejas'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import { buscarClientes, comentar, crearHito, mensajeError, siguienteNumero } from '@/data/encargos'
+import { buscarClientes, buscarFichas, comentar, crearHito, mensajeError, siguienteNumero } from '@/data/encargos'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { PageHeader } from '@/layout/AppShell'
 import { Button, Combobox, Dialog, FormRow, Input, SectionLabel, Select, Textarea, useAvisos } from '@/ui'
@@ -17,7 +17,7 @@ import { AvisoGuia, useGuia } from '@/components/Guia'
 import { guiaDe } from '@/data/guia'
 import { ajustesMaterial, anadirLinea, listarMateriales, type MaterialEstado } from '@/data/materiales'
 
-type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null }
+type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null; resumen?: string }
 
 /**
  * Alta de encargo. Todo encargo cuelga de un cliente: uno nuevo o uno existente
@@ -175,9 +175,12 @@ export function NuevoEncargo() {
   // Sugerencias de clientes existentes al escribir el nombre (desde 2 letras)
   React.useEffect(() => {
     if (!tienda || existente || copiaDe || nombre.trim().length < 2) { setSugeridos([]); return }
-    const t = setTimeout(() => { buscarClientes(tienda.id, nombre.trim()).then(setSugeridos).catch(() => setSugeridos([])) }, 200)
+    const t = setTimeout(() => {
+      (fichaPorEncargo ? buscarFichas(tienda.id, nombre.trim(), destinoGuia || undefined) : buscarClientes(tienda.id, nombre.trim()))
+        .then(setSugeridos).catch(() => setSugeridos([]))
+    }, 200)
     return () => clearTimeout(t)
-  }, [nombre, tienda, existente, copiaDe])
+  }, [nombre, tienda, existente, copiaDe, fichaPorEncargo, destinoGuia])
 
   // Borrador autoguardado (solo en este dispositivo): se recupera si se cierra sin guardar
   const claveBorrador = tienda ? `hilo.borrador.${tienda.id}` : ''
@@ -312,8 +315,11 @@ export function NuevoEncargo() {
                       <div className="px-2 py-1 text-xs text-fg-3">{fichaPorEncargo ? `Copiar los datos de una ficha` : `${vocab.clientes} existentes`}</div>
                       {sugeridos.map((s) => (
                         <button type="button" key={s.id} onClick={() => elegirCliente(s)}
-                          className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-bg-4">
-                          <span className="flex-1 truncate">{s.nombre}</span>
+                          className="flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-bg-4">
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate">{s.nombre}</span>
+                            {s.resumen && <span className="truncate text-xs text-fg-3">{s.resumen}</span>}
+                          </span>
                           <span className="text-sm text-fg-3">{s.telefono ?? ''}</span>
                         </button>
                       ))}

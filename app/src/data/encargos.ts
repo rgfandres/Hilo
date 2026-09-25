@@ -1,6 +1,7 @@
 import { plano } from '@/lib/texto'
 import { min, rolesDe, vocabDe, type Vocab } from '@/lib/vocab'
 import { supabase } from '@/lib/supabase'
+import { num3 } from '@/lib/utils'
 import type { Comentario, EncargoEstado, Etapa, Hito, TipoHito } from '@/lib/types'
 
 /**
@@ -266,6 +267,38 @@ export async function buscarClientes(tiendaId: string, q: string) {
     .order('nombre').limit(8)
   if (error) throw error
   return (data ?? []) as { id: string; nombre: string; telefono: string | null; email: string | null; datos: Record<string, unknown> }[]
+}
+
+/**
+ * Con una ficha por encargo: fichas para copiar, la más reciente primero y sin repetir la misma persona,
+ * con un resumen de su último encargo (Nº · producto · valor del campo · periodo).
+ */
+export async function buscarFichas(tiendaId: string, q: string, claveResumen?: string) {
+  const { data, error } = await supabase.from('cliente')
+    .select('id,nombre,telefono,email,datos,nombre_plano,telefono_digitos')
+    .eq('tienda_id', tiendaId).or(filtroCliente(q))
+    .order('creado_en', { ascending: false }).limit(40)
+  if (error) throw error
+  const vistos = new Set<string>()
+  const cs = (data ?? []).filter((c) => {
+    const k = `${c.nombre_plano ?? c.nombre.toLowerCase()}|${c.telefono_digitos ?? ''}`
+    if (vistos.has(k)) return false
+    vistos.add(k); return true
+  }).slice(0, 8)
+  const resumen: Record<string, string> = {}
+  if (cs.length) {
+    const { data: es } = await supabase.from('v_encargo_estado').select('cliente_id,numero,serie,producto_nombre,datos,periodo_id,creado_en')
+      .in('cliente_id', cs.map((c) => c.id)).order('creado_en', { ascending: false })
+    const pids = [...new Set((es ?? []).map((e) => e.periodo_id).filter(Boolean))] as string[]
+    const { data: ps } = pids.length ? await supabase.from('periodo').select('id,nombre').in('id', pids) : { data: [] }
+    const pn = Object.fromEntries((ps ?? []).map((p) => [p.id, p.nombre]))
+    for (const e of es ?? []) {
+      if (resumen[e.cliente_id]) continue
+      const t = claveResumen ? (e.datos as Record<string, unknown> | null)?.[claveResumen] : null
+      resumen[e.cliente_id] = [num3(e as { numero: number; serie: string }), e.producto_nombre, t ? String(t) : null, e.periodo_id ? pn[e.periodo_id] : null].filter(Boolean).join(' · ')
+    }
+  }
+  return cs.map((c) => ({ id: c.id, nombre: c.nombre, telefono: c.telefono, email: c.email, datos: c.datos as Record<string, unknown>, resumen: resumen[c.id] ?? '' }))
 }
 
 /** Nº previsto para un tipo de encargo (con su serie): «007», «S012». Orientativo: se fija al guardar. */
