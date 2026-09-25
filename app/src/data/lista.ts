@@ -25,6 +25,8 @@ export function dimensiones(opts: {
   variosTipos: boolean
   /** La tienda usa importes: se puede filtrar por cobro */
   cobro?: boolean
+  /** Nombre del material asignado (para campos que se rellenan desde él) */
+  materialDe?: (e: EncargoEstado) => string
 }): Dimension[] {
   const { vocab, campos, ordenEtapa } = opts
   const d: Dimension[] = [
@@ -47,7 +49,7 @@ export function dimensiones(opts: {
       clave: 'c:' + c.clave, etiqueta: c.etiqueta, vacio: `Sin ${c.etiqueta.toLowerCase()}`,
       valor: (e) => {
         const v = e.datos?.[c.clave]
-        if (v == null || v === '') return ''
+        if (v == null || v === '') return c.desde_material ? (opts.materialDe?.(e) ?? '') : ''
         return fecha ? String(v).slice(0, 10) : Array.isArray(v) ? v.join(', ') : String(v)
       },
       orden: num ? (a, b) => (a === '' ? 1 : b === '' ? -1 : Number(a) - Number(b))
@@ -75,7 +77,7 @@ export function ordenar(d: Dimension, vals: string[]): string[] {
 export type Filtros = Record<string, string[]>
 
 /** Aplica búsqueda y filtros. Dentro de un filtro, cualquier valor vale (O); entre filtros, todos (Y). */
-export function filtrar(rows: EncargoEstado[], q: string, filtros: Filtros, dims: Dimension[]): EncargoEstado[] {
+export function filtrar(rows: EncargoEstado[], q: string, filtros: Filtros, dims: Dimension[], extra?: (e: EncargoEstado) => string): EncargoEstado[] {
   const activos = Object.entries(filtros).filter(([, v]) => v.length)
   return rows.filter((e) => {
     for (const [k, vals] of activos) {
@@ -85,7 +87,7 @@ export function filtrar(rows: EncargoEstado[], q: string, filtros: Filtros, dims
     if (!q.trim()) return true
     return coincide(q, [
       num3(e), e.numero, e.cliente_nombre, e.cliente_telefono, e.producto_nombre, e.proveedor_nombre,
-      e.etapa_actual_nombre, ...Object.values(e.datos ?? {}).map((v) => (Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? '' : String(v))),
+      e.etapa_actual_nombre, extra?.(e) ?? '', ...Object.values(e.datos ?? {}).map((v) => (Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? '' : String(v))),
     ])
   })
 }

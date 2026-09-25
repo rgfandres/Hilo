@@ -279,7 +279,7 @@ export function Encargos() {
   const SIN = `Sin ${min(vocab.proveedor)}`
   const variosTipos = React.useMemo(() => new Set(rows.map((r) => r.tipo_encargo_id)).size > 1, [rows])
   const dims = React.useMemo((): Dimension[] => {
-    const d = dimensiones({ vocab, sinProveedor: SIN, sinProducto: `Sin ${min(vocab.producto)}`, campos: camposTodos, ordenEtapa, variosTipos, cobro: (tienda?.ajustes as Record<string, unknown> | undefined)?.usar_importe !== false })
+    const d = dimensiones({ vocab, sinProveedor: SIN, sinProducto: `Sin ${min(vocab.producto)}`, campos: camposTodos, ordenEtapa, variosTipos, cobro: (tienda?.ajustes as Record<string, unknown> | undefined)?.usar_importe !== false, materialDe: (e) => matNombres[e.id] ?? '' })
     // Filtrar o agrupar por un dato que cada uno tiene distinto (un enlace, una ficha, un nombre) no sirve: fuera
     const util = (x: Dimension) => {
       if (!x.clave.startsWith('c:')) return true
@@ -292,9 +292,9 @@ export function Encargos() {
     return bandeja === 'bloqueados'
       ? [{ clave: 'motivo', etiqueta: 'Motivo', vacio: 'Sin motivo', valor: (e) => e.puertas_pendientes.find((p) => p.dura)?.mensaje ?? '' }, ...d2]
       : d2
-  }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda, rows])
+  }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda, rows, matNombres])
 
-  const visibles = React.useMemo(() => filtrar(base, q, filtros, dims), [base, q, filtros, dims])
+  const visibles = React.useMemo(() => filtrar(base, q, filtros, dims, (e) => matNombres[e.id] ?? ''), [base, q, filtros, dims, matNombres])
   const dimAgr = agrupar === 'no' ? null : dims.find((d) => d.clave === agrupar) ?? null
 
   // Paginación de la lista (tamaño en Ajustes → Tienda); se oculta si cabe todo en una página
