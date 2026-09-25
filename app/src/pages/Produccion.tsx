@@ -180,12 +180,15 @@ export function Produccion() {
     const malas = ls.filter((l) => l.coherencia !== 'ENVIADO')
     if (malas.length) { setBloqueo(malas.map((l) => `${num3(l)} ${l.cliente_nombre ?? ''}: ${l.motivos.join(', ') || cohTxt(l.coherencia)}`)); return }
     const c = contenido(ls)
+    // La ventana se abre ya, dentro del clic: si se abre tras esperar al servidor, Safari/iPad la bloquea
+    const ventana = window.open('', '_blank')
+    if (ventana) ventana.document.write('<p style="font:14px system-ui;padding:20px">Preparando la hoja…</p>')
     setBusy('imprimir')
     try {
       await registrarImpresion(tienda.id, prodId, ls.map((l) => l.id), c)
-      if (!imprimirHoja(c)) avisar({ tipo: 'aviso', persistente: true, texto: 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes y usa «Reimprimir» en el historial.' })
+      if (!imprimirHoja(c, ventana)) avisar({ tipo: 'aviso', persistente: true, texto: 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes y usa «Reimprimir» en el historial.' })
       await cargar()
-    } catch (x) { avisar({ tipo: 'error', persistente: true, texto: mensajeError(x) }) } finally { setBusy(null) }
+    } catch (x) { ventana?.close(); avisar({ tipo: 'error', persistente: true, texto: mensajeError(x) }) } finally { setBusy(null) }
   }
 
   if (!hoja.activo) {

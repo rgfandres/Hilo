@@ -58,7 +58,8 @@ export async function listarImpresiones(tiendaId: string, productoId: string | n
 }
 
 /** Abre la hoja en una ventana A4 apaisada y lanza la impresión (o «Guardar como PDF»). */
-export function imprimirHoja(c: ContenidoImpresion): boolean {
+/** `ventana`: abierta ya dentro del clic (Safari/iPad bloquea las que se abren después de esperar al servidor). */
+export function imprimirHoja(c: ContenidoImpresion, ventana?: Window | null): boolean {
   const esc = (s: string) => s.replace(/[&<>"]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]!))
   const cab = c.columnas.map((x) => `<th>${esc(x)}</th>`).join('') + (c.curva.length ? c.curva.map((t) => `<th class="t">${esc(t)}</th>`).join('') : '')
   const filas = c.filas.map((f) => `<tr>${f.celdas.map((x) => `<td>${esc(x)}</td>`).join('')}${c.curva.map((t) => `<td class="t">${f.valor === t ? esc(c.marca ?? '●') : ''}</td>`).join('')}</tr>`).join('')
@@ -73,8 +74,8 @@ th,td{border:1px solid #999;padding:4px 5px;text-align:left;vertical-align:top}t
 ${cabecera}
 <table><thead><tr>${cab}</tr></thead><tbody>${filas}</tbody></table>
 <script>window.onload=()=>{window.print()}</script></body></html>`
-  const w = window.open('', '_blank')
-  if (!w) return false
+  const w = ventana ?? window.open('', '_blank')
+  if (!w || w.closed) return false
   w.document.open(); w.document.write(html); w.document.close()
   return true
 }
