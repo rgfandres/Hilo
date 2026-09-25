@@ -58,7 +58,7 @@ export function Proveedores() {
             <tbody>
               {visibles.map((p) => (
                 <Tr key={p.id} className="cursor-pointer" onClick={() => nav(`/proveedores/${p.id}`)}>
-                  <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactivo</Tag>}{p.tipo === 'AMBOS' && <Tag color="gray" className="ml-2">también {min(vocab.proveedor)}</Tag>}</Td>
+                  <Td className="titular font-medium">{p.nombre}{!p.activo && <Tag color="gray" className="ml-2">inactivo</Tag>}{p.tipo === 'AMBOS' && <Tag color="gray" className="ml-2">también {min(vocab.proveedor)}</Tag>}{p.asignable === false && <Tag color="gray" className="ml-2">no se asigna</Tag>}</Td>
                   <Td className="text-fg-2 tabular">{p.unidad_pedido ? `${Number(p.unidad_pedido).toLocaleString('es-ES')} ${matAj.unidad}` : <span className="text-fg-3">—</span>}</Td>
                   <Td className="text-fg-2">{p.telefono ?? <span className="text-fg-3">—</span>}</Td>
                   <Td className="text-fg-2">{p.email_contacto ?? <span className="text-fg-3">—</span>}</Td>
@@ -181,7 +181,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
   open: boolean; p: ProveedorFila | null; lista: ProveedorFila[]; onClose: () => void; onSaved: (id: string) => void; tipoNuevo?: TipoProveedor
 }) {
   const { tienda, vocab, gr } = useAuth()
-  const [f, setF] = React.useState({ nombre: '', tel: '', email: '', notas: '', activo: true, tipo: 'ENCARGOS' as TipoProveedor })
+  const [f, setF] = React.useState({ nombre: '', tel: '', email: '', notas: '', activo: true, tipo: 'ENCARGOS' as TipoProveedor, asignable: true })
   const idCreado = React.useRef<string | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -194,7 +194,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
     if (!open) return
     setUnidad(''); unidadIni.current = p ? null : ''
     if (p && tienda && matAj.activo) unidadesProveedor(tienda.id).then((u) => { const v = u[p.id] == null ? '' : String(u[p.id]).replace('.', ','); unidadIni.current = v; setUnidad(v) }).catch(() => {})
-    setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo, tipo: p.tipo ?? 'ENCARGOS' } : { nombre: '', tel: '', email: '', notas: '', activo: true, tipo: tipoNuevo })
+    setF(p ? { nombre: p.nombre, tel: p.telefono ?? '', email: p.email_contacto ?? '', notas: p.notas ?? '', activo: p.activo, tipo: p.tipo ?? 'ENCARGOS', asignable: p.asignable !== false } : { nombre: '', tel: '', email: '', notas: '', activo: true, tipo: tipoNuevo, asignable: true })
     setErr(null)
   }, [open, p])
 
@@ -208,7 +208,7 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
     try {
       const u = unidad.trim() ? (leerNumero(unidad) ?? NaN) : null
       if (u != null && !(u > 0)) throw new Error('La unidad de pedido no es válida')
-      const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo, ...(matAj.activo ? { tipo: f.tipo } : {}) })
+      const id = await guardarProveedor(tienda.id, p?.id ?? idCreado.current, { nombre, telefono: f.tel.trim() || null, email_contacto: f.email.trim() || null, notas: f.notas.trim() || null, activo: f.activo, asignable: f.asignable, ...(matAj.activo ? { tipo: f.tipo } : {}) })
       idCreado.current = id   // si el segundo paso falla, reintentar edita este y no crea otro
       if (matAj.activo && unidadIni.current !== null && unidad !== unidadIni.current) await guardarUnidadProveedor(id, u)
       onSaved(id); onClose()
@@ -232,6 +232,9 @@ function EditarProveedor({ open, p, lista, onClose, onSaved, tipoNuevo = 'ENCARG
           </FormRow>}
           {matAj.activo && <FormRow label={`Unidad de pedido (${matAj.unidad})`} ayuda={`Lo que vende de una vez (un rollo de 50…). Se usa para redondear los pedidos de ${min(vocab.material)}.`}>
             <Input className="h-7 w-[140px]" inputMode="decimal" value={unidad} onChange={(e) => { setUnidad(e.target.value); if (unidadIni.current === null) unidadIni.current = '\u0000' }} placeholder="Opcional" /></FormRow>}
+          {f.tipo !== 'MATERIAL' && <FormRow label="Se elige en" ayuda={`Apágalo para quien trabaja sin que se le asignen ${min(vocab.encargos)} (por ejemplo, quien corta por la hoja de producción).`}>
+            <Interruptor checked={f.asignable} onChange={(v) => setF({ ...f, asignable: v })} label={f.asignable ? `Se le pueden asignar ${min(vocab.encargos)}` : `No sale para elegirl${gr.o('proveedor')}`} />
+          </FormRow>}
           {p && <FormRow label="Estado"><Interruptor checked={f.activo} onChange={(v) => setF({ ...f, activo: v })} label={f.activo ? `Activ${gr.o('proveedor')}` : `Inactiv${gr.o('proveedor')}: no se le asigna nada ni entra`} /></FormRow>}
         </div>
         <div className="flex flex-col gap-1"><SectionLabel>Notas</SectionLabel><Textarea value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} placeholder="Opcional: especialidad, plazos, precios…" /></div>

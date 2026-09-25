@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { telefonoWhatsApp } from '@/data/mensajes'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarEncargos, listarEtapas, marcarCheck, mensajeError, obtenerEncargo } from '@/data/encargos'
 import { listarPuertas, type PuertaDef } from '@/data/ajustes'
-import { listarProveedoresCat, haceEncargos, fichaProducto, tieneFicha, ajustesFicha, type ProveedorFila, type FichaTecnica } from '@/data/catalogos'
+import { listarProveedoresCat, haceEncargos, elegible, fichaProducto, tieneFicha, ajustesFicha, type ProveedorFila, type FichaTecnica } from '@/data/catalogos'
 import { camposDe, formatearValor, plantillas, type PlantillaCampos } from '@/data/config'
 import { ajustesLogistica, bandejasLogistica, hitosDe, type BandejaLogistica, type ConfigBandeja, type HitoMini } from '@/data/logistica'
 import { ajustesHoja } from '@/data/produccion'
@@ -395,7 +395,7 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFu
           {verProv && (
             <Select value={prov} onChange={(x) => onProv(x.target.value)} aria-label={vocab.proveedor}>
               <option value="">— elegir {min(vocab.proveedor)} —</option>
-              {provs.filter((p) => p.activo || p.id === prov).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              {provs.filter((p) => elegible(p, prov)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </Select>
           )}
           {blandas.length > 0 && b.tipo === 'etapa' && <span className="text-xs text-warn-fg">Aviso: {blandas.map((p) => p.mensaje).join(' · ')}</span>}
@@ -483,7 +483,7 @@ function FichaLogistica({ id, provs, ps, checks, onClose, onCambio }: {
           <div className="flex gap-1.5">
             <Select value={prov} onChange={(x) => setProv(x.target.value)} disabled={rol === 'ATENCION'}>
               <option value="">— sin {min(vocab.proveedor)} —</option>
-              {provs.filter((p) => p.activo || p.id === prov).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              {provs.filter((p) => elegible(p, prov)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </Select>
             <Button variant="primary" disabled={prov === (e.proveedor_id ?? '') || busy} cargando={busy} onClick={async () => {
               setBusy(true)

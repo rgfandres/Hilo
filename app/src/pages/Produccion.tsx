@@ -94,7 +94,7 @@ export function Produccion() {
   const orden = [...productos.entries()].sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es'))
   const prod = sp.get('p') ?? orden[0]?.[0] ?? ''
   const prodId = prod === SIN ? null : prod
-  React.useEffect(() => { if (tienda && prod) listarImpresiones(tienda.id, prodId).then(setImps).catch(() => {}) }, [tienda, prod, prodId, lineas])
+  React.useEffect(() => { if (tienda && prod) listarImpresiones(tienda.id, prodId, periodo?.id ?? null).then(setImps).catch(() => {}) }, [tienda, prod, prodId, lineas, periodo?.id])
   React.useEffect(() => { setSelListos(new Set()) }, [prod])
 
   const delProd = todas.filter((l) => (l.producto_id ?? SIN) === prod && !fuera(l))

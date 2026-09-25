@@ -51,9 +51,11 @@ export async function marcarImprimir(ids: string[], v: boolean) {
 export async function registrarImpresion(tiendaId: string, productoId: string | null, lineas: string[], contenido: ContenidoImpresion): Promise<string> {
   return ok(await supabase.rpc('registrar_impresion', { p_tienda: tiendaId, p_producto: productoId, p_lineas: lineas, p_contenido: contenido })) as string
 }
-export async function listarImpresiones(tiendaId: string, productoId: string | null): Promise<Impresion[]> {
+export async function listarImpresiones(tiendaId: string, productoId: string | null, periodoId?: string | null): Promise<Impresion[]> {
   let q = supabase.from('impresion_produccion').select('*').eq('tienda_id', tiendaId).order('fecha', { ascending: false }).limit(30)
   q = productoId ? q.eq('producto_id', productoId) : q.is('producto_id', null)
+  // Solo las del periodo activo (las antiguas sin periodo, también)
+  if (periodoId) q = q.or(`periodo_id.eq.${periodoId},periodo_id.is.null`)
   return ok(await q) as Impresion[]
 }
 

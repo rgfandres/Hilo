@@ -89,10 +89,14 @@ export interface ProveedorFila {
   telefono: string | null; email_contacto: string | null; accesos: number; en_su_mano: number; asignados: number; atascados?: number
   /** TALLER = hace encargos · MATERIAL = vende material · AMBOS */
   tipo?: TipoProveedor; unidad_pedido?: number | null
+  /** false: hace encargos pero no se elige para ellos (p. ej. quien corta por la hoja de producción) */
+  asignable?: boolean
 }
 export type TipoProveedor = 'ENCARGOS' | 'MATERIAL' | 'AMBOS'
 /** ¿Se le pueden asignar encargos? */
 export const haceEncargos = (p: { tipo?: TipoProveedor }) => p.tipo !== 'MATERIAL'
+/** ¿Sale para elegirlo en un encargo? (activo y asignable; el que ya tiene, siempre) */
+export const elegible = (p: { activo: boolean; asignable?: boolean; id: string }, actual?: string | null) => (p.activo && p.asignable !== false) || p.id === actual
 /** ¿Vende material? */
 export const vendeMaterial = (p: { tipo?: TipoProveedor }) => p.tipo === 'MATERIAL' || p.tipo === 'AMBOS'
 export async function listarProveedoresCat(tiendaId: string) {
@@ -101,7 +105,7 @@ export async function listarProveedoresCat(tiendaId: string) {
 export async function obtenerProveedor(id: string) {
   return ok(await supabase.from('v_proveedores').select('*').eq('id', id).maybeSingle()) as ProveedorFila | null
 }
-export async function guardarProveedor(tiendaId: string, id: string | null, p: { nombre: string; telefono: string | null; email_contacto: string | null; notas: string | null; activo: boolean; tipo?: TipoProveedor }) {
+export async function guardarProveedor(tiendaId: string, id: string | null, p: { nombre: string; telefono: string | null; email_contacto: string | null; notas: string | null; activo: boolean; tipo?: TipoProveedor; asignable?: boolean }) {
   const fila = { ...p, nombre: p.nombre.trim() }
   if (id) { ok(await supabase.from('proveedor').update(fila).eq('id', id)); return id }
   return (ok(await supabase.from('proveedor').insert({ tienda_id: tiendaId, ...fila }).select('id').single()) as { id: string }).id

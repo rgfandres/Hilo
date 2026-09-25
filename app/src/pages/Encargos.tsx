@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconClock, IconLayoutColumns, IconLayoutKanban, IconList, IconMessage, IconSearch, IconSquareCheck, IconX } from '@tabler/icons-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { asignarProveedor, crearHito, deshacerUltimoHito, listarAnulaciones, listarEncargos, listarEtapas, mensajeError, type Anulacion } from '@/data/encargos'
-import { haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
+import { elegible, haceEncargos, listarProveedoresCat, type ProveedorFila } from '@/data/catalogos'
 import { LlegadasMaterial } from '@/pages/Logistica'
 import { ajustesMaterial, avisoStock, cant, lineasDeTienda, listarMateriales, nombreMaterial, nombresMaterialPorEncargo, type LineaMaterial, type MaterialEstado } from '@/data/materiales'
 import { activo, bloqueado, enProveedor, enRevisar, listoParaEntregar, listoParaMi, miTrabajo, motivosRevision, puedeMarcar as puede } from '@/lib/bandejas'
@@ -596,7 +596,7 @@ export function Encargos() {
                               <select className="h-7 max-w-[170px] rounded-sm border border-border bg-bg px-1.5 text-sm" value={e.proveedor_id ?? ''} aria-label={vocab.proveedor}
                                 onChange={(ev) => elegirProv(e, ev.target.value)}>
                                 <option value="">— elegir —</option>
-                                {provsCat.filter((p) => p.activo || p.id === e.proveedor_id).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                                {provsCat.filter((p) => elegible(p, e.proveedor_id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                               </select>
                             </Td>
                           : <Td className="max-w-[160px] truncate" title={e.proveedor_nombre ?? undefined}>{e.proveedor_nombre ?? <span className="text-fg-3">—</span>}</Td>)}

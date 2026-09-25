@@ -34,7 +34,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
   const soloProveedor = rol === 'LOGISTICA'
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   const [productos, setProductos] = React.useState<{ id: string; nombre: string; activo: boolean; precio_base?: number | null }[]>([])
-  const [proveedores, setProveedores] = React.useState<{ id: string; nombre: string; activo: boolean }[]>([])
+  const [proveedores, setProveedores] = React.useState<{ id: string; nombre: string; activo: boolean; asignable?: boolean }[]>([])
 
   const inicial = React.useMemo(() => ({
     producto: encargo.producto_id ?? '',
@@ -168,7 +168,7 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
             <FormRow label={vocab.proveedor}><span className="text-fg-2">{encargo.proveedor_nombre ?? '—'} <span className="text-sm text-fg-3">(lo asigna administración u operativo)</span></span></FormRow>
           ) : <FormRow label={vocab.proveedor}>
             <Combobox value={f.proveedor} onChange={set('proveedor')} vacio="— sin asignar —" ariaLabel={vocab.proveedor} etiquetaCrear="Añadir"
-              opciones={[...proveedores.filter((p) => p.activo), ...(provActual && !provActual.activo ? [provActual] : [])].map((p) => ({ id: p.id, nombre: p.nombre, nota: p.activo ? undefined : 'inactivo' }))}
+              opciones={proveedores.filter((p) => (p.activo && p.asignable !== false) || p.id === provActual?.id).map((p) => ({ id: p.id, nombre: p.nombre, nota: !p.activo ? 'inactivo' : p.asignable === false ? 'no se asigna' : undefined }))}
               crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? async (n) => {
                 const id = await altaRapidaProveedor(encargo.tienda_id, n)
                 setProveedores((l) => l.some((x) => x.id === id) ? l : [...l, { id, nombre: n, activo: true }])

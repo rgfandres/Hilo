@@ -404,7 +404,7 @@ function Evolucion({ datos, proveedor, os = 'os' }: { datos: { i: Intervalo; nue
   const top = paso * 4
   const x = (i: number) => PL + (i * (W - PL - PR)) / Math.max(1, datos.length - 1)
   const y = (v: number) => PT + (H - PT - PB) * (1 - v / top)
-  const etiqueta = (i: Intervalo) => i.tipo === 'mes' ? i.titulo.slice(0, 3) : i.tipo === 'año' ? i.titulo : `${i.ini.getDate()}/${i.ini.getMonth() + 1}`
+  const etiqueta = (i: Intervalo) => i.tipo === 'mes' ? i.titulo.slice(0, 3) : i.tipo === 'año' ? i.titulo : i.ini.toLocaleDateString('es', { timeZone: zona(), day: 'numeric', month: 'numeric' })
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-4 text-sm text-fg-2">

@@ -94,7 +94,9 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
 
   // Se rellena al abrir (o al cambiar de plantilla); una recarga de la ficha no pisa lo que se ha retocado
   const ctxRef = React.useRef(ctx); ctxRef.current = ctx
-  const plantillasRef = React.useRef(plantillas); plantillasRef.current = plantillas
+  // Solo las plantillas de este canal (o de los dos)
+  const delCanal = React.useMemo(() => plantillas.filter((p) => !p.canal || p.canal === 'AMBOS' || p.canal === via), [plantillas, via])
+  const plantillasRef = React.useRef(delCanal); plantillasRef.current = delCanal
   const asuntoDe = React.useCallback((p: PlantillaMensaje | null) =>
     p?.asunto?.trim() ? rellenar(p.asunto, ctxRef.current) : `${tienda?.nombre ?? ''} · ${vocab.encargo} ${num3(encargo)}`, [tienda?.nombre, vocab.encargo, encargo])
   const asuntoRef = React.useRef(asuntoDe); asuntoRef.current = asuntoDe
@@ -161,9 +163,9 @@ export function EnviarMensaje({ open, onOpenChange, encargo, cliente, plantillas
         <option value="">Mensaje libre</option>
         {(() => {
           // Las de esta etapa primero; las de otras etapas, aparte (se pueden usar igual)
-          const aqui = plantillas.filter((p) => p.etapa_id && (p.etapa_id === encargo.etapa_actual_id || p.etapa_id === encargo.etapa_siguiente_id))
-          const generales = plantillas.filter((p) => !p.etapa_id)
-          const otras = plantillas.filter((p) => p.etapa_id && !aqui.includes(p))
+          const aqui = delCanal.filter((p) => p.etapa_id && (p.etapa_id === encargo.etapa_actual_id || p.etapa_id === encargo.etapa_siguiente_id))
+          const generales = delCanal.filter((p) => !p.etapa_id)
+          const otras = delCanal.filter((p) => p.etapa_id && !aqui.includes(p))
           return <>
             {aqui.length > 0 && <optgroup label="Para esta etapa">{aqui.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</optgroup>}
             {generales.length > 0 && <optgroup label="Generales">{generales.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</optgroup>}

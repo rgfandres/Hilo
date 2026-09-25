@@ -47,7 +47,7 @@ export function ArregloPuerta({ e, p, onHecho, onCompletar, compacto }: {
   let control: React.ReactNode = null
   if (p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'proveedor_id' && rol !== 'ATENCION') {
     control = <Combobox className={ancho} vacio={`Asignar ${min(vocab.proveedor)}…`} value="" ariaLabel={`Asignar ${min(vocab.proveedor)}`}
-      opciones={prov.filter((x) => x.activo)} onChange={(id) => id && hacer(() => asignarProveedor(e.id, id))}
+      opciones={prov.filter((x) => x.activo && (x as { asignable?: boolean }).asignable !== false)} onChange={(id) => id && hacer(() => asignarProveedor(e.id, id))}
       crear={rol === 'ADMIN' || rol === 'OPERATIVO' ? (n) => altaRapidaProveedor(e.tienda_id, n) : undefined} etiquetaCrear="Añadir" />
   } else if (p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'producto_id' && editar) {
     control = <Combobox className={ancho} vacio={`Elegir ${min(vocab.producto)}…`} value="" ariaLabel={`Elegir ${min(vocab.producto)}`}
