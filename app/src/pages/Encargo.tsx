@@ -369,7 +369,7 @@ export function Encargo() {
                           {[...duras, ...blandas].map((pu, i) => (
                             <div key={i} className="flex flex-col gap-1">
                               <span className={cn('text-sm', pu.dura ? 'text-danger-fg' : 'text-warn-fg')}>{pu.dura ? '' : 'Aviso: '}{pu.mensaje}</span>
-                              {(suyo || gestion) && <ArregloPuerta e={e} p={pu} onHecho={() => cargar().catch((z) => setErr(mensajeError(z)))} onCompletar={() => setEditar(true)} />}
+                              {(suyo || (gestion && pu.tipo !== 'CHECK')) && <ArregloPuerta e={e} p={pu} onHecho={() => cargar().catch((z) => setErr(mensajeError(z)))} onCompletar={() => setEditar(true)} />}
                             </div>
                           ))}
                           {incAbierta && <span className="text-sm text-danger-fg">Hay una incidencia abierta: resuélvela para poder avanzar.</span>}
