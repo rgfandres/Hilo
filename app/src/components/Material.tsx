@@ -9,6 +9,7 @@ import { mensajeError } from '@/data/encargos'
 import { Button, Combobox, Dialog, FormRow, SectionLabel, Tag, useAvisos, type TagColor } from '@/ui'
 import { NumeroInput } from '@/components/CampoInput'
 import { min } from '@/lib/vocab'
+import { fechaCorta } from '@/lib/utils'
 
 const ESTADO: Record<LineaMaterial['estado'], { txt: string; color: TagColor }> = {
   PENDIENTE: { txt: 'Pendiente', color: 'amber' }, PEDIDO: { txt: 'Pedido', color: 'blue' }, RECIBIDO: { txt: 'Recibido', color: 'green' },
@@ -126,7 +127,7 @@ export function MaterialesEncargo({ encargo, editable, onCambio, refresco, suger
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1 font-medium">{nombreMaterial(m)}</span>
               <span className="text-fg-2 tabular">{cant(l.cantidad, ud)}</span>
-              <Tag color={ESTADO[l.estado].color}>{ESTADO[l.estado].txt}</Tag>
+              <Tag color={ESTADO[l.estado].color}>{ESTADO[l.estado].txt}{l.estado === 'RECIBIDO' && l.consumo?.fecha ? ` ${fechaCorta(l.consumo.fecha)}` : ''}</Tag>
             </div>
             {!anulado && (
               <div className="flex flex-wrap gap-1.5">
