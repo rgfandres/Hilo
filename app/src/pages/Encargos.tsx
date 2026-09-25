@@ -297,7 +297,10 @@ export function Encargos() {
       : d2
   }, [vocab, SIN, camposTodos, ordenEtapa, variosTipos, bandeja, tienda, rows, matNombres])
 
-  const visibles = React.useMemo(() => filtrar(solo === 'curso' ? base.filter(activo) : solo === 'incidencias' ? base.filter((e) => activo(e) && e.en_revision) : base,
+  const visibles = React.useMemo(() => filtrar(solo === 'curso' ? base.filter(activo) : solo === 'incidencias' ? base.filter((e) => activo(e) && e.en_revision)
+    : solo === 'proveedor' ? base.filter(enProveedor)
+    : solo === 'asignar' ? base.filter((e) => activo(e) && !e.proveedor_id && (e.puertas_pendientes ?? []).some((p) => p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'proveedor_id'))
+    : base,
     q, filtros, dims, (e) => matNombres[e.id] ?? ''), [base, q, filtros, dims, matNombres, solo])
   const dimAgr = agrupar === 'no' ? null : dims.find((d) => d.clave === agrupar) ?? null
 

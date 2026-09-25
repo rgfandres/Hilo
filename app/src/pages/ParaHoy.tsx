@@ -30,7 +30,7 @@ function Fila({ e, motivo }: { e: EncargoEstado; motivo: React.ReactNode }) {
 }
 
 /** Enlace a la lista con la bandeja o el filtro ya puestos, y el aviso «Desde el panel». */
-const aLista = (p: { b?: string; f?: Record<string, string[]>; s?: 'curso' | 'incidencias'; desde: string }) => {
+const aLista = (p: { b?: string; f?: Record<string, string[]>; s?: 'curso' | 'incidencias' | 'proveedor' | 'asignar'; desde: string }) => {
   const u = new URLSearchParams()
   if (p.b) u.set('b', p.b)
   if (p.s) u.set('s', p.s)
@@ -130,9 +130,12 @@ export function ParaHoy() {
     return [...n.entries()].sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : (pos.get(a) ?? 0) - (pos.get(b) ?? 0)))
       .map(([k, c]) => ({ nombre: k, n: c, color: orden.get(k)?.color ?? null }))
   }, [enCurso, etapas])
+  // Por proveedor: lo que tiene en su mano; «Sin …»: lo que espera que se le asigne uno para avanzar
+  const esperaProveedor = (r: EncargoEstado) => !r.proveedor_id && (r.puertas_pendientes ?? []).some((p) => p.tipo === 'CAMPO_NO_VACIO' && p.referencia === 'proveedor_id')
   const porProveedor = React.useMemo(() => {
     const n = new Map<string, { n: number; atascados: number }>()
     for (const r of enCurso) {
+      if (r.proveedor_id ? !enProveedor(r) : !esperaProveedor(r)) continue
       const k = r.proveedor_nombre ?? ''
       const v = n.get(k) ?? { n: 0, atascados: 0 }
       v.n++; if (r.atascado) v.atascados++
@@ -234,7 +237,7 @@ export function ParaHoy() {
                   <SectionLabel className="px-2">Por {prov}</SectionLabel>
                   <div className="border-t border-border-light">
                     {porProveedor.map(([k, v]) => (
-                      <Link key={k || '_'} to={aLista({ f: { proveedor: [k] }, b: bTodos, s: 'curso', desde: `${vocab.proveedor}: ${k || `Sin ${prov}`}` })}
+                      <Link key={k || '_'} to={aLista({ f: { proveedor: [k] }, b: bTodos, s: k ? 'proveedor' : 'asignar', desde: `${vocab.proveedor}: ${k || `Sin ${prov}`}` })}
                         className="flex h-9 items-center gap-2 border-b border-border-light px-2 hover:bg-bg-2">
                         <span className={cn('truncate', k ? 'font-medium' : 'text-warn-fg')}>{k || `Sin ${prov}`}</span>
                         <span className="flex-1" />

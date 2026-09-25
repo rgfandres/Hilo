@@ -52,9 +52,13 @@ export function Logistica() {
   const [ficha, setFicha] = React.useState<string | null>(null)
   const [todos, setTodos] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
+  // Receta de cada producto (la de complementos): se enseña en la tarjeta de la comprobación
+  const [recetas, setRecetas] = React.useState<Record<string, string>>({})
 
   const cargar = React.useCallback(async () => {
     if (!tienda) return
+    supabase.from('producto').select('id,receta').eq('tienda_id', tienda.id).not('receta', 'is', null)
+      .then(({ data }) => setRecetas(Object.fromEntries((data ?? []).filter((x) => String(x.receta ?? '').trim()).map((x) => [x.id, String(x.receta)]))))
     const [e, et, pv, p] = await Promise.all([listarEncargos(tienda.id, { periodoId: periodo?.id ?? null }), listarEtapas(tienda.id), listarProveedoresCat(tienda.id), plantillas(tienda.id)])
     const logis = et.filter((x) => x.rol_ejecuta === 'LOGISTICA')
     const pu = await listarPuertas(logis.map((x) => x.id))
@@ -296,7 +300,7 @@ export function Logistica() {
                       <Tarjeta key={e.id} e={e} b={actual!} etapas={etapas} logisIds={logisIds} hitos={hitos[e.id] ?? []}
                         lineas={lineasDe(e)} ocultarProv={usarCarpetas} ocultarFuturos={!!cfg.ocultar_futuros}
                         provs={provs} prov={provDe(e)} verProv={verProvDe(actual!, e)} onProv={(v) => cambiarProv(e, v)}
-                        checkHecho={checkHechoDe(actual!, e)}
+                        checkHecho={checkHechoDe(actual!, e)} receta={e.producto_id ? recetas[e.producto_id] : undefined}
                         armado={toque.armado === e.id} onAccion={() => {
                           if (!toque.pulsar(e.id)) return
                           if (actual!.tipo === 'check') marcar(e, actual!.ref!, actual!.label); else avanzar(e)
@@ -335,11 +339,12 @@ function Vacio({ texto }: { texto?: string }) {
   return <p className="py-10 text-center text-fg-3">{texto ?? 'Nada pendiente en esta bandeja.'}</p>
 }
 
-function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFuturos, provs, prov, verProv, onProv, checkHecho, armado, onAccion, onAbrir }: {
+function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFuturos, provs, prov, verProv, onProv, checkHecho, receta, armado, onAccion, onAbrir }: {
   e: EncargoEstado; b: Bandeja; etapas: Etapa[]; logisIds: Set<string>; hitos: HitoMini[]
   lineas: { etiqueta: string; valor: string }[]; ocultarProv: boolean; ocultarFuturos: boolean
   provs: ProveedorFila[]; prov: string; verProv: boolean; onProv: (v: string) => void
   checkHecho: { etiqueta: string; hecho: boolean } | null
+  receta?: string
   armado: boolean; onAccion: () => void; onAbrir: () => void
 }) {
   const { vocab, gr } = useAuth()
@@ -369,6 +374,7 @@ function Tarjeta({ e, b, etapas, logisIds, hitos, lineas, ocultarProv, ocultarFu
       {checkHecho && (
         <div className={cn('flex flex-col gap-0.5 rounded-sm px-2 py-1.5', b.tipo === 'check' ? 'bg-warn-bg' : 'bg-bg-3')}>
           {e.complementos && <span className={b.tipo === 'check' ? 'font-medium' : 'text-sm'}>{e.complementos}</span>}
+          {b.tipo === 'check' && receta && <span className="whitespace-pre-line text-sm text-fg-2">Receta de {e.producto_nombre}: {receta}</span>}
           <span className="text-sm">{checkHecho.hecho ? '✅' : '⬜'} {checkHecho.etiqueta}: {checkHecho.hecho ? 'hecho' : 'pendiente'}</span>
         </div>
       )}
