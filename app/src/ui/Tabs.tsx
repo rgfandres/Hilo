@@ -74,7 +74,12 @@ export function Tabs({ items, value, onChange, className }: {
                     <div className="flex flex-wrap gap-0.5">{tr.items.map((t) => <Pestana key={t.key} t={t} on={t.key === value} onClick={() => onChange(t.key)} pill />)}</div>
                   </div>
                 )
-                : <div className="flex flex-wrap items-end gap-0.5 self-end">{tr.items.map((t) => <Pestana key={t.key} t={t} on={t.key === value} onClick={() => onChange(t.key)} pill />)}</div>}
+                : (
+                  <div className="flex flex-col gap-0.5 rounded-md border border-transparent px-1 pb-1 pt-0.5">
+                    <span className="px-1 text-xxs" aria-hidden>&nbsp;</span>
+                    <div className="flex flex-wrap gap-0.5">{tr.items.map((t) => <Pestana key={t.key} t={t} on={t.key === value} onClick={() => onChange(t.key)} pill />)}</div>
+                  </div>
+                )}
             </React.Fragment>
           )
         })}

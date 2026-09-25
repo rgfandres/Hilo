@@ -24,14 +24,15 @@ import { MedidasDelEncargo } from '@/components/HistorialMedidas'
 import { ajustesFicha, fichaProducto, tieneFicha, type FichaTecnica } from '@/data/catalogos'
 import { resumenFicha } from '@/pages/Productos'
 import { ajustesMaterial, desasignarMaterial, lineasDeEncargo } from '@/data/materiales'
-import { Button, Dialog, Tag, Field, SectionLabel, Input, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
+import { Button, Dialog, Popover, Tag, Field, SectionLabel, Input, Textarea, UndoBar, tagColorFromHex, useAvisos } from '@/ui'
 import { cn, fechaCorta, num3, locale, dinero, ajustesDinero, pendiente, zona, aHoraTienda, deHoraTienda, diasEntre } from '@/lib/utils'
 import { camposDe, checksDelFlujo, plantillas, type Campo, type CheckDef } from '@/data/config'
 import { min } from '@/lib/vocab'
 import { EditarEncargo } from '@/components/EditarEncargo'
 import { tiposAparte } from '@/lib/listaBandejas'
 import { EnviarMensaje } from '@/components/EnviarMensaje'
-import { listarEnvios, listarPlantillas, type MensajeEnviado, type PlantillaMensaje } from '@/data/mensajes'
+import { listarEnvios, listarPlantillas, telefonoWhatsApp, type MensajeEnviado, type PlantillaMensaje } from '@/data/mensajes'
+import { listarAdjuntos } from '@/data/adjuntos'
 
 const TAB = 'flex h-9 items-center gap-1.5 px-1 mr-4 text-base font-medium text-fg-2 data-[state=active]:text-fg data-[state=active]:shadow-[inset_0_-1px_0_var(--color-gray-12)]'
 
@@ -74,7 +75,11 @@ export function Encargo() {
   // Volver atrás: si hay que decidir qué pasa con el material recibido
   const [matVolver, setMatVolver] = React.useState<{ ids: string[] } | null>(null)
   const [devolver, setDevolver] = React.useState<'si' | 'no'>('si')
+  // Si aún no se había mandado a producción (cortar), el material vuelve solo al stock, sin preguntar
+  const [matAuto, setMatAuto] = React.useState(false)
   const [confirmarMarcar, setConfirmarMarcar] = React.useState(false)
+  const [menuMovil, setMenuMovil] = React.useState(false)
+  const [foto, setFoto] = React.useState<string | null>(null)
   const [filtroHilo, setFiltroHilo] = React.useState<'todo' | 'pasos' | 'com' | 'msg'>('todo')
   const [anul, setAnul] = React.useState<Anulacion | null>(null)
   const [checks, setChecks] = React.useState<Record<string, boolean>>({})
@@ -130,6 +135,7 @@ export function Encargo() {
     setAnul(an[enc.id] ?? null)
     setHitos(h); setComs(c); setCli((cl.data as Cliente) ?? null)
     listarNotasCampo(id).then(setNotas).catch(() => {})
+    listarAdjuntos('encargo', id).then((as) => setFoto(as.find((a) => (a.tipo ?? '').startsWith('image/'))?.url ?? null)).catch(() => {})
     // Nombres de quien escribe (si se puede leer el equipo)
     listarEquipo(enc.tienda_id).then((eq) => setAutores(Object.fromEntries(eq.map((m) => [m.user_id, m.email.split('@')[0]])))).catch(() => {})
     setChecks(Object.fromEntries(((ck.data ?? []) as { clave: string; marcado: boolean }[]).map((x) => [x.clave, x.marcado])))
@@ -188,13 +194,19 @@ export function Encargo() {
   /** Volver a un paso hecho: si se vuelve antes del paso que exige el material, se pregunta qué hacer con lo recibido */
   async function abrirVolver(x: Etapa) {
     if (!e) return
-    setDestino(x.clave); setNota(''); setModalErr(null); setMatVolver(null); setDevolver('si')
+    setDestino(x.clave); setNota(''); setModalErr(null); setMatVolver(null); setDevolver('si'); setMatAuto(false)
     const conMat = etapas.filter((y) => puertasTipo.some((pu) => pu.etapa_destino_id === y.id && pu.tipo === 'MATERIAL'))
     const primeraMat = conMat.length ? Math.min(...conMat.map((y) => y.orden)) : null
     if (primeraMat != null && x.orden < primeraMat) {
       const ls = await lineasDeEncargo(e.id).catch(() => [])
       const rec = ls.filter((l) => l.estado === 'RECIBIDO').map((l) => l.id)
-      if (rec.length) setMatVolver({ ids: rec })
+      if (rec.length) {
+        setMatVolver({ ids: rec })
+        // ¿Ya pasó por el paso de producción (p. ej. «Enviado a corte»)? Entonces puede estar cortada: se pregunta
+        const prod = etapas.filter((y) => y.es_produccion).map((y) => y.orden)
+        const yaEnProduccion = prod.length > 0 && e.etapa_actual_orden != null && e.etapa_actual_orden >= Math.min(...prod)
+        setMatAuto(!yaEnProduccion); setDevolver(yaEnProduccion ? 'no' : 'si')
+      }
     }
     setModal('volver')
   }
@@ -277,17 +289,36 @@ export function Encargo() {
     <>
       <PageHeader title={<span><Link to={tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? `/encargos?t=${e.tipo_encargo_id}` : '/encargos'} className="text-fg-3">{tiposAparte(tienda?.ajustes as Record<string, unknown> | undefined).includes(e.tipo_encargo_id) ? e.tipo_nombre ?? vocab.encargos : vocab.encargos}</Link><span className="mx-2 text-border-strong">/</span>{num3(e)} · {e.cliente_nombre}</span>}>
         {!anulado && puedeAvisar && <Button variant="ghost" onClick={() => setMensaje({ inicial: plantillaEtapa?.id ?? null })}>Avisar {gr.con('cliente', 'al')}</Button>}
+        <div className="contents max-md:hidden">
         {puedeEditar && <Button variant="ghost" onClick={() => setEditar(true)}>Editar</Button>}
         {!anulado && rol !== 'LOGISTICA' && (
           <Button variant="ghost" asChild><Link to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otr${gr.o('encargo')} ${min(vocab.encargo)}` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link></Button>
         )}
         <Button variant="ghost" onClick={abrirFicha}>Ver ficha</Button>
+        </div>
+        <div className="md:hidden">
+          <Popover open={menuMovil} onOpenChange={setMenuMovil} align="end" className="flex w-[220px] flex-col p-1"
+            trigger={({ toggle }) => <Button variant="ghost" onClick={toggle} aria-label="Más acciones">…</Button>}>
+            {puedeEditar && <button className="h-9 rounded-sm px-2 text-left hover:bg-bg-4" onClick={() => { setMenuMovil(false); setEditar(true) }}>Editar</button>}
+            {!anulado && rol !== 'LOGISTICA' && <Link className="flex h-9 items-center rounded-sm px-2 hover:bg-bg-4" to={`/encargos/nuevo?cliente=${e.cliente_id}&desde=${e.id}`}>{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true ? `+ Otr${gr.o('encargo')} ${min(vocab.encargo)}` : `+ ${vocab.encargo} para ${gr.con('cliente', 'este')}`}</Link>}
+            <button className="h-9 rounded-sm px-2 text-left hover:bg-bg-4" onClick={() => { setMenuMovil(false); abrirFicha() }}>Ver ficha</button>
+          </Popover>
+        </div>
       </PageHeader>
 
       <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
         <aside className="flex w-[380px] shrink-0 flex-col gap-4 overflow-auto border-r border-border p-5 max-md:w-full max-md:overflow-visible max-md:border-b max-md:border-r-0 max-md:p-4">
           <div className="flex flex-col gap-1.5">
             <Link to={`/clientes/${e.cliente_id}`} className="text-xl font-semibold tracking-tight hover:underline">{e.cliente_nombre}</Link>
+            {foto && <a href={foto} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border"><img src={foto} alt="" className="max-h-40 w-full object-cover" /></a>}
+            {cli?.telefono && (
+              <div className="flex flex-wrap gap-x-3 text-sm">
+                <a href={`tel:${cli.telefono.replace(/\s/g, '')}`} className="text-fg-2 underline-offset-2 hover:text-fg hover:underline">Llamar</a>
+                {telefonoWhatsApp(cli.telefono, String((tienda?.ajustes as Record<string, unknown> | undefined)?.prefijo_telefono ?? '34')) && (
+                  <a href={`https://wa.me/${telefonoWhatsApp(cli.telefono, String((tienda?.ajustes as Record<string, unknown> | undefined)?.prefijo_telefono ?? '34'))}`} target="_blank" rel="noopener noreferrer" className="text-fg-2 underline-offset-2 hover:text-fg hover:underline">WhatsApp</a>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2 text-fg-2">
               <span>{vocab.encargo} {num3(e)}</span><span className="text-border-strong">·</span>
               {anulado ? <Tag color="gray">Anulad{gr.o('encargo')}</Tag>
@@ -583,11 +614,12 @@ export function Encargo() {
           if (matVolver && devolver === 'si') for (const id of matVolver.ids) await desasignarMaterial(id)
           await crearHito(e.id, destino, { tipo: 'REENTRADA', nota: nota.trim() || undefined })
         }) }]}>
-        {matVolver && (
+        {matVolver && matAuto && <p className="m-0 rounded-md bg-bg-3 px-3 py-2 text-sm text-fg-2">{gr.Con('material', 'el')} recibid{gr.o('material')} vuelve al stock (aún no se había mandado a producción).</p>}
+        {matVolver && !matAuto && (
           <div className="flex flex-col gap-1.5 rounded-md border border-warn-bg bg-warn-bg/40 p-3">
-            <span className="text-sm font-medium text-warn-fg">{gr.Con('material', 'el')} ya se había recibido. ¿Qué hacemos?</span>
+            <span className="text-sm font-medium text-warn-fg">{gr.Con('encargo', 'este')} ya pasó por producción: {gr.con('material', 'el')} puede estar cortad{gr.o('material')}. ¿Qué hacemos?</span>
             <label className="flex items-center gap-2"><input type="radio" name="devolver" checked={devolver === 'si'} onChange={() => setDevolver('si')} />Vuelve al stock</label>
-            <label className="flex items-center gap-2"><input type="radio" name="devolver" checked={devolver === 'no'} onChange={() => setDevolver('no')} />Se queda asignad{gr.o('material')} a {gr.con('encargo', 'este')}</label>
+            <label className="flex items-center gap-2"><input type="radio" name="devolver" checked={devolver === 'no'} onChange={() => setDevolver('no')} />Se queda asignad{gr.o('material')} a {gr.con('encargo', 'este')} (ya está cortad{gr.o('material')})</label>
           </div>
         )}
         <Input value={nota} onChange={(x) => setNota(x.target.value)} placeholder="Motivo (opcional)" />

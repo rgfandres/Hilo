@@ -352,7 +352,7 @@ export function Encargos() {
   const ver = (k: string) => !ocultas.includes(k)
   const colsFijas = [
     { k: 'producto', label: vocab.producto }, ...cols.map((c) => ({ k: 'c:' + c.clave, label: c.etiqueta })),
-    { k: 'etapa', label: 'Etapa' }, { k: 'proveedor', label: vocab.proveedor }, { k: 'actualizado', label: 'Actualizado' },
+    { k: 'etapa', label: 'Etapa' }, { k: 'dias', label: 'Días en el paso' }, { k: 'proveedor', label: vocab.proveedor }, { k: 'actualizado', label: 'Actualizado' },
   ]
   const NCOL = 3 + colsFijas.filter((c) => ver(c.k)).length
   const puedeMarcar = (e: EncargoEstado) => puede(e, rol)
@@ -514,6 +514,7 @@ export function Encargos() {
                 {ver('producto') && <Th className="w-[140px]">{vocab.producto}</Th>}
                 {cols.filter((c) => ver('c:' + c.clave)).map((c) => <Th key={c.clave} className="w-[120px]">{c.etiqueta}</Th>)}
                 {ver('etapa') && <Th className="w-[170px]">Etapa</Th>}
+                {ver('dias') && <Th className="w-[80px] text-right" title="Días desde el último paso">Días</Th>}
                 {ver('proveedor') && <Th className="w-[120px]">{vocab.proveedor}</Th>}
                 {ver('actualizado') && <Th className="w-[110px]">Actualizado</Th>}
                 <Th>Siguiente</Th>
@@ -565,6 +566,7 @@ export function Encargos() {
                             {e.estancado && <span className="ml-1.5 text-sm text-fg-3">{aj.estancado_por === 'pasos' ? `${e.dias_en_etapa ?? 0} d` : relativo(e.actualizado_en)}</span>}
                           </Td>
                         )}
+                        {ver('dias') && <Td className={cn('text-right tabular', e.estancado || e.atascado ? 'font-medium text-warn-fg' : 'text-fg-3')}>{activo(e) && e.dias_en_etapa != null ? e.dias_en_etapa : '—'}</Td>}
                         {ver('proveedor') && (defActual?.elegir_proveedor && (rol === 'ADMIN' || rol === 'OPERATIVO') && activo(e)
                           ? <Td onClick={(ev) => ev.stopPropagation()}>
                               <select className="h-7 max-w-[170px] rounded-sm border border-border bg-bg px-1.5 text-sm" value={e.proveedor_id ?? ''} aria-label={vocab.proveedor}
