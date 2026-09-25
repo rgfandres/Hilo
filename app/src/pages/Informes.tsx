@@ -211,7 +211,7 @@ export function Informes() {
                 {descartados > 0 && <p className="m-0 text-sm text-warn-fg">⚠ {descartados} {descartados === 1 ? 'tramo no se ha contado' : 'tramos no se han contado'} porque la fecha de llegada es anterior a la de salida. Revisa las fechas de esos pasos en el hilo {gr_de(vocab.encargo)}.</p>}
               </section>
 
-              <Facturacion hs={hsVista} iv={iv} encargos={actuales} />
+              <Facturacion hs={hsVista} iv={iv} encargos={actuales} precios={precios} />
 
               <section className="flex flex-col gap-2">
                 <SectionLabel>Dónde está cada {min(vocab.encargo)} ahora</SectionLabel>

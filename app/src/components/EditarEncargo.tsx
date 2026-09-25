@@ -195,7 +195,9 @@ export function EditarEncargo({ open, onOpenChange, encargo, cliente, camposEnc,
             <FormRow label="Teléfono"><Input className="h-7" type="tel" value={f.tel} onChange={(e) => set('tel')(e.target.value)} /></FormRow>
             <FormRow label="Correo"><Input className="h-7" type="email" value={f.email} onChange={(e) => set('email')(e.target.value)} /></FormRow>
             <CamposForm pegar campos={camposCli} valores={f.dCli} onCambio={(k, v) => setF((s) => ({ ...s, dCli: { ...s.dCli, [k]: v } }))} />
-            <p className="pt-1 text-sm text-fg-3">Los cambios {gr.con('cliente', 'del')} se ven en tod{gr.o('encargo', true)} sus {min(vocab.encargos)}.</p>
+            <p className="pt-1 text-sm text-fg-3">{(tienda?.ajustes as Record<string, unknown> | undefined)?.cliente_por_encargo === true
+              ? `Estos datos son de la ficha de est${gr.o('encargo')} ${min(vocab.encargo)}: no cambian otr${gr.o('encargo', true)} ${min(vocab.encargos)}.`
+              : `Los cambios ${gr.con('cliente', 'del')} se ven en tod${gr.o('encargo', true)} sus ${min(vocab.encargos)}.`}</p>
           </div>
         )}
 

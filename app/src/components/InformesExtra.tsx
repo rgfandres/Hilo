@@ -19,34 +19,39 @@ function Cifra({ titulo, valor, nota }: { titulo: string; valor: string; nota?: 
   )
 }
 
-/** Facturación estimada con el importe real de cada encargo. */
-export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Intervalo; encargos: EncargoEstado[] }) {
+/** Facturación estimada: el importe de cada encargo; sin importe, el precio del catálogo (el mismo cálculo que «por dato»). */
+export function Facturacion({ hs, iv, encargos, precios }: { hs: HitoInforme[]; iv: Intervalo; encargos: EncargoEstado[]; precios?: Map<string, number | null> }) {
   const { tienda, vocab, gr } = useAuth()
   const din = ajustesDinero(tienda?.ajustes as Record<string, unknown>)
   // Importes de todos los encargos que salen en el informe (de cualquier periodo, también anulados)
-  const [importes, setImportes] = React.useState<Map<string, { importe: number | null }>>(new Map())
+  type Imp = { importe: number | null; producto_id?: string | null }
+  const [importes, setImportes] = React.useState<Map<string, Imp>>(new Map())
   const ids = React.useMemo(() => [...new Set(hs.map((h) => h.encargo_id))], [hs])
   React.useEffect(() => {
     if (!din.usa || !ids.length) return
     let vivo = true
     ;(async () => {
-      const m = new Map<string, { importe: number | null }>()
+      const m = new Map<string, Imp>()
       for (let i = 0; i < ids.length; i += 200) {
-        const { data } = await supabase.from('encargo').select('id,importe').in('id', ids.slice(i, i + 200))
-        for (const x of (data ?? []) as { id: string; importe: number | null }[]) m.set(x.id, x)
+        const { data } = await supabase.from('encargo').select('id,importe,producto_id').in('id', ids.slice(i, i + 200))
+        for (const x of (data ?? []) as ({ id: string } & Imp)[]) m.set(x.id, x)
       }
       if (vivo) setImportes(m)
     })().catch(() => {})
     return () => { vivo = false }
   }, [ids, din.usa])
   if (!din.usa) return null
-  const porId = new Map<string, { importe: number | null }>([...importes, ...encargos.map((e) => [e.id, e] as [string, EncargoEstado])])
+  const porId = new Map<string, Imp>([...importes, ...encargos.map((e) => [e.id, e] as [string, Imp])])
+  const valor = (e: Imp) => (e.importe != null ? Number(e.importe) : e.producto_id ? precios?.get(e.producto_id) ?? null : null)
   const suma = (ids: Iterable<string>) => {
-    let t = 0, sin = 0, n = 0
-    for (const id of ids) { const e = porId.get(id); if (!e) continue; n++; if (e.importe == null) sin++; else t += Number(e.importe) }
-    return { t, sin, n }
+    let t = 0, sin = 0, n = 0, est = 0
+    for (const id of ids) {
+      const e = porId.get(id); if (!e) continue; n++
+      const v = valor(e); if (v == null) sin++; else { t += v; if (e.importe == null) est++ }
+    }
+    return { t, sin, n, est }
   }
-  const nota = (x: { sin: number; n: number }) => `${x.n} ${x.n === 1 ? min(vocab.encargo) : min(vocab.encargos)}${x.sin ? ` · ${x.sin} sin importe` : ''}`
+  const nota = (x: { sin: number; n: number; est: number }) => `${x.n} ${x.n === 1 ? min(vocab.encargo) : min(vocab.encargos)}${x.est ? ` · ${x.est} con precio de catálogo` : ''}${x.sin ? ` · ${x.sin} sin precio` : ''}`
   const entrada = suma(creadosEn(hs, iv)), prod = suma(recibidosProveedor(hs, iv)), entregado = suma(terminados(hs, iv))
   const vivos = encargos.filter((e) => e.estado === 'ACTIVO' && !e.es_final)
   const cartera = suma(vivos.map((e) => e.id))
@@ -62,7 +67,7 @@ export function Facturacion({ hs, iv, encargos }: { hs: HitoInforme[]; iv: Inter
         <Cifra titulo="En curso (cartera)" valor={dinero(cartera.t, din.moneda)} nota={nota(cartera)} />
         <Cifra titulo="Pendiente de cobro" valor={dinero(totalPend, din.moneda)} nota={`${pendCobro.length} con algo pendiente`} />
       </div>
-      <p className="m-0 text-xs text-fg-3">Con el importe pactado de cada {min(vocab.encargo)}. «En curso» y «pendiente de cobro» son de ahora mismo; el resto, del intervalo.</p>
+      <p className="m-0 text-xs text-fg-3">Con el importe pactado de cada {min(vocab.encargo)}; si no tiene, el precio de su {min(vocab.producto)} en el catálogo. «En curso» y «pendiente de cobro» son de ahora mismo; el resto, del intervalo.</p>
     </section>
   )
 }
