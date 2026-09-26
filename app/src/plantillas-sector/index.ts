@@ -55,6 +55,9 @@ const M_ASIGNAR = bE('🏭 Asignar taller', [{ etapa: 'Recogido del cortador', p
 const M_TALLER = bE('🧵 En taller', ['Llevado al taller', { etapa: 'Recogido del cortador', proveedor: 'con' }], { grupo: 'Confección', accionable: false })
 const M_TIENDA = bE('🏪 En tienda', ['Recogido del taller', 'Entregado en tienda'], { grupo: 'Confección', ayuda: 'Ya en la tienda, pendientes de entregar a la clienta.' })
 
+/** Orden en el alta: de lo más habitual a «en blanco» */
+export const ORDEN_PLANTILLAS = ['moda', 'joyeria', 'sastreria', 'arreglos', 'tapiceria', 'personalizacion', 'reparaciones', 'eventos', 'carpinteria', 'blanco']
+
 export const PLANTILLAS: PlantillaSector[] = [
   {
     id: 'blanco',
@@ -425,6 +428,59 @@ export const PLANTILLAS: PlantillaSector[] = [
       ...['Blanca', 'Negra'].map((v) => ({ tipo: 'Camiseta', variante: v, proveedor: 'Mayorista textil', unidad: 'uds', umbral: 20, unidad_pedido: 50 })),
       { tipo: 'Sudadera', variante: 'Gris', proveedor: 'Mayorista textil', unidad: 'uds', umbral: 10, unidad_pedido: 25 },
       { tipo: 'Taza', variante: 'Blanca', unidad: 'uds', umbral: 24, unidad_pedido: 36 },
+    ],
+  },
+  {
+    id: 'reparaciones',
+    nombre: 'Reparaciones',
+    descripcion: 'Móviles, electrodomésticos, relojes o bicis: recibir, diagnosticar, esperar la pieza si hace falta, reparar y entregar.',
+    vocab: { encargo: 'Reparación', encargos: 'Reparaciones', cliente: 'Cliente', clientes: 'Clientes', producto: 'Servicio', productos: 'Servicios', proveedor: 'Servicio técnico', proveedores: 'Servicios técnicos', material: 'Pieza', materiales: 'Piezas' },
+    vocab_generos: { encargo: 'f', producto: 'm', proveedor: 'm', material: 'f' },
+    ajustes: { ...MOD({ materiales: true }), usar_importe: true, dias_estancado: 7, material_unidad: 'uds', material_pedir: 'falta', material_menu_pedidos: true },
+    campos: {
+      ENCARGO: [
+        { clave: 'aparato', etiqueta: 'Aparato', tipo: 'texto', obligatorio: true, en_tabla: true, visible_proveedor: true },
+        { clave: 'averia', etiqueta: 'Qué le pasa', tipo: 'texto', en_tabla: true, visible_proveedor: true },
+        { clave: 'presupuesto_ok', etiqueta: 'Presupuesto aceptado', tipo: 'opcion', opciones: ['Sí', 'No', 'Pendiente'] },
+      ],
+    },
+    tipos: [{ clave: 'REPARACION', nombre: 'Reparación', etapas: [
+      { clave: 'RECIBIDO', nombre: 'Recibido', rol: 'ATENCION', color: GRIS },
+      { clave: 'DIAGNOSTICO', nombre: 'Diagnosticado', color: AMBAR },
+      { clave: 'PIEZA', nombre: 'Pieza recibida', color: AMBAR, puertas: [{ tipo: 'MATERIAL', ref: 'material', mensaje: 'Falta recibir la pieza' }] },
+      { clave: 'REPARADO', nombre: 'Reparado', color: AZUL, visible: true, marca: true },
+      { clave: 'ENTREGADO', nombre: 'Entregado', rol: 'ATENCION', color: VERDE, final: true, puertas: [cobro('Cobrado', 'Falta cobrar la reparación')] },
+    ] }],
+    mensajes: [
+      { nombre: 'Enviar presupuesto', tipo: 'REPARACION', etapa: 'DIAGNOSTICO', texto: 'Hola {nombre_pila}, ya hemos revisado tu {aparato}. Reparación {numero}: te contamos el presupuesto y, si te parece bien, seguimos. {tienda}' },
+      LISTO('REPARADO', 'REPARACION'),
+    ],
+    productos: [{ nombre: 'Diagnóstico', precio: 0 }, { nombre: 'Cambio de pantalla' }, { nombre: 'Cambio de batería' }],
+  },
+  {
+    id: 'eventos',
+    nombre: 'Eventos',
+    descripcion: 'Floristería, decoración o catering de eventos: reserva, pedidos a proveedores, preparación, montaje y recogida.',
+    vocab: { encargo: 'Evento', encargos: 'Eventos', cliente: 'Cliente', clientes: 'Clientes', producto: 'Servicio', productos: 'Servicios', proveedor: 'Proveedor', proveedores: 'Proveedores', material: 'Material', materiales: 'Materiales' },
+    vocab_generos: { encargo: 'm', producto: 'm', proveedor: 'm', material: 'm' },
+    ajustes: { ...MOD({ materiales: true, logistica: true }), usar_importe: true, dias_estancado: 10, material_unidad: 'uds', material_pedir: 'falta' },
+    campos: {
+      ENCARGO: [
+        { clave: 'fecha_evento', etiqueta: 'Fecha del evento', tipo: 'fecha', obligatorio: true, en_tabla: true, visible_proveedor: true },
+        { clave: 'lugar', etiqueta: 'Lugar', tipo: 'texto', en_tabla: true, visible_proveedor: true },
+        { clave: 'invitados', etiqueta: 'Invitados', tipo: 'numero' },
+      ],
+    },
+    tipos: [{ clave: 'EVENTO', nombre: 'Evento', etapas: [
+      { clave: 'RESERVA', nombre: 'Reservado', rol: 'ATENCION', color: GRIS, puertas: [cobro('Señal cobrada', 'Falta cobrar la señal', false)] },
+      { clave: 'PEDIDO', nombre: 'Pedido a proveedores', color: AMBAR, visible: true },
+      { clave: 'PREPARADO', nombre: 'Preparado', color: MORADO, puertas: [{ tipo: 'MATERIAL', ref: 'material', mensaje: 'Falta recibir el material' }] },
+      { clave: 'MONTADO', nombre: 'Montado', rol: 'LOGISTICA', color: AZUL },
+      { clave: 'RECOGIDO', nombre: 'Recogido', rol: 'LOGISTICA', color: VERDE, final: true, puertas: [cobro('Pago final cobrado', 'Falta cobrar el resto')] },
+    ] }],
+    mensajes: [
+      { nombre: 'Confirmar el evento', tipo: 'EVENTO', etapa: 'PEDIDO', texto: 'Hola {nombre_pila}, confirmamos tu evento {numero} del {fecha_evento}. Cualquier cambio, dínoslo por aquí. {tienda}' },
+      GRACIAS('RECOGIDO', 'EVENTO'),
     ],
   },
 ]

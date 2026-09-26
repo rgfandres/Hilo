@@ -16,6 +16,7 @@ import { SelectorMaterial } from '@/components/Material'
 import { AvisoGuia, useGuia } from '@/components/Guia'
 import { guiaDe } from '@/data/guia'
 import { ajustesMaterial, anadirLinea, listarMateriales, type MaterialEstado } from '@/data/materiales'
+import { textoComplementos, useListas, valoresActivos, valorPropuesto, type Componente } from '@/data/listas'
 
 type ClienteLite = { id: string; nombre: string; telefono: string | null; email: string | null; resumen?: string }
 
@@ -128,7 +129,22 @@ export function NuevoEncargo() {
   // Ficha técnica del producto: pista de complementos y material propuesto (nunca autocompleta la variante)
   const fic = ajustesFicha(tienda?.ajustes as Record<string, unknown>)
   const [comp, setComp] = React.useState('')
-  const [ficha, setFicha] = React.useState<(FichaTecnica & { nombre: string }) | null>(null)
+  const [ficha, setFicha] = React.useState<(FichaTecnica & { nombre: string; componentes: Componente[] }) | null>(null)
+  // Receta del producto: cada componente se propone (fijo o según la variante del material) y se puede cambiar
+  const listasT = useListas(tienda?.id)
+  const receta = ficha?.componentes ?? []
+  const [elegidos, setElegidos] = React.useState<Record<string, string>>({})
+  const [tocadosR, setTocadosR] = React.useState<Set<string>>(new Set())
+  const varMaterial = mats.find((m) => m.id === mLineas[0]?.material_id)?.variante ?? ''
+  React.useEffect(() => {
+    setElegidos((e) => {
+      const n: Record<string, string> = {}
+      for (const c of receta) n[c.id] = tocadosR.has(c.id) ? (e[c.id] ?? '') : valorPropuesto(c, varMaterial)
+      return n
+    })
+  }, [ficha, varMaterial]) // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { setTocadosR(new Set()) }, [producto])
+  const camposReceta = new Set(receta.map((c) => c.campo).filter(Boolean) as string[])
   React.useEffect(() => {
     setFicha(null)
     if (!producto) return
@@ -196,12 +212,12 @@ export function NuevoEncargo() {
     if (!claveBorrador || guardadoRef.current) return
     const t = setTimeout(() => {
       try {
-        if (hayDatos) localStorage.setItem(claveBorrador, JSON.stringify({ fecha: new Date().toISOString(), d: { nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas } }))
+        if (hayDatos) localStorage.setItem(claveBorrador, JSON.stringify({ fecha: new Date().toISOString(), d: { nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas, elegidos } }))
         else if (!borrador) localStorage.removeItem(claveBorrador)
       } catch { /* sin almacenamiento */ }
     }, 400)
     return () => clearTimeout(t)
-  }, [claveBorrador, hayDatos, nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas])
+  }, [claveBorrador, hayDatos, nombre, tel, email, existente, dCli, dEnc, tipo, producto, comentario, importe, aCuenta, comp, mLineas, elegidos])
   React.useEffect(() => {
     const h = (ev: BeforeUnloadEvent) => { if (hayDatos && !guardadoRef.current) { ev.preventDefault(); ev.returnValue = '' } }
     window.addEventListener('beforeunload', h)
@@ -213,7 +229,7 @@ export function NuevoEncargo() {
     setNombre(d.nombre ?? ''); setTel(d.tel ?? ''); setEmail(d.email ?? ''); setExistente(d.existente ?? null)
     setDCli(d.dCli ?? {}); if (d.tipo) setTipo(d.tipo); setProducto(d.producto ?? '')
     setTimeout(() => setDEnc(d.dEnc ?? {}), 0)
-    setComentario(d.comentario ?? ''); setImporte(d.importe ?? ''); setImporteAuto(false); setACuenta(d.aCuenta ?? ''); setComp(d.comp ?? ''); setMLineas(d.mLineas ?? [])
+    setComentario(d.comentario ?? ''); setImporte(d.importe ?? ''); setImporteAuto(false); setACuenta(d.aCuenta ?? ''); setComp(d.comp ?? ''); setMLineas(d.mLineas ?? []); if (d.elegidos) { setElegidos(d.elegidos); setTocadosR(new Set(Object.keys(d.elegidos))) }
     setBorrador(null)
   }
   function descartarBorrador() {
@@ -245,7 +261,9 @@ export function NuevoEncargo() {
       const { data: encId, error: e2 } = await supabase.rpc('crear_encargo', {
         p_tienda: tienda.id, p_periodo: periodo?.id ?? null, p_tipo: tipo, p_cliente_id: existente?.id ?? null,
         p_cliente: existente ? null : { nombre: nombre.trim(), telefono: tel.trim(), email: email.trim(), datos: limpiar(dCli) },
-        p_encargo: { producto_id: producto || null, datos: limpiar(dEnc), complementos: comp.trim() || null,
+        p_encargo: { producto_id: producto || null,
+          datos: limpiar({ ...dEnc, ...Object.fromEntries(receta.filter((c) => c.campo && (elegidos[c.id] ?? '').trim()).map((c) => [c.campo!, elegidos[c.id].trim()])) }),
+          complementos: [textoComplementos(receta, elegidos), comp.trim()].filter(Boolean).join(' · ') || null,
           ...(din.usa ? { importe: importe === '' ? null : Number(importe), a_cuenta: aCuenta === '' ? 0 : Number(aCuenta) } : {}) },
       })
       if (e2) throw e2
@@ -362,10 +380,34 @@ export function NuevoEncargo() {
           </FormRow>
           {prodCargados && productos.length === 0 && <p className="pb-1 text-sm text-fg-3 md:pl-[128px]">No hay {min(vocab.productos)} en el catálogo.{(rol === 'ADMIN' || rol === 'OPERATIVO') && <> <Link to="/productos" className="underline">Añadir</Link></>}</p>}
           {/* Con materiales, los datos que salen del material asignado se eligen abajo (desplegables del catálogo) */}
-          <CamposForm campos={guia.adaptar(camposEnc.filter((c) => !(conMaterial && c.desde_material)))} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
+          <CamposForm campos={guia.adaptar(camposEnc.filter((c) => !(conMaterial && c.desde_material) && !camposReceta.has(c.clave)))} valores={dEnc} onCambio={(k, v) => { if (k === destinoGuia) guia.marcarTocado(); setDEnc((d) => ({ ...d, [k]: v })) }} />
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
           {ficha && !tieneFicha(ficha) && (rol === 'ADMIN' || rol === 'OPERATIVO') && (fic.construcciones.length > 0 || conMaterial) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
+          {receta.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-sm border border-border bg-bg-3 px-2.5 py-2 md:ml-[128px]">
+              <span className="text-sm font-medium">Receta de {ficha?.nombre}</span>
+              {receta.map((c) => {
+                const l = c.lista_id ? listasT.find((x) => x.id === c.lista_id) : undefined
+                const v = elegidos[c.id] ?? ''
+                const prop = valorPropuesto(c, varMaterial)
+                const cambiar = (x: string) => { setElegidos((e) => ({ ...e, [c.id]: x })); setTocadosR((t) => new Set(t).add(c.id)) }
+                const opciones = l ? [...new Set([...valoresActivos(l, v), ...(v ? [v] : [])])] : []
+                return (
+                  <label key={c.id} className="flex flex-col gap-0.5 text-sm">
+                    <span className="text-fg-2">{c.nombre}{c.cantidad ? ` · ${c.cantidad}` : ''}</span>
+                    {l ? <Select className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)}>
+                        <option value="">—</option>{opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                      : <Input className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)} />}
+                    <span className="text-xs text-fg-3">{prop && v === prop
+                      ? (c.segun_variante ?? []).some((r) => r.variante.trim().toLowerCase() === varMaterial.trim().toLowerCase()) ? `Propuesto por la receta para ${varMaterial}. Puedes cambiarlo.` : `Fijo ${gr.con('producto', 'del')}. Puedes cambiarlo.`
+                      : c.decide === 'cliente' && !v ? 'Se elige ahora.' : ''}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
           {(fic.usaComplementos || comp) && <>
             {/* Guía: lo que lleva el modelo, bien visible antes de escribir */}
             {ficha?.receta?.trim() && (
@@ -374,7 +416,7 @@ export function NuevoEncargo() {
                 {!comp.trim() && <button type="button" className="ml-2 underline text-fg-2 hover:text-fg" onClick={() => setComp(ficha.receta ?? '')}>Usar</button>}
               </div>
             )}
-            <FormRow label={fic.etiqueta} ayuda={ficha?.receta ? `Escribe cómo queda con ${gr.con('material', 'este')} (color, acabado…).` : undefined}>
+            <FormRow label={receta.some((c) => !c.campo) ? `Otros ${min(fic.etiqueta)}` : fic.etiqueta} ayuda={ficha?.receta ? `Escribe cómo queda con ${gr.con('material', 'este')} (color, acabado…).` : undefined}>
               <Input className="h-7" value={comp} onChange={(e) => setComp(e.target.value)} placeholder={ficha?.receta ? 'Color, acabado…' : 'Opcional'} />
             </FormRow>
           </>}

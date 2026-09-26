@@ -14,6 +14,9 @@ import { Button, Dialog, FormRow, Input, SectionLabel, Select, Sheet, Tag, Texta
 import { Interruptor } from '@/pages/ajustes/Ajustes'
 import { ajustesDinero, cn, locale } from '@/lib/utils'
 import { min } from '@/lib/vocab'
+import { ListasTienda } from '@/components/ListasTienda'
+import { RecetaEditor, limpiarReceta } from '@/components/RecetaEditor'
+import { useListas, type Componente } from '@/data/listas'
 
 /** «A medida · 8,7 m · Complementos: …» */
 export function resumenFicha(p: { material_tipo?: string | null; consumo?: number | null; construccion?: string | null; receta?: string | null }, aj: Record<string, unknown> | null | undefined) {
@@ -51,6 +54,7 @@ export function Productos() {
     if (m.length && m.every((p) => !p.activo)) setInactivos(true)
   }, [q, lista])
   const [editar, setEditar] = React.useState<ProductoFila | 'nuevo' | null>(null)
+  const [vista, setVista] = React.useState<'productos' | 'listas'>(() => new URLSearchParams(window.location.search).get('v') === 'listas' ? 'listas' : 'productos')
   const [err, setErr] = React.useState<string | null>(null)
 
   const cargar = React.useCallback(async () => {
@@ -67,9 +71,16 @@ export function Productos() {
 
   return (
     <>
-      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'productos', vocab.productos)} subtitle={lista ? `${visibles.length} de ${lista.length}` : undefined}>
-        {puedeEditar && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.producto}</Button>}
+      <PageHeader title={nombreMenu(tienda?.ajustes as Record<string, unknown>, 'productos', vocab.productos)} subtitle={lista && vista === 'productos' ? `${visibles.length} de ${lista.length}` : undefined}>
+        {puedeEditar && vista === 'productos' && <Button variant="primary" onClick={() => setEditar('nuevo')}>+ {vocab.producto}</Button>}
       </PageHeader>
+      <div className="flex h-10 shrink-0 items-end gap-4 border-b border-border-light px-4" role="tablist">
+        {([['productos', vocab.productos], ['listas', 'Listas de la tienda']] as const).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={vista === k} onClick={() => setVista(k)}
+            className={cn('-mb-px border-b-2 pb-2 text-sm', vista === k ? 'border-fg font-medium text-fg' : 'border-transparent text-fg-2 hover:text-fg')}>{l}</button>
+        ))}
+      </div>
+      {vista === 'listas' ? <ListasTienda soloLectura={!puedeEditar} /> : <>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border-light px-4">
         <div className="relative w-[280px] max-md:w-full">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
@@ -112,6 +123,7 @@ export function Productos() {
           </div>
         )}
       </div>
+      </>}
 
       <EditarProducto p={editar} ps={ps} soloLectura={!puedeEditar} onClose={() => setEditar(null)} onSaved={cargar} lista={lista ?? []} />
     </>
@@ -125,15 +137,22 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
   const { tienda, vocab, gr } = useAuth()
   const nuevo = p === 'nuevo'
   const campos = camposDe(ps, 'PRODUCTO')
-  const vacio = { nombre: '', precio: '', foto: '', activo: true, datos: {} as Record<string, string>, mtipo: '', consumo: '', construccion: '', receta: '' }
+  const vacio = { nombre: '', precio: '', foto: '', activo: true, datos: {} as Record<string, string>, mtipo: '', consumo: '', construccion: '', receta: '', componentes: [] as Componente[] }
   const [f, setF] = React.useState(vacio)
   const ajs = tienda?.ajustes as Record<string, unknown>
   const fic = ajustesFicha(ajs)
   const mat = ajustesMaterial(ajs)
   // Tipos de material y su unidad (la del primero de cada tipo)
   const [udTipo, setUdTipo] = React.useState<Record<string, string>>({})
+  const [varTipo, setVarTipo] = React.useState<Record<string, string[]>>({})
   const tiposMat = Object.keys(udTipo)
-  React.useEffect(() => { if (p && tienda && mat.activo) listarMateriales(tienda.id).then((ms) => { const r: Record<string, string> = {}; for (const m of ms) r[m.tipo] ??= m.unidad; setUdTipo(r) }).catch(() => {}) }, [p, tienda, mat.activo])
+  React.useEffect(() => { if (p && tienda && mat.activo) listarMateriales(tienda.id).then((ms) => {
+    const r: Record<string, string> = {}, v: Record<string, string[]> = {}
+    for (const m of ms) { r[m.tipo] ??= m.unidad; if (m.variante && m.activo !== false) (v[m.tipo] ??= []).includes(m.variante) || v[m.tipo].push(m.variante) }
+    setUdTipo(r); setVarTipo(v)
+  }).catch(() => {}) }, [p, tienda, mat.activo])
+  const listas = useListas(p ? tienda?.id : null)
+  const camposEnc = [...new Map(ps.filter((x) => x.entidad === 'ENCARGO').flatMap((x) => x.campos ?? []).map((c) => [c.clave, c])).values()]
   const udConsumo = udTipo[f.mtipo] ?? mat.unidad
   const [inicial, setInicial] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
@@ -148,7 +167,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
     const v = p === 'nuevo'
       ? vacio
       : { nombre: p.nombre, precio: p.precio_base == null ? '' : String(p.precio_base), foto: p.foto_url ?? '', activo: p.activo, datos: aTexto(p.datos),
-          mtipo: p.material_tipo ?? '', consumo: p.consumo == null ? '' : String(p.consumo), construccion: p.construccion ?? '', receta: p.receta ?? '' }
+          mtipo: p.material_tipo ?? '', consumo: p.consumo == null ? '' : String(p.consumo), construccion: p.construccion ?? '', receta: p.receta ?? '', componentes: (p.componentes ?? []) as Componente[] }
     setF(v); setInicial(JSON.stringify(v)); setErr(null); setFotoMal(false)
   }, [p])
 
@@ -178,6 +197,7 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
         nombre, precio_base: precio, foto_url: f.foto.trim() || null, activo: f.activo,
         datos: limpiar(f.datos, nuevo ? {} : (p as ProductoFila).datos),
         material_tipo: f.mtipo.trim() || null, consumo, construccion: f.construccion.trim() || null, receta: f.receta.trim() || null,
+        componentes: limpiarReceta(f.componentes),
       })
       await onSaved(); onClose()
     } catch (x) { setErr(errorNombre(mensajeError(x), gr.con('producto', 'un'))) } finally { setBusy(false) }
@@ -239,6 +259,13 @@ function EditarProducto({ p, ps, lista, soloLectura, onClose, onSaved }: {
             <Textarea disabled={soloLectura} value={f.receta} onChange={(e) => setF({ ...f, receta: e.target.value })} placeholder="Qué lleva y cuánto" />
           </FormRow>}
           {!mat.activo && !f.consumo && !fic.usaComplementos && !f.receta && fic.construcciones.length === 0 && !f.construccion && <span className="text-sm text-fg-3">Sin datos técnicos que rellenar con los ajustes actuales.</span>}
+        </div>
+        <div className="flex flex-col gap-1">
+          <SectionLabel>Receta: qué lleva</SectionLabel>
+          <RecetaEditor value={f.componentes} onChange={(c) => setF((s) => ({ ...s, componentes: c }))} listas={listas}
+            variantes={varTipo[f.mtipo] ?? Object.values(varTipo).flat()} etiquetaVariante={mat.activo ? mat.etiquetaVariante : null}
+            campos={camposEnc} etiquetaComplementos={fic.etiqueta} encargo={gr.con('encargo', 'un')} producto={`lo marca ${gr.con('producto', 'el')}`} soloLectura={soloLectura} />
+          {!soloLectura && listas.length === 0 && <span className="text-xs text-fg-3">Consejo: crea antes una lista (colores, acabados…) en «Listas de la tienda» para elegir de ella.</span>}
         </div>
         {campos.length === 0 && !soloLectura && (
           <p className="text-sm text-fg-3">¿Necesitas más datos de cada {min(vocab.producto)}? Añádelos en Ajustes → Datos que guardáis → {vocab.producto}.</p>

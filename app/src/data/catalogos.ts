@@ -2,6 +2,7 @@ import { filtroCliente } from '@/data/encargos'
 import { supabase } from '@/lib/supabase'
 import { plano } from '@/lib/texto'
 import type { EncargoEstado } from '@/lib/types'
+import type { Componente } from '@/data/listas'
 
 function ok<T>(r: { data: T; error: unknown }): T { if (r.error) throw r.error; return r.data }
 
@@ -11,6 +12,8 @@ export interface ProductoFila {
   activo: boolean; datos: Record<string, unknown>; encargos: number
   /** Ficha técnica */
   material_tipo: string | null; consumo: number | null; construccion: string | null; receta: string | null
+  /** Receta estructurada: componentes que lleva */
+  componentes?: Componente[] | null
 }
 export function ajustesFicha(aj: Record<string, unknown> | null | undefined) {
   const etiqueta = String(aj?.etiqueta_complementos ?? 'Complementos')
@@ -22,13 +25,14 @@ export function ajustesFicha(aj: Record<string, unknown> | null | undefined) {
 }
 export type FichaTecnica = Pick<ProductoFila, 'material_tipo' | 'consumo' | 'construccion' | 'receta'>
 export const tieneFicha = (p: Partial<FichaTecnica> | null | undefined) => !!p && (p.consumo != null || !!p.construccion || !!p.receta || !!p.material_tipo)
-export async function fichaProducto(id: string): Promise<(FichaTecnica & { nombre: string }) | null> {
-  return ok(await supabase.from('producto').select('nombre,material_tipo,consumo,construccion,receta').eq('id', id).maybeSingle()) as (FichaTecnica & { nombre: string }) | null
+export async function fichaProducto(id: string): Promise<(FichaTecnica & { nombre: string; componentes: Componente[] }) | null> {
+  const r = ok(await supabase.from('producto').select('nombre,material_tipo,consumo,construccion,receta,componentes').eq('id', id).maybeSingle()) as (FichaTecnica & { nombre: string; componentes: Componente[] | null }) | null
+  return r ? { ...r, componentes: Array.isArray(r.componentes) ? r.componentes : [] } : null
 }
 export async function listarProductosCat(tiendaId: string) {
   return ok(await supabase.from('v_productos').select('*').eq('tienda_id', tiendaId).order('nombre')) as ProductoFila[]
 }
-export async function guardarProducto(tiendaId: string, id: string | null, p: { nombre: string; precio_base: number | null; foto_url: string | null; activo: boolean; datos: Record<string, unknown> } & Partial<FichaTecnica>) {
+export async function guardarProducto(tiendaId: string, id: string | null, p: { nombre: string; precio_base: number | null; foto_url: string | null; activo: boolean; datos: Record<string, unknown>; componentes?: Componente[] } & Partial<FichaTecnica>) {
   const fila = { ...p, nombre: p.nombre.trim() }
   if (id) ok(await supabase.from('producto').update(fila).eq('id', id))
   else ok(await supabase.from('producto').insert({ tienda_id: tiendaId, ...fila }))

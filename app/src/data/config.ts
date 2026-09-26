@@ -3,7 +3,10 @@ import { locale, zona } from '@/lib/utils'
 
 export interface Campo {
   clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'fecha' | 'opcion' | 'lista'
-  opciones?: string[]; obligatorio?: boolean; orden?: number; en_tabla?: boolean
+  opciones?: string[]
+  /** Las opciones salen de una lista de la tienda (id); si no, de «opciones» */
+  lista?: string
+  obligatorio?: boolean; orden?: number; en_tabla?: boolean
   visible_proveedor?: boolean
   /** Texto de ayuda bajo el campo */
   ayuda?: string

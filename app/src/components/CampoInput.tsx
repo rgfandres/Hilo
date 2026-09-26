@@ -1,16 +1,22 @@
 import * as React from 'react'
 import { formatearValor, leerNumero, type Campo } from '@/data/config'
 import { Field, FormRow, Input, Select } from '@/ui'
+import { useAuth } from '@/auth/AuthProvider'
+import { useListas, valoresActivos } from '@/data/listas'
 
 /** Control para un campo configurable (texto, número, fecha, opción). */
 export function CampoInput({ campo, value, onChange }: { campo: Campo; value: string; onChange: (v: string) => void }) {
+  const { tienda } = useAuth()
+  const listas = useListas(campo.lista ? tienda?.id : null)
+  const lista = campo.lista ? listas.find((l) => l.id === campo.lista) : undefined
+  const opciones = lista ? valoresActivos(lista, value) : (campo.opciones ?? [])
   return (
     <FormRow label={campo.etiqueta + (campo.obligatorio ? ' *' : '')} ayuda={campo.ayuda}>
       {campo.tipo === 'opcion' ? (
         <Select value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">—</option>
-          {(campo.opciones ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
-          {value && !(campo.opciones ?? []).includes(value) && <option value={value}>{value}</option>}
+          {opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+          {value && !opciones.includes(value) && <option value={value}>{value}</option>}
         </Select>
       ) : campo.tipo === 'numero' ? (
         <NumeroInput value={value} onChange={onChange} />

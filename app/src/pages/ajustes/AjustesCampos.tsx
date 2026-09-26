@@ -10,6 +10,7 @@ import { guiaDe } from '@/data/guia'
 import { ajustesHoja } from '@/data/produccion'
 import { camposDe, plantillas, type Campo, type PlantillaCampos } from '@/data/config'
 import { ajustesFicha } from '@/data/catalogos'
+import { useListas } from '@/data/listas'
 import { Button, Dialog, Input, Select } from '@/ui'
 import { cn } from '@/lib/utils'
 import { Avanzado, BarraGuardar, Bloque, Interruptor, Pagina } from './Ajustes'
@@ -26,6 +27,7 @@ type CampoExt = Campo & { visible_proveedor?: boolean }
  */
 export function AjustesCampos() {
   const { tienda, vocab, gr } = useAuth()
+  const listas = useListas(tienda?.id)
   const modMat = ((tienda?.ajustes as Record<string, unknown> | undefined)?.modulos as Record<string, boolean> | undefined)?.materiales === true
   const [ps, setPs] = React.useState<PlantillaCampos[]>([])
   const [tipos, setTipos] = React.useState<TipoEncargo[]>([])
@@ -101,7 +103,7 @@ export function AjustesCampos() {
   React.useEffect(() => { setPuertasPorBorrar([]) }, [dest, original])
   async function guardar(confirmarTipo = false) {
     if (!tienda) return
-    const sinOpciones = campos.find((c) => c.tipo === 'opcion' && !(c.opciones ?? []).length)
+    const sinOpciones = campos.find((c) => c.tipo === 'opcion' && !c.lista && !(c.opciones ?? []).length)
     if (sinOpciones) { setErr(`«${sinOpciones.etiqueta}» necesita al menos una opción`); return }
     if (campos.some((c) => !c.etiqueta.trim())) { setErr('Hay un campo sin nombre'); return }
     const rep = campos.map((c) => c.etiqueta.trim().toLowerCase()).find((x, i, a) => a.indexOf(x) !== i)
@@ -167,7 +169,15 @@ export function AjustesCampos() {
               </Select>
               <button aria-label="Quitar campo" onClick={() => setQuitar(i)} className="px-1 text-fg-3 hover:text-danger-fg"><IconTrash size={14} /></button>
             </div>
-            {c.tipo === 'opcion' && (
+            {c.tipo === 'opcion' && listas.length > 0 && (
+              <label className="flex items-center gap-2 pl-6 text-sm text-fg-2">Opciones:
+                <Select className="h-7 w-[220px]" value={c.lista ?? ''} onChange={(e) => set(i, { lista: e.target.value || undefined })}>
+                  <option value="">Las escribo aquí</option>
+                  {listas.map((l) => <option key={l.id} value={l.id}>De la lista «{l.nombre}»</option>)}
+                </Select>
+              </label>
+            )}
+            {c.tipo === 'opcion' && !c.lista && (
               <Opciones value={c.opciones ?? []} onChange={(o) => set(i, { opciones: o })} />
             )}
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 pl-6 text-sm">
