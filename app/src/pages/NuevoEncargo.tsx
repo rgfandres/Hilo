@@ -384,30 +384,6 @@ export function NuevoEncargo() {
           {camposEnc.some((c) => c.clave === destinoGuia) && <AvisoGuia sug={guia.sug} valor={String(dEnc[destinoGuia] ?? '')} onUsar={() => { if (guia.sug) setDEnc((d) => ({ ...d, [destinoGuia]: guia.sug!.valor })) }} />}
           {ficha && tieneFicha(ficha) && <p className="m-0 rounded-sm bg-bg-3 px-2 py-1 text-sm text-fg-2 md:ml-[128px]">{resumenFicha(ficha, tienda?.ajustes as Record<string, unknown>)}</p>}
           {ficha && !tieneFicha(ficha) && (rol === 'ADMIN' || rol === 'OPERATIVO') && (fic.construcciones.length > 0 || conMaterial) && <p className="m-0 text-sm text-warn-fg md:ml-[128px]">{gr.Con('producto', 'este')} no tiene ficha técnica todavía. <Link to={`/productos?q=${encodeURIComponent(ficha.nombre)}`} className="underline">Crearla</Link></p>}
-          {receta.length > 0 && (
-            <div className="flex flex-col gap-1 rounded-sm border border-border bg-bg-3 px-2.5 py-2 md:ml-[128px]">
-              <span className="text-sm font-medium">Receta de {ficha?.nombre}</span>
-              {receta.map((c) => {
-                const l = c.lista_id ? listasT.find((x) => x.id === c.lista_id) : undefined
-                const v = elegidos[c.id] ?? ''
-                const prop = valorPropuesto(c, varMaterial)
-                const cambiar = (x: string) => { setElegidos((e) => ({ ...e, [c.id]: x })); setTocadosR((t) => new Set(t).add(c.id)) }
-                const opciones = l ? [...new Set([...valoresActivos(l, v), ...(v ? [v] : [])])] : []
-                return (
-                  <label key={c.id} className="flex flex-col gap-0.5 text-sm">
-                    <span className="text-fg-2">{c.nombre}{c.cantidad ? ` · ${c.cantidad}` : ''}</span>
-                    {l ? <Select className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)}>
-                        <option value="">—</option>{opciones.map((o) => <option key={o} value={o}>{o}</option>)}
-                      </Select>
-                      : <Input className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)} />}
-                    <span className="text-xs text-fg-3">{prop && v === prop
-                      ? (c.segun_variante ?? []).some((r) => r.variante.trim().toLowerCase() === varMaterial.trim().toLowerCase()) ? `Propuesto por la receta para ${varMaterial}. Puedes cambiarlo.` : `Fijo ${gr.con('producto', 'del')}. Puedes cambiarlo.`
-                      : c.decide === 'cliente' && !v ? 'Se elige ahora.' : ''}</span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
           {(fic.usaComplementos || comp) && <>
             {/* Guía: lo que lleva el modelo, bien visible antes de escribir */}
             {ficha?.receta?.trim() && (
@@ -441,6 +417,32 @@ export function NuevoEncargo() {
             {!(ajustesMaterial(tienda?.ajustes as Record<string, unknown>).unaLinea && mLineas.length > 0) && <Button size="sm" variant="ghost" type="button" className="self-start" onClick={() => setMLineas((xs) => [...xs, { tipo: ficha?.material_tipo ?? '', material_id: '', cantidad: xs.length === 0 && ficha?.consumo != null ? String(ficha.consumo) : '' }])}>+ Añadir {min(vocab.material)}</Button>}
           </div>
         )}
+
+        {receta.length > 0 && <div className="flex flex-col gap-1"><SectionLabel>Receta de {ficha?.nombre}</SectionLabel>
+        {receta.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-sm border border-border bg-bg-3 px-2.5 py-2 ">
+                            {receta.map((c) => {
+                const l = c.lista_id ? listasT.find((x) => x.id === c.lista_id) : undefined
+                const v = elegidos[c.id] ?? ''
+                const prop = valorPropuesto(c, varMaterial)
+                const cambiar = (x: string) => { setElegidos((e) => ({ ...e, [c.id]: x })); setTocadosR((t) => new Set(t).add(c.id)) }
+                const opciones = l ? [...new Set([...valoresActivos(l, v), ...(v ? [v] : [])])] : []
+                return (
+                  <label key={c.id} className="flex flex-col gap-0.5 text-sm">
+                    <span className="text-fg-2">{c.nombre}{c.cantidad ? ` · ${c.cantidad}` : ''}</span>
+                    {l ? <Select className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)}>
+                        <option value="">—</option>{opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                      : <Input className="h-7 bg-bg" value={v} onChange={(e) => cambiar(e.target.value)} />}
+                    <span className="text-xs text-fg-3">{prop && v === prop
+                      ? (c.segun_variante ?? []).some((r) => r.variante.trim().toLowerCase() === varMaterial.trim().toLowerCase()) ? `Propuesto por la receta para ${varMaterial}. Puedes cambiarlo.` : `Fijo ${gr.con('producto', 'del')}. Puedes cambiarlo.`
+                      : c.decide === 'cliente' && !v ? 'Se elige ahora.' : ''}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>}
 
         <div className="flex flex-col gap-1">
           <SectionLabel>Comentario inicial</SectionLabel>

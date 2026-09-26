@@ -67,7 +67,7 @@ export function RecetaEditor({ value, onChange, listas, variantes, etiquetaVaria
                     <Input className="h-7 flex-1" list={listId} disabled={soloLectura} placeholder={etiquetaVariante} value={r.variante}
                       onChange={(e) => set(i, { segun_variante: reglas.map((x, j) => j === k ? { ...x, variante: e.target.value } : x) })} />
                     <span className="text-fg-3">→</span>
-                    <div className="flex-1">{valor(r.valor, (x) => set(i, { segun_variante: reglas.map((y, j) => j === k ? { ...y, valor: x } : y) }), c.nombre || 'Valor')}</div>
+                    <div className="flex-1">{valor(r.valor, (x) => set(i, { segun_variante: reglas.map((y, j) => j === k ? { ...y, valor: x } : y) }), '—')}</div>
                     {!soloLectura && <button aria-label="Quitar regla" className="text-fg-3 hover:text-danger-fg" onClick={() => set(i, { segun_variante: reglas.filter((_, j) => j !== k) })}><IconTrash size={13} /></button>}
                   </div>
                 ))}
